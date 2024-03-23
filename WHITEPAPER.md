@@ -5,13 +5,13 @@ StableBase: A Base layer Stablecoin protocol.
 Most stablecoin protocols in the market today are optimized for yield incentives for stablecoin and token holders, making stablecoin borrowing costs prohibitive for many real-world use cases. In this whitepaper, we introduce StableBase, a base layer stablecoin protocol built on the Ethereum blockchain using Collateral Debt Position. StableBase aims to provide a base layer stablecoin with 0% interest and origination fees, allowing higher layer protocols to offer yield opportunities and enable the utility of stablecoins across various consumer use cases. This paper outlines the underlying technology, stability mechanisms, use cases, issuance and redemption processes, along with unique features and governance structure. StableBase protocol issues a USD-pegged stablecoin named SBD, also known as Stable Dollar.
 
 # Introduction
-The volatility of cryptocurrencies has hindered their mainstream adoption as mediums of exchange, leading to the emergence of stablecoins to address market demand. However, most stablecoins today, excluding fiat-backed ones, are unsuitable for real-world use cases due to high interest rates and origination fees. The yield mania has attracted users, mainly speculators, leveraging stablecoins for speculative purposes. To make decentralized stablecoins attractive in broader contexts, we propose a layered approach, with a base layer being open, free to use, and decentralized, while higher layers innovate on incentives, accessibility, and other parameters. This paper presents the design for such a base layer stablecoin protocol.
+The mainstream adoption of cryptocurrencies as mediums of exchange has been hindered by their volatility, prompting the emergence of stablecoins to meet market demand. However, most stablecoins today, excluding fiat-backed ones, are unsuitable for real-world use cases due to high interest rates and origination fees. The yield mania has attracted users, mainly speculators, leveraging stablecoins for speculative purposes. To make decentralized stablecoins attractive in broader contexts, we propose a layered approach, with a base layer being open, free to use, and decentralized, while higher layers innovate on incentives, accessibility, and other parameters. This paper presents the design for such a base layer stablecoin protocol.
 
 # Technology
 StableBase is built on the Ethereum blockchain, benefiting from its smart contract capabilities, security, and widespread adoption within the decentralized finance (DeFi) ecosystem.
 
 # Borrowing and Withdrawal
-StableBase utilizes a CDP mechanism, requiring users to overcollateralize their loans by at least 110%. Users create a Safe, where they deposit their collateral and the protocol issues SBD token. By opening a Safe with StableBase, the user borrows SBD coins at 0% interest rate, while also accepting the risks of Liquidation and Redemption, actively contributing to the stability of the protocol.
+StableBase utilizes a CDP mechanism, requiring users to overcollateralize their loans by at least 110%. Users create a Safe, where they deposit their collateral and the protocol issues SBD token. By opening a Safe with StableBase, the user borrows SBD coins at 0% interest rate, while also accepting the risks of Liquidation and Redemption, and actively contributing to the stability of the protocol.
 
 Withdrawal is facilitated through repayment of the borrowed SBD back to the protocol.
 
@@ -24,12 +24,12 @@ Liquidation occurs if the value of the collateral falls below 110% of the borrow
 Liquidators pay 100.5% of the borrowed SBD to withdraw the underlying collateral, with a 0.5% fee distributed to the Reserve Pool.
 
 ## Redemption
-Users can redeem stablecoins for the underlying collateral at a 1:1 ratio, with fees charged and distributed to other depositors in the Reserve Pool.
+Users can redeem stablecoins for the underlying collateral at a 1:1 ratio, with 0.5% fees charged to the redeemer and distributed to other depositors in the Reserve Pool.
 
 ## Cash Reserve Ratio(CRR) and Reserve Pool
-Cash Reserve Ratio in TradFi is a rate set by the Central banks, that tells what percentage of cash deposits by users should be held as reserve by the banks. In our protocol, we make use of a modified defintion of CRR.
+In traditional finance (TradFi), the Cash Reserve Ratio (CRR) is a rate determined by central banks, specifying the percentage of cash deposits that banks are required to hold as reserves. In our protocol, we adopt a modified definition of the CRR.
 
-The CRR, defined as the percentage of borrowed stablecoin value held in the Reserve Pool, can be specified by users at the time of borrowing. This instrument allows the protocol to autonomously control the supply of coins based on the market condition.
+The CRR, defined as the percentage of borrowed stablecoin value held in the Reserve Pool, can be specified by users at the time of borrowing. This mechanism empowers the protocol to autonomously manage the coin supply in response to market conditions.
 
 ### Redemption Mechanism
 The CRR selected by the user will also determine the order of redemption, if and when the redemption happens. The lowest CRR Safes are the first to be redeemed, and the Safe that is redeemed will also forfeit CRR reserves of an equivalent amount of SBD redeemed, which will be distributed to other depositors in the Reserve Pool. Thus redemptions, just like Liquidations are penalised in the StableBase protocol. This mechanism ensures the Safe owners actively take part in the stability of the protocol.
