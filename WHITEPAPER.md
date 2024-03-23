@@ -1,19 +1,19 @@
 # Title:
-StableBase: Base layer Stablecoin.
+StableBase: A Base layer Stablecoin protocol.
 
 # Abstract:
-Most stablecoin protocols in market today are optimized for yield incentives for stablecoin holders and token holders of the respective projects, thus making stablecoin cost prohibitive for most realworld usecases. In this whitepaper, we introduce StableBase, a base layer stablecoin project built on the Ethereum blockchain using Collateral Debt Position mechanism. StableBase aims to provide a base layer stablecoin with 0% interest and origination fee, and enable higher layer applications to provide better rates and enable utility of stablecoins in different usecases for consumers. This paper outlines the underlying technology, stability mechanism, use cases, issuance and redemption processes, along with unique features and governance structure. StableBase protocol issues USD pegged stablecoin named SBD
+Most stablecoin protocols in market today are optimized for yield incentives for stablecoin holders and token holders of the respective projects, thus making stablecoin borrowing cost prohibitive for most realworld usecases. In this whitepaper, we introduce StableBase, a base layer stablecoin protocol built on the Ethereum blockchain using Collateral Debt Position. StableBase aims to provide a base layer stablecoin with 0% interest and origination fee, and enable higher layer protocols to provide yield opportunities and enable the utility of stablecoins in different usecases for consumers. This paper outlines the underlying technology, stability mechanism, use cases, issuance and redemption processes, along with unique features and governance structure. StableBase protocol issues USD pegged stablecoin named SBD a.k.a Stable Dollar.
 
 # Introduction
-The volatility of cryptocurrencies has hindered their mainstream adoption as mediums of exchange and several stablecoins have popped up to address the market demand for stable cryptocurrencies. However, most stablecoins in use today are not suitable for real world usecases, mainly because of prohibitive interest rates / origination fees. Nevertheless, the yield mania has attracted several speculators and stablecoins have found a utility in leverage mechanisms and speculative usecases. To make decentralized stablecoins attractive in wide circumstances, we have identified 6 basic principles, namely
+The volatility of cryptocurrencies has hindered their mainstream adoption as mediums of exchange and several stablecoins have popped up to address the market demand. The most successful being DAI and fiat-backed stablecoins. However, most stablecoins in use today, barring the fiat-backed stablecoins are not suitable for real world usecases, mainly because of prohibitive interest rates / origination fees for many real world usecases. Nevertheless, the yield mania has attracted users - mainly the speculators, and stablecoins have found utility as a leveraging mechanism and other speculative usecases. To make decentralized stablecoins attractive in wide circumstances, we have identified 6 basic principles, namely
 1. Low cost: Interest rate trending towards 0%
 2. Scalability: Available using wide collateral options.
-3. Accessible: Stablecoin should be accessible to many different types of borrowers.
-4. Stability: With minimal governance
-5. Incentives: Right incentives for stakeholders or none at all(in traditional sense).
+3. Accessibility: Stablecoin should be accessible to many different types of borrowers.
+4. Stability: Ability to maintain peg with minimal governance
+5. Incentives: Right incentives for stakeholders or none at all.
 6. Decentralization.
 
-These principles and also data from the market have lead us to conclude it will be very difficult to achieve all of these at once by stablecoin protocol and that we need a layered approach for the development of stablecoins, with the base layer being open, free to use, decentralized, while higher layers can innovate on incentives(rates and yield) and accessibility.
+These principles and also data from the market have lead us to conclude it will be very difficult to achieve all of these at once by any one stablecoin protocol and that we need a layered approach for the development and usage of stablecoins, with the base layer being open, free to use, decentralized, while higher layers can innovate on incentives(rates and yield), accessibility and other parameters. In this paper, we propose a design for such a base layer protocol for stablecoins.
 
 # Technology
 StableBase is built on the Ethereum blockchain, benefiting from its smart contract capabilities, security, and widespread adoption within the decentralized finance (DeFi) ecosystem.
@@ -22,7 +22,7 @@ StableBase is built on the Ethereum blockchain, benefiting from its smart contra
 StableBase utilizes a CDP mechanism, requiring users to overcollateralize their loans by at least 110%. Withdrawal is facilitated through repayment of the borrowed stablecoin back to the contract.
 
 # Stability Mechanism
-There are two direct mechanisms addressing the stability of the stablecoin and the protocol, namely **Liquidation** and **Redemption**, which are common across several protocols.
+There are two direct mechanisms addressing the stability of the stablecoin and the protocol, namely **Liquidation** and **Redemption**, which are common across several protocols and we introduce a third, an indirect mechanism that deal with stability, namely: **Cash Reserve Ratio**. Each of these is discussed below.
 
 ## Liquidation
 Liquidation occurs if the value of the collateral falls below 110% of the borrowed amount, ensuring stability. Stability Pool that appears in other protocols is intentionally kept outside of the protocol, allowing anyone with stablecoins to liquidate other's CDP position.
@@ -31,26 +31,26 @@ Liquidation occurs if the value of the collateral falls below 110% of the borrow
 Any user can redeem the stablecoins for the underlying collateral and the protocol would issue 1 USD worth of collateral for 1 SBD redeemed.
 
 ## Cash Reserve Ratio
-Cash Reserve Ratio is a third mechanism, an indirect one that deal with the stability of the protocol by controlling the money supply.
+Cash Reserve Ratio is used in TradFi to control the amount of money supply. In our protocol, we make use of a modified defintion of CRR.
 
-### Definition
 At the time of borrowing, the user can specify Cash reserve ratio(CRR)- which we define as the perentage of borrowed stablecoin value that will be held with the StableBase protocol(This is similar to Cash Reserve Ratio used by Fed and other central banks). Cash Reserve Ratio in TradFi is set by the central banks, whereas in our protocol, this is user defined. The Cash Reserve will be allocated at borrow time and deposited into the StableBase contracts. 
 
 ### Utility
 This instrument allows protocol to autonomously control the supply of coins depending on the market condition. The Cash Reserve allocated in this manner is also fully withdrawable at any time by the user, which differs from other protocols that charge an origination fee or interest rate.
 
 ### Redemption Mechanism
-The CRR selected by the user will also determine the order of redemption, if and when a redemption happens. The redemptions alternate between lowest CRR and highest CRR. This ensures the CRR set by users is not too high nor low.
+The CRR selected by the user will also determine the order of redemption, if and when the redemption happens. The lowest CRR Safes are the first to be redeemed, and the Safe that is redeemed will also forfeit CRR reserves of an equivalent amount of SBD redeemed, which will be distributed to the rest of the reserves at stake. This mechanism prevents the CRR being too high nor too low.
 
 ### Incentives
-A fee of 0.5% is charged during Redemption and Liquidation, and will be rewarded to Cash Reserve depositors in proportion to their stake.
+1. A fee of 0.5% is charged during Liquidation, and will be rewarded to Cash Reserve depositors in proportion to their stake.
+2. During redemption, a fee of an equivalent amount of the SBD redeemed, upto a maximum value equal to the reserve deposit amount is withheld from the Safe that is being redeemed and distributed to other depositors in proportion to their stake.
 
 # Unique Features
 StableBase offers several unique features:
 
-1. 0% interest rate and 0% origination fee forver(a first in the market).
+1. 0% interest rate and 0% origination fee(a first in the market).
 2. Introduction of user-defined Cash Reserve Ratio that help shrink and expand the supply of stablecoin depending on market conditions.
-3. Redemption is alternated between lowest and highest Cash Reserve Ratios.
+3. Redemption happens from the Safe with the lowest CRR.
 4. A Base layer stablecoin protocol, with 0% rates that allows higher layer protocols utilizing stablebase to innovate on yield and rates.
 5. Liquidation and Redemption fee incentives for CRR depositors.
 
