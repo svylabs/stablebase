@@ -22,26 +22,37 @@ StableBase is built on the Ethereum blockchain, benefiting from its smart contra
 StableBase utilizes a CDP mechanism, requiring users to overcollateralize their loans by at least 110%. Withdrawal is facilitated through repayment of the borrowed stablecoin back to the contract.
 
 # Stability Mechanism
-There are two direct mechanisms addressing the stability of the stablecoin and the protocol, namely **Liquidation** and **Redemption**, which are common across several protocols. A third mechanism, an indirect one - is what we call **Cash Reserve Ratio**
+There are two direct mechanisms addressing the stability of the stablecoin and the protocol, namely **Liquidation** and **Redemption**, which are common across several protocols.
 
 ## Liquidation
 Liquidation occurs if the value of the collateral falls below 110% of the borrowed amount, ensuring stability. Stability Pool that appears in other protocols is intentionally kept outside of the protocol, allowing anyone with stablecoins to liquidate other's CDP position.
 
 ## Redemption
-Any user can redeem the stablecoins for the underlying collateral and the protocol would issue 1 USD worth of collateral for 1 SBD redeemed. However, the redemption happens in two steps instead of one. This would allow for MEV protection that we often see with other protocols.
+Any user can redeem the stablecoins for the underlying collateral and the protocol would issue 1 USD worth of collateral for 1 SBD redeemed.
 
 ## Cash Reserve Ratio
-At the time of borrowing, a user can specify the Cash reserve ratio(CRR)- which we define as the perentage of borrowed stablecoin value that will be held with the StableBase protocol(This is similar to Cash Reserve Ratio used by Fed and other central banks). Cash Reserve Ratio in TradFi is set by the central banks, whereas in our protocol, this is user defined. The Cash Reserve will be allocated at borrow time and deposited into the StableBase contracts. This instrument allows protocol to autonomously control the supply of coins depending on the market condition. The Cash Reserve Ratio selected by the user will also determine the order of redemption, if and when a redemption happens. The Cash Reserve deposited in this manner is also fully withdrawable at any time by the user, which differs from other protocols that charge an origination fee or interest rate.
+Cash Reserve Ratio is a third mechanism, an indirect one that deal with the stability of the protocol by controlling the money supply.
+
+### Definition
+At the time of borrowing, the user can specify Cash reserve ratio(CRR)- which we define as the perentage of borrowed stablecoin value that will be held with the StableBase protocol(This is similar to Cash Reserve Ratio used by Fed and other central banks). Cash Reserve Ratio in TradFi is set by the central banks, whereas in our protocol, this is user defined. The Cash Reserve will be allocated at borrow time and deposited into the StableBase contracts. 
+
+### Utility
+This instrument allows protocol to autonomously control the supply of coins depending on the market condition. The Cash Reserve allocated in this manner is also fully withdrawable at any time by the user, which differs from other protocols that charge an origination fee or interest rate.
+
+### Redemption Mechanism
+The CRR selected by the user will also determine the order of redemption, if and when a redemption happens. The redemptions alternate between lowest CRR and highest CRR. This ensures the CRR set by users is not too high nor low.
+
+### Incentives
+A fee of 0.5% is charged during Redemption and Liquidation, and will be rewarded to Cash Reserve depositors in proportion to their stake.
 
 # Unique Features
 StableBase offers several unique features:
 
-1. 0% interest rate and origination fee forver(a first in the market).
-2. Introduction of user-defined Cash Reserve Ratio that help contract and expand the supply of stablecoin depending on market conditions.
-3. Redemption mechanism based on lowest Cash Reserve Ratio.
+1. 0% interest rate and 0% origination fee forver(a first in the market).
+2. Introduction of user-defined Cash Reserve Ratio that help shrink and expand the supply of stablecoin depending on market conditions.
+3. Redemption is alternated between lowest and highest Cash Reserve Ratios.
 4. A Base layer stablecoin protocol, with 0% rates that allows higher layer protocols utilizing stablebase to innovate on yield and rates.
-5. A fee of 0.5% is charged during Redemption and Liquidation, that will be rewarded to Cash Reserve depositors in proportion to their stake, encouraging users to deposit more percentage of their loans to reserves.
-6. MEV protected redemptions.
+5. Liquidation and Redemption fee incentives for CRR depositors.
 
 # Use Cases
 StableBase (SBD) serves as a reliable medium of exchange for various real-world transactions, including cross-border payments, remittances, e-commerce transactions, and decentralized finance (DeFi) activities. In addition, it allows layer 1 protocols emerge that utilize the SBD stablecoin to facilitate Supply Chain and Trade Finance, due to our offering of 0% rate in the market for any term.
