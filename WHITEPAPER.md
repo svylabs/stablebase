@@ -61,10 +61,19 @@ StableBase Dollar(SBD) serves as a reliable medium of exchange for various real-
 The redemption and liquidation mechanisms maintain the stability of StableBase (SBD), ensuring its value remains close to 1 USD, while Cash Reserve Ratio helps shrink and expand the supply of stablecoin further aiding in stabilising the peg.
 
 # Governance
-Governance of StableBase is determined by users' stake in Cash Reserve. The deposited reserves are used for governance decisions, mainly addition of new collateral types.
+Governance of StableBase is determined by users' stake in the Reserve Pool. The deposited reserves are used for governance decisions, mainly addition of new collateral types.
 
 # Tokenomics
 As a purely decentralized stablecoin, StableBase (SBD) does not offer any additional tokens apart from the stablecoin itself.
 
+# Risks
+While the design and introduction of unique features sound exciting, there are risks associated with the protocol. 
+
+## User Experience: 
+The complexity of the CRR mechanism and the redemption process may present challenges for users, especially those unfamiliar with DeFi concepts. Ensuring a smooth and intuitive user experience will be essential for adoption.
+
+## Risk Management: 
+While the CRR mechanism adds flexibility, it also introduces potential risks, such as manipulation. Robust risk management protocols and monitoring mechanisms will be crucial to mitigate these risks by those that open a CDP with stablebase.
+
 # Conclusion
-StableBase represents a significant advancement in stablecoin mechanics, offering stability, efficiency, and user-driven governance and the introduction of user defined Cash Reserve Ratio. By providing a reliable medium of exchange for real-world transactions, and with low rates, StableBase aims to accelerate the adoption of digital currencies in the global economy.
+StableBase represents a significant advancement in stablecoin mechanics, offering stability, efficiency, user-driven governance and the introduction of user defined Cash Reserve Ratio. By providing a reliable medium of exchange for real-world transactions, and with low rates, StableBase aims to accelerate the adoption of digital currencies in the global economy.
