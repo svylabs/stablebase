@@ -67,4 +67,4 @@ Governance of StableBase is determined by users' stake in Cash Reserve. The depo
 As a purely decentralized stablecoin, StableBase (SBD) does not offer any additional tokens apart from the stablecoin itself.
 
 # Conclusion
-StableBase represents a significant advancement in stablecoin technology, offering stability, efficiency, and user-driven governance. By providing a reliable medium of exchange for real-world transactions, StableBase aims to accelerate the adoption of digital currencies in the global economy.
+StableBase represents a significant advancement in stablecoin mechanics, offering stability, efficiency, and user-driven governance and the introduction of user defined Cash Reserve Ratio. By providing a reliable medium of exchange for real-world transactions, and with low rates, StableBase aims to accelerate the adoption of digital currencies in the global economy.
