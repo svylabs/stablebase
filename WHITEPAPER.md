@@ -19,7 +19,7 @@ These principles and also data from the market have lead us to conclude it will 
 StableBase is built on the Ethereum blockchain, benefiting from its smart contract capabilities, security, and widespread adoption within the decentralized finance (DeFi) ecosystem.
 
 # Borrowing and Withdrawal
-StableBase utilizes a CDP mechanism, requiring users to overcollateralize their loans by at least 110%. Users create a Safe, where they deposit their collateral and the protocol issues SBD token. By opening a Safe with StableBase, the user not just borrows SBD coins at 0% rate, but also accepts the Liquidation and Redemptions risks involved.
+StableBase utilizes a CDP mechanism, requiring users to overcollateralize their loans by at least 110%. Users create a Safe, where they deposit their collateral and the protocol issues SBD token. By opening a Safe with StableBase, the user not just borrows SBD coins at 0% rate, but also accepts the Liquidation and Redemption risks involved and thus agrees to actively take part in the stability of the protocol.
 
 Withdrawal is facilitated through repayment of the borrowed SBD back to the protocol.
 
@@ -29,13 +29,15 @@ There are two direct mechanisms addressing the stability of the stablecoin and t
 ## Liquidation
 Liquidation occurs if the value of the collateral falls below 110% of the borrowed amount, ensuring stability. Stability Pool that appears in other protocols is intentionally kept outside of the protocol, allowing anyone with stablecoins to liquidate other's CDP position.
 
+Liquidators pay 100.5% of the SBD borrowed by the Safe to withdraw the underlying collateral worth about roughly 110%. The 0.5% fee is paid to the Reserve Pool described below, netting the difference as profit.
+
 ## Redemption
 Any user can redeem the stablecoins for the underlying collateral and the protocol would issue 1 USD worth of collateral for 1 SBD redeemed.
 
-## Cash Reserve Ratio(CRR)
+## Cash Reserve Ratio(CRR) and Reserve Pool
 Cash Reserve Ratio in TradFi is a rate set by the Fed/Central banks, that tells what percentage of cash deposits should be held as reserve by the banks. In our protocol, we make use of a modified defintion of CRR. In our protocol, we are introducing a user defined Cash Reserve Ratio rather than it being set by the protocol. 
 
-At the time of borrowing, a user can specify Cash reserve ratio(CRR)- which we define as the perentage of borrowed stablecoin value that will be held with the StableBase protocol, and returned back to the user when the user wants to close the loan position, or at any time the user wants to withdraw some reserves.
+At the time of borrowing, a user can specify Cash reserve ratio(CRR)- which we define as the perentage of borrowed stablecoin value that will be held with the StableBase protocol in a Reserve Pool, and returned back to the user when the user wants to close the loan position, or at any time the user wants to withdraw some reserves.
 
 ### Utility
 This instrument allows the protocol to autonomously control the supply of coins depending on the market condition. This is different from interest rate or origination fee as it is fully withdrawable by the user.
@@ -44,7 +46,7 @@ This instrument allows the protocol to autonomously control the supply of coins 
 The CRR selected by the user will also determine the order of redemption, if and when the redemption happens. The lowest CRR Safes are the first to be redeemed, and the Safe that is redeemed will also forfeit CRR reserves of an equivalent amount of SBD redeemed, which will be distributed to the rest of the reserves at stake. This mechanism prevents the CRR being too high nor too low. Thus redemptions, just like Liquidations are heavily penalised in StableBase protocol.
 
 ### Incentives
-1. A fee of 0.5% is charged during Liquidation, and will be rewarded to Reserve depositors in proportion to their stake.
+1. A fee of 0.5% is charged during Liquidation, and will be distributed to the proportionally in the Reserve Pool.
 2. During redemption, a fee of an equivalent amount of the SBD redeemed, upto a maximum value equal to the reserve deposit amount is withheld from the Safe that is being redeemed and distributed to other depositors in proportion to their stake.
 
 # Unique Features
@@ -79,7 +81,7 @@ While the design and introduction of unique features sound exciting, there are r
 The complexity of the CRR mechanism and the redemption process may present challenges for users, especially those unfamiliar with DeFi/TradFi concepts. Ensuring a smooth and intuitive user experience will be essential for adoption.
 
 ## Risk Management: 
-While the CRR mechanism adds flexibility, it also introduces potential risks, such as manipulation and heavy penalization for redemption. Thus, robust risk management protocols and monitoring mechanisms will be crucial to mitigate these risks by those that open a Safe with stablebase, thus the protocol mainly caters to the sophisticated players in the ecosystem, while higher layers of the protocol would allow for usage by regular users who want predictable interest rates.
+While the CRR mechanism adds flexibility, it also introduces potential risks, such as manipulation and heavy penalization for redemption. Thus, robust risk management protocols and monitoring mechanisms will be crucial to mitigate these risks by those that open a Safe with stablebase, thus the protocol mainly caters to the sophisticated players in the ecosystem, while higher layers of the protocol would allow for usage by regular users who want predictable rates.
 
 # Conclusion
 StableBase represents a significant advancement in stablecoin mechanics, offering stability, efficiency, user-driven governance and the introduction of user defined Cash Reserve Ratio. By providing a reliable medium of exchange for real-world transactions, and with low rates, StableBase aims to accelerate the adoption of digital currencies in the global economy.
