@@ -35,19 +35,21 @@ Liquidators pay 100.5% of the SBD borrowed by the Safe to withdraw the underlyin
 Any user can redeem the stablecoins for the underlying collateral and the protocol would issue 1 USD worth of collateral for 1 SBD redeemed.
 
 ## Cash Reserve Ratio(CRR) and Reserve Pool
-Cash Reserve Ratio in TradFi is a rate set by the Fed/Central banks, that tells what percentage of cash deposits should be held as reserve by the banks. In our protocol, we make use of a modified defintion of CRR. In our protocol, we are introducing a user defined Cash Reserve Ratio rather than it being set by the protocol. 
+Cash Reserve Ratio in TradFi is a rate set by the Central banks, that tells what percentage of cash deposits by users should be held as reserve by the banks. In our protocol, we make use of a modified defintion of CRR.
 
-At the time of borrowing, a user can specify Cash reserve ratio(CRR)- which we define as the perentage of borrowed stablecoin value that will be held with the StableBase protocol in a Reserve Pool, and returned back to the user when the user wants to close the loan position, or at any time the user wants to withdraw some reserves.
+At the time of borrowing, a user can specify Cash reserve ratio(CRR)- which we define as the perentage of borrowed stablecoin value that will be held with the StableBase protocol in the Reserve Pool, and returned back to the user when the user wants to close the loan position, or at any time the user wants to withdraw some reserves.
+
+In our protocol, we are introducing a user defined Cash Reserve Ratio rather than it being set by the protocol o
 
 ### Utility
 This instrument allows the protocol to autonomously control the supply of coins depending on the market condition. This is different from interest rate or origination fee as it is fully withdrawable by the user.
 
 ### Redemption Mechanism
-The CRR selected by the user will also determine the order of redemption, if and when the redemption happens. The lowest CRR Safes are the first to be redeemed, and the Safe that is redeemed will also forfeit CRR reserves of an equivalent amount of SBD redeemed, which will be distributed to the rest of the reserves at stake. This mechanism prevents the CRR being too high nor too low. Thus redemptions, just like Liquidations are heavily penalised in StableBase protocol.
+The CRR selected by the user will also determine the order of redemption, if and when the redemption happens. The lowest CRR Safes are the first to be redeemed, and the Safe that is redeemed will also forfeit CRR reserves of an equivalent amount of SBD redeemed, which will be distributed to the rest of the reserves at stake. Thus redemptions, just like Liquidations are heavily penalised in StableBase protocol. This mechanism prevents the CRR being too high as the penalty of redemption at high CRR is  is nor too low. 
 
 ### Incentives
 1. A fee of 0.5% is charged during Liquidation, and will be distributed to the proportionally in the Reserve Pool.
-2. During redemption, a fee of an equivalent amount of the SBD redeemed, upto a maximum value equal to the reserve deposit amount is withheld from the Safe that is being redeemed and distributed to other depositors in proportion to their stake.
+2. During redemption, a fee of an equivalent amount of the SBD redeemed, upto a maximum value equal to the reserve deposit amount is withheld from the Safe that is being redeemed. In addition, a 0.5% fee is charged from the redeemer. Both these fee are distributed to other depositors in proportion to their stake in the Reserve Pool.
 
 # Unique Features
 StableBase offers several unique features:
