@@ -56,7 +56,10 @@ StableBase Dollar (SBD) serves as a reliable medium of exchange for various real
 The redemption and liquidation mechanisms maintain the stability of StableBase (SBD), ensuring its value remains close to 1 USD, while Cash Reserve Ratio helps shrink and expand the supply of stablecoin further aiding in stabilising the peg.
 
 # Governance
-Governance of StableBase is determined by users' stake in the Reserve Pool. The deposited reserves are used for governance decisions, mainly addition of new collateral types.
+Governance of StableBase is determined by users' stake in the Reserve Pool.
+
+1. Addition of new collateral types.
+2. Setting origination fees during high interest environments.
 
 # Tokenomics
 As a purely decentralized stablecoin, StableBase (SBD) does not offer any additional tokens apart from the stablecoin itself.
