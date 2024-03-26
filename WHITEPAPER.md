@@ -44,7 +44,7 @@ StableBase offers several unique features:
 1. 0% interest rate and 0% origination fee(a first in the market).
 2. Introduction of User-defined Cash Reserve Ratio(a first in the market).
 3. Redemption from Safes with the lowest CRR.
-4. Base layer protocol enabling higher layer innovation in yield and rates.
+4. A base layer protocol with 0% rates, enabling higher layer innovation in yield and rates.
 5. Liquidation and Redemption fee incentives for CRR depositors.
 
 As long as a Safe does not get liquidated or redeemed, the Safe enjoys a 0% rate, naturally providing an incentive for better managed Safes, and ensuring price stability.
