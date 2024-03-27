@@ -16,7 +16,7 @@ StableBase utilizes a CDP mechanism, requiring users to overcollateralize their 
 Withdrawal is facilitated through repayment of the borrowed SBD back to the protocol.
 
 ## Origination Fee Rate
-Origination fee is initially set to 0%, and is dynamically updated based on average origination rate set by users, for example: In a period of high interest rates, origination fee can be changed to a higher number. The advantage of having an origination fee as opposed to interest rate is that the rewards are instant when people open Safes, whereas, interest rate returns take time to accrue.
+Origination fee is initially set to 0%, and is dynamically updated based on average origination rate set by users, for example: In a period of high interest rates, origination fee can be changed to a higher number. The advantage of having an origination fee as opposed to interest rate is that the rewards are instant when people open Safes, thus stabilizing the protocol / stablecoin faster whereas, interest rate returns take time to accrue.
 
 ## Interest Rates
 Interest Rates are always set to 0%. This is to ensure the redemption process. Having an interest rate complicates the redemption process.
