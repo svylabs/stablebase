@@ -47,7 +47,7 @@ The CRR selected by the user will also determine the order of redemption, if and
 # Unique Features
 StableBase offers several unique features:
 
-1. 0% interest rate and 0% origination fee(a first in the market).
+1. 0% interest rate and user set origination fee(a first in the market).
 2. Introduction of User-defined Cash Reserve Ratio(a first in the market).
 3. Redemption from Safes with the lowest CRR.
 4. A base layer protocol with 0% rates, enabling higher layer innovation in yield and rates.
