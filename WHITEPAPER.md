@@ -67,9 +67,9 @@ Governance of StableBase is determined by users' stake in the Reserve Pool. The 
 
 The base rate is initially set to 0%. Any user can dynamically change the base rate(upto 0.5% at any one time) and the protocol calculates a stake weighted average of the base rate set by stakes in reserve pool and that becomes the effective 
 
-1. Origination fee rate, when a new Safe is opened. 
-2. Redemption fee rate, when a Safe is redeemed.
-3. Liquidation fee rate, when a Safe is liquidated.
+1. Origination fee rate(maximum 5%), when a new Safe is opened. 
+2. Redemption fee rate(maximum 1%), when a Safe is redeemed.
+3. Liquidation fee rate(maximum 1%), when a Safe is liquidated.
 
 ### Conditions to change the rate
 1. User should have a stake in reserve pool
