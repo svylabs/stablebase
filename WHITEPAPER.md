@@ -15,6 +15,12 @@ StableBase utilizes a CDP mechanism, requiring users to overcollateralize their 
 
 Withdrawal is facilitated through repayment of the borrowed SBD back to the protocol.
 
+## Origination Fee Rate
+Origination fee is initially set to 0%, and is dynamically updated based on average origination rate set by users, for example: In a period of high interest rates, origination fee can be changed to a higher number. The advantage of having an origination fee as opposed to interest rate is that the rewards are instant when people open Safes, whereas, interest rate returns take time to accrue.
+
+## Interest Rates
+Interest Rates are always set to 0%. This is to ensure the redemption process. Having an interest rate complicates the redemption process.
+
 # Stability Mechanism
 The stability of the stablecoin and protocol is ensured through three mechanisms: Liquidation, Redemption, and the Cash Reserve Ratio (CRR).
 
@@ -59,7 +65,11 @@ The redemption and liquidation mechanisms maintain the stability of StableBase (
 Governance of StableBase is determined by users' stake in the Reserve Pool.
 
 1. Addition of new collateral types.
-2. Setting origination fees during high interest environments.
+2. Setting origination fees.
+
+## Dynamic Updation of Origination Fee
+
+The origination fee is initially set to 0% for the first 30 days of the protocol's existence. Any user can dynamically change the origination fee and the protocol calculates a stake weighted average of the origination fee set by users(that has stake in reserve pool) and that becomes the effective origination fee when a new Safe is opened.
 
 # Tokenomics
 As a purely decentralized stablecoin, StableBase (SBD) does not offer any additional tokens apart from the stablecoin itself.
