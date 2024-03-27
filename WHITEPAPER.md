@@ -15,11 +15,11 @@ StableBase utilizes a CDP mechanism, requiring users to overcollateralize their 
 
 Withdrawal is facilitated through repayment of the borrowed SBD back to the protocol.
 
-## Origination Fee Rate
-Origination fee is initially set to 0%, and is dynamically updated based on average origination rate set by users, for example: In a period of high interest rates, origination fee can be changed to a higher number. The advantage of having an origination fee as opposed to interest rate is that the rewards are instant when people open Safes, thus stabilizing the protocol / stablecoin faster whereas, interest rate returns take time to accrue.
+## Base Stability Rate or Base Rate
+Base Rate is initially set to 0%, and is dynamically updated based on average base rate set by users. For more details on this, check the governance.
 
 ## Interest Rates
-Interest Rates are always set to 0%. This is to ensure the redemption process. Having an interest rate complicates the redemption process.
+Interest Rates are always set to 0%. This is to ensure the redemption process works smoothly in the long term.
 
 # Stability Mechanism
 The stability of the stablecoin and protocol is ensured through three mechanisms: Liquidation, Redemption, and the Cash Reserve Ratio (CRR).
@@ -30,7 +30,7 @@ Liquidation occurs if the value of the collateral falls below 110% of the borrow
 Liquidators pay 100.5% of the borrowed SBD to withdraw the underlying collateral, with a 0.5% fee distributed to the Reserve Pool.
 
 ## Redemption
-Users can redeem stablecoins for the underlying collateral at a 1:1 ratio, with 0.5% fees charged to the redeemer and distributed to other depositors in the Reserve Pool.
+Users can redeem stablecoins for the underlying collateral at a 1:1 ratio, with fees equal to base rate charged to the redeemer and distributed to other depositors in the Reserve Pool.
 
 ## Cash Reserve Ratio(CRR) and Reserve Pool
 In traditional finance (TradFi), the Cash Reserve Ratio (CRR) is a rate determined by central banks, specifying the percentage of cash deposits that banks are required to hold as reserves. In our protocol, we adopt a modified definition of the CRR.
@@ -38,19 +38,15 @@ In traditional finance (TradFi), the Cash Reserve Ratio (CRR) is a rate determin
 The CRR, defined as the percentage of borrowed stablecoin value held in the Reserve Pool, can be specified by users at the time of borrowing. This mechanism empowers the protocol to autonomously manage the coin supply in response to market conditions.
 
 ### Redemption Mechanism
-The CRR selected by the user will also determine the order of redemption, if and when the redemption happens. The lowest CRR Safes are the first to be redeemed, and the Safe that is redeemed will also forfeit CRR reserves of an equivalent amount of SBD redeemed, which will be distributed to other depositors in the Reserve Pool. Thus redemptions, just like Liquidations are penalised in the StableBase protocol. This mechanism ensures the Safe owners actively take part in the stability of the protocol.
-
-### Incentives
-1. A fee of 0.5% is charged during Liquidation, and will be distributed to users proportional to the stake in the Reserve Pool.
-2. During redemption, a fee of an equivalent amount of the SBD redeemed, upto a maximum value equal to the reserve deposit amount is withheld from the Safe that is being redeemed. In addition, a 0.5% fee is charged from the redeemer. Both these fee are distributed to other depositors in proportion to their stake in the Reserve Pool.
+The CRR selected by the user will also determine the order of redemption, if and when the redemption happens. The lowest CRR Safes are the first to be redeemed. During redemption, a fee equivalent to base rate of the value redeemed will be charged to the redeemer.
 
 # Unique Features
 StableBase offers several unique features:
 
-1. 0% interest rate and user set origination fee(a first in the market).
+1. 0% interest rate and user governed origination fee(a first in the market).
 2. Introduction of User-defined Cash Reserve Ratio(a first in the market).
 3. Redemption from Safes with the lowest CRR.
-4. A base layer protocol with 0% rates, enabling higher layer innovation in yield and rates.
+4. A base layer protocol with 0% interest rate, enabling higher layer innovation in yield and rates.
 5. Liquidation and Redemption fee incentives for CRR depositors.
 
 As long as a Safe does not get liquidated or redeemed, the Safe enjoys a 0% rate, naturally providing an incentive for better managed Safes, and ensuring price stability.
@@ -62,14 +58,22 @@ StableBase Dollar (SBD) serves as a reliable medium of exchange for various real
 The redemption and liquidation mechanisms maintain the stability of StableBase (SBD), ensuring its value remains close to 1 USD, while Cash Reserve Ratio helps shrink and expand the supply of stablecoin further aiding in stabilising the peg.
 
 # Governance
-Governance of StableBase is determined by users' stake in the Reserve Pool.
+Governance of StableBase is determined by users' stake in the Reserve Pool. The governance actions include: 
 
 1. Addition of new collateral types.
-2. Setting origination fees.
+2. Setting base rate.
 
-## Dynamic Updation of Origination Fee
+## Dynamic Updation of Base Rate
 
-The origination fee is initially set to 0% for the first 30 days of the protocol's existence. Any user can dynamically change the origination fee and the protocol calculates a stake weighted average of the origination fee set by users(that has stake in reserve pool) and that becomes the effective origination fee when a new Safe is opened.
+The base rate is initially set to 0%. Any user can dynamically change the base rate(upto 0.5% at any one time) and the protocol calculates a stake weighted average of the base rate set by stakes in reserve pool and that becomes the effective 
+
+1. Origination fee rate, when a new Safe is opened. 
+2. Redemption fee rate, when a Safe is redeemed.
+3. Liquidation fee rate, when a Safe is liquidated.
+
+### Conditions to change the rate
+1. User should have a stake in reserve pool
+2. User can change the base rate only by upto a maximum of 0.5% at any time, once set - the rate cannot be changed by the user for 3 days.
 
 # Tokenomics
 As a purely decentralized stablecoin, StableBase (SBD) does not offer any additional tokens apart from the stablecoin itself.
