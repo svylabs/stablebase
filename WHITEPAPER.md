@@ -5,7 +5,7 @@ StableBase: A Base layer Stablecoin protocol.
 Most stablecoin protocols in the market today are optimized for yield incentives for stablecoin and token holders, making stablecoin borrowing costs prohibitive for many real-world use cases. In this whitepaper, we introduce StableBase, a base layer stablecoin protocol built on the Ethereum blockchain using Collateral Debt Position. StableBase aims to provide a base layer stablecoin with 0% interest and origination fees, allowing higher layer protocols to offer yield opportunities and enable the utility of stablecoins across various consumer use cases. This paper outlines the underlying technology, stability mechanisms, issuance and redemption processes, along with unique features and governance structure. StableBase protocol issues a USD-pegged stablecoin named SBD, also known as StableBase Dollar.
 
 # Introduction
-The mainstream adoption of cryptocurrencies as mediums of exchange has been hindered by their volatility, prompting the emergence of stablecoins to meet market demand. However, most stablecoins today, excluding fiat-backed ones, are unsuitable for real-world use cases due to high interest rates and origination fees. The yield mania has attracted users, mainly speculators, leveraging stablecoins for speculative purposes. To make decentralized stablecoins attractive in broader contexts, we propose a layered approach, with a base layer being open, free to use, and decentralized, while higher layers innovate on incentives, accessibility, and other parameters. This paper presents the design for such a base layer stablecoin protocol.
+The mainstream adoption of cryptocurrencies as mediums of exchange has been hindered by their volatility, prompting the emergence of stablecoins to meet market demand. However, most stablecoins today, excluding fiat-backed ones, are unsuitable for real-world use cases due to high interest rates and origination fees. The yield mania has attracted users, mainly speculators, leveraging stablecoins for speculative purposes. To make decentralized stablecoins attractive in broader contexts, we propose a layered approach, with a base layer being open, free to use, low cost, and decentralized, while higher layers innovate on incentives, accessibility, and other parameters. This paper presents the design for such a base layer stablecoin protocol.
 
 # Technology
 StableBase is built on the Ethereum blockchain, benefiting from its smart contract capabilities, security, and widespread adoption within the decentralized finance (DeFi) ecosystem.
@@ -66,6 +66,9 @@ Governance of StableBase is determined by users' stake in the Reserve Pool. The 
 1. Addition of new collateral types.
 2. Setting base rate.
 
+## Addition of new collateral types
+Any user can submit a proposal to add a new collateral type. The proposal consists of TokenAddress, CollateralizationRatio, EffectiveDate. Voting runs onchain for 28 days and users who have a stake in the reserve pool can vote. At the end of the voting period, Total votes will be tallied and the proposal will be made effective if > 67% of the voters voted 'yes' for the proposal. Users cannot withdraw from reserve pool until after the voting, and new users(< 30 days) in the reserve pool will not be considered for voting.
+
 ## Dynamic Updation of Base Rate
 
 The base rate is initially set to 0%. Any user can dynamically change the base rate and the protocol calculates a stake weighted average of the base rate set by stakes in reserve pool and that becomes the effective
@@ -75,10 +78,6 @@ The base rate is initially set to 0%. Any user can dynamically change the base r
 3. Liquidation fee rate(minimum: 0.5%, maximum: 1%), when a Safe is liquidated.
 
 Updating the base rate also has consequences for the Safes. Imagine, a user paid no-origination fee when they first opened their Safes, and they want to update the base rate to 0.5%, the protocol would only accept that rate if the user has also paid the newly calculated origination fee. This mechanism would ensure that the users do not set an arbitrarily higher base rate.
-
-### Conditions to change the rate
-1. User should have a stake in reserve pool
-2. User can change the base rate only by upto a maximum of 0.5% at any time, once set - the rate cannot be changed by the user for 3 days.
 
 # Tokenomics
 As a purely decentralized stablecoin, StableBase (SBD) does not offer any additional tokens apart from the stablecoin itself.
