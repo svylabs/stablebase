@@ -8,10 +8,10 @@ Most stablecoin protocols in the market today are optimized for yield incentives
 The mainstream adoption of cryptocurrencies as mediums of exchange has been hindered by their volatility, prompting the emergence of stablecoins to meet market demand. However, most stablecoins today, excluding fiat-backed ones, are unsuitable for real-world use cases due to high interest rates and origination fees. The yield mania has attracted users, mainly speculators, leveraging stablecoins for speculative purposes. To make decentralized stablecoins attractive in broader contexts, we propose a layered approach, with a base layer being open, low cost, and decentralized, while higher layers innovate on incentives, accessibility, and other parameters. This paper presents the design for such a base layer stablecoin protocol.
 
 # Technology
-StableBase is built on the Ethereum blockchain, benefiting from its smart contract capabilities, security, and widespread adoption within the decentralized finance (DeFi) ecosystem.
+StableBase is built using Solidity on the Ethereum blockchain, benefiting from its smart contract capabilities, security, and widespread adoption within the decentralized finance (DeFi) ecosystem. However, it is adaptable to any blockchain / smart contracting platform that has a reliable decentralized oracle. For our implementation on Ethereum, we use Chainlink as the oracle provider.
 
 # Borrowing and Withdrawal
-StableBase utilizes a CDP mechanism, requiring users to overcollateralize their loans by at least 110%. Users create a Safe, where they deposit their collateral and the protocol issues SBD token. By opening a Safe with StableBase, the user borrows SBD coins at 0% interest rate, and pay an origination fee equivalent to base rate, while also accepting the risks of Liquidation and Redemption, and actively contributing to the stability of the protocol.
+StableBase utilizes a CDP mechanism, requiring users to overcollateralize their loans by at least 110%. Users create a Safe, where they deposit their collateral and the protocol issues SBD token. By opening a Safe with StableBase, the user borrows SBD coins at 0% interest rate, and pay an origination fee equivalent to the base rate, while also accepting the risks of Liquidation and Redemption, and actively contributing to the stability and governance of the protocol through CRR mechanism described below.
 
 Withdrawal is facilitated through repayment of the borrowed SBD back to the protocol.
 
@@ -19,7 +19,7 @@ Withdrawal is facilitated through repayment of the borrowed SBD back to the prot
 Base Rate is initially set to 0%, and is dynamically updated based on average base rate set by users. For more details on this, check the governance.
 
 ## Interest Rates
-Interest Rates are always set to 0%. This is to ensure the redemption process works correctly over the long term.
+Interest Rates are always set to 0%.
 
 # Stability Mechanism
 The stability of the stablecoin and protocol is ensured through three mechanisms: Liquidation, Redemption, and the Cash Reserve Ratio (CRR).
