@@ -1,7 +1,6 @@
-# Title:
-StableBase: A Base layer Stablecoin protocol.
+                                            StableBase: A Base layer Stablecoin protocol.
 
-# Abstract:
+# Abstract
 Most stablecoin protocols in the market today are optimized for yield incentives for stablecoin and token holders, making stablecoin borrowing costs prohibitive for many real-world use cases. In this whitepaper, we introduce StableBase, a base layer stablecoin protocol built on the Ethereum blockchain using Collateral Debt Position. StableBase aims to provide a base layer stablecoin with 0% interest and origination fees, allowing higher layer protocols to offer yield opportunities and enable the utility of stablecoins across various consumer use cases. This paper outlines the underlying technology, stability mechanisms, issuance and redemption processes, along with unique features and governance structure. StableBase protocol issues a USD-pegged stablecoin named SBD, also known as StableBase Dollar.
 
 # Introduction
@@ -48,11 +47,11 @@ The CRR selected by the user will also determine the order of redemption, if and
 StableBase offers several unique features:
 
 1. 0% interest rate
-2. User governed origination fee(a first in the market).
-3. Introduction of a mandatory User-defined Cash Reserve Ratio(a first in the market).
-4. Redemption from Safes with the lowest CRR.
+2. Introduction of user governed origination fee.
+3. Introduction of a mandatory User-defined Cash Reserve Ratio.
+4. Introduction of redemption from Safes with the lowest CRR.
 5. A base layer protocol with 0% interest rate, enabling higher layer innovation in yield and rates.
-6. Liquidation and Redemption fee incentives for CRR depositors(Reserve Pool).
+6. Yield for CRR depositors(Reserve Pool).
 
 # Use Cases
 StableBase Dollar (SBD) serves as a reliable medium of exchange for various real-world transactions, including cross-border payments, remittances, e-commerce, and DeFi activities. It also enables layer 1 protocols to facilitate supply chain and trade finance, thanks to its 0% interest rate.
@@ -85,10 +84,10 @@ As a purely decentralized stablecoin, StableBase (SBD) does not offer any additi
 # Risks
 While the unique features present exciting opportunities, there are associated risks. The complexity of the CRR mechanism and redemption process may challenge users, and robust risk management protocols are essential to mitigate potential manipulation.
 
-## User Experience: 
+## User Experience 
 The complexity of the CRR mechanism and the redemption process may present challenges for users, especially those unfamiliar with DeFi/TradFi concepts. Ensuring a smooth and intuitive user experience will be essential for adoption.
 
-## Risk Management: 
+## Risk Management
 While the CRR mechanism adds flexibility, it also introduces potential risks, such as manipulation. Thus, robust risk management protocols and monitoring mechanisms will be crucial to mitigate these risks by those that open a Safe with stablebase, thus the protocol mainly caters to the sophisticated players in the ecosystem, while higher layers of the protocol would allow for usage by regular users who want predictable rates.
 
 # Conclusion
