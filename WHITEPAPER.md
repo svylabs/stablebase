@@ -25,7 +25,13 @@ Interest Rates are always set to 0%. This is to ensure the redemption process wo
 The stability of the stablecoin and protocol is ensured through three mechanisms: Liquidation, Redemption, and the Cash Reserve Ratio (CRR).
 
 ## Liquidation
-Liquidation occurs if the value of the collateral falls below 110% of the borrowed amount, ensuring stability. Liquidation can be triggered from the funds in Reserve Pool or can also be executed by third parties.
+Liquidation occurs if the value of the collateral falls below 110% of the borrowed amount, ensuring stability. There are two liquidation modes:
+
+### Automatic Liquidation
+When an automatic liquidation is triggered, the liquidated collateral is distributed among other CDP, and their debt is increased. The protocol also pays the user that triggered with a fee of base rate(maximum of 1%).
+
+### Third party Liquidations
+A third party, such as a user or a Liquidation Pool(out of scope for the protocol), can trigger liquidation by paying the debt, and the collateral minus the liquidation fee equal to base rate(maximum 1%) will be returned to the liquidator.
 
 ## Redemption
 Users can redeem stablecoins for the underlying collateral at a 1:1 ratio, with fees equal to base rate charged to the redeemer and distributed to other depositors in the Reserve Pool.
@@ -41,11 +47,12 @@ The CRR selected by the user will also determine the order of redemption, if and
 # Unique Features
 StableBase offers several unique features:
 
-1. 0% interest rate and user governed origination fee(a first in the market).
-2. Introduction of a mandatory User-defined Cash Reserve Ratio(a first in the market).
-3. Redemption from Safes with the lowest CRR.
-4. A base layer protocol with 0% interest rate, enabling higher layer innovation in yield and rates.
-5. Liquidation and Redemption fee incentives for CRR depositors(Reserve Pool).
+1. 0% interest rate
+2. User governed origination fee(a first in the market).
+3. Introduction of a mandatory User-defined Cash Reserve Ratio(a first in the market).
+4. Redemption from Safes with the lowest CRR.
+5. A base layer protocol with 0% interest rate, enabling higher layer innovation in yield and rates.
+6. Liquidation and Redemption fee incentives for CRR depositors(Reserve Pool).
 
 # Use Cases
 StableBase Dollar (SBD) serves as a reliable medium of exchange for various real-world transactions, including cross-border payments, remittances, e-commerce, and DeFi activities. It also enables layer 1 protocols to facilitate supply chain and trade finance, thanks to its 0% interest rate.
