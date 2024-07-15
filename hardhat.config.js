@@ -1,6 +1,7 @@
 
 /** @type import('hardhat/config').HardhatUserConfig */
 require("@nomicfoundation/hardhat-toolbox");
+require("@nomiclabs/hardhat-solhint");
 
 module.exports = {
   solidity: {
