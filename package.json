@@ -1,7 +1,7 @@
 {
   "name": "stablebase",
   "version": "1.0.0",
-  "description": "",
+  "description": "StableBase is a base layer stablecoin protocol built in Solidity using Collateral Debt Position(CDP) mechanism. The protocol aims to provide a base layer stablecoin with 0% interest rate and user governed origination fees, allowing higher layer protocols to offer yield opportunities and enable the utility of stablecoins across various consumer use cases. This repo contains the whitepaper, contract code, frontend code, tests for the protocol.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -11,9 +11,12 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
     "@nomiclabs/hardhat-solhint": "^3.1.0",
-    "hardhat": "^2.21.0"
+    "hardhat": "^2.22.6",
+    "prettier": "^3.3.3",
+    "prettier-plugin-solidity": "^1.3.1"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.2"
-  }
+  },
+  "keywords": []
 }

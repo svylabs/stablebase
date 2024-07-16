@@ -1,5 +1,4 @@
 library SBStructs {
-
     struct Safe {
         address token;
         uint256 depositedAmount;
@@ -7,5 +6,4 @@ library SBStructs {
         uint256 reserveRatio;
         uint256 originationFeePaid;
     }
-
 }
