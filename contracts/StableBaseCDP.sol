@@ -1,4 +1,4 @@
-pragma solidity ^0.8.0;
+// pragma solidity ^0.8.0;
 
 // import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 // import "./Structures.sol";
@@ -122,7 +122,7 @@ pragma solidity ^0.8.0;
 // }
 
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./Structures.sol";
@@ -167,7 +167,11 @@ contract StableBaseCDP {
         safes[id] = safe;
 
         // Deposit ETH or ERC20 token using SBUtils library
-        SBUtils.depositEthOrToken{value: msg.value}(_token, address(this), _amount);
+        if (_token == address(0)) {
+            require(msg.value == _amount, "Invalid deposit amount");
+        } else {
+            SBUtils.depositEthOrToken(_token, address(this), _amount);
+        }
     }
 
     /**

@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/rohitbharti/Desktop/stable base/stablebase/contracts/StableBaseCDP.sol": {
-      "lastModificationDate": 1721192783158,
-      "contentHash": "75573e33d5cec166ba5f9e543ff2104a",
+      "lastModificationDate": 1721212029044,
+      "contentHash": "97c660320e01e33cb950194a4a2b7282",
       "sourceName": "contracts/StableBaseCDP.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -35,15 +35,15 @@
         "./Utilities.sol"
       ],
       "versionPragmas": [
-        "^0.8.0"
+        "^0.8.20"
       ],
       "artifacts": [
         "StableBaseCDP"
       ]
     },
     "/Users/rohitbharti/Desktop/stable base/stablebase/contracts/Utilities.sol": {
-      "lastModificationDate": 1721120065530,
-      "contentHash": "71456d965273264d74c2ad8b0a39fe3c",
+      "lastModificationDate": 1721212052060,
+      "contentHash": "e84dee8b16b55dae53618ccce44ccc09",
       "sourceName": "contracts/Utilities.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -70,10 +70,10 @@
         }
       },
       "imports": [
-        "@openzeppelin/contracts/token/ERC20/ERC20.sol"
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol"
       ],
       "versionPragmas": [
-        "^0.8.0"
+        "^0.8.20"
       ],
       "artifacts": [
         "SBUtils"
