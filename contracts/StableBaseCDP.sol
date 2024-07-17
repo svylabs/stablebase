@@ -166,12 +166,8 @@ contract StableBaseCDP {
         // Add the Safe to the mapping
         safes[id] = safe;
 
-        // Deposit ETH or ERC20 token
-        if (_token == address(0)) {
-            require(msg.value == _amount, "Incorrect ETH amount sent");
-        } else {
-            require(ERC20(_token).transferFrom(msg.sender, address(this), _amount), "Token transfer failed");
-        }
+        // Deposit ETH or ERC20 token using SBUtils library
+        SBUtils.depositEthOrToken{value: msg.value}(_token, address(this), _amount);
     }
 
     /**
@@ -184,12 +180,8 @@ contract StableBaseCDP {
         SBStructs.Safe storage safe = safes[id];
         require(safe.borrowedAmount == 0, "Cannot close Safe with borrowed amount");
 
-        // Transfer collateral back to the owner
-        if (safe.token == address(0)) {
-            payable(msg.sender).transfer(safe.depositedAmount);
-        } else {
-            require(ERC20(safe.token).transfer(msg.sender, safe.depositedAmount), "Token transfer failed");
-        }
+        // Withdraw ETH or ERC20 token using SBUtils library (Transfer collateral back to the owner)
+        SBUtils.withdrawEthOrToken(safe.token, msg.sender, safe.depositedAmount);
 
         // Remove the Safe from the mapping
         delete safes[id];
