@@ -1,4 +1,4 @@
-// pragma solidity ^0.8.0;
+pragma solidity ^0.8.0;
 
 // import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 // import "./Structures.sol";
@@ -121,8 +121,6 @@
 //     }
 // }
 
-
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -148,20 +146,20 @@ contract StableBaseCDP {
     /**
      * @dev Opens a new Safe for the borrower and tracks the collateral deposited, etc.
      * Send any amount of ERC20 tokens or ETH
-     * @param tokenAddress Address of the ERC20 token, use address(0) for ETH
-     * @param amount Amount of tokens or ETH to deposit as collateral
-     * @param reserveRatio Reserve ratio specified by the user
+     * @param _token Address of the ERC20 token, use address(0) for ETH
+     * @param _amount Amount of tokens or ETH to deposit as collateral
+     * @param _reserveRatio Reserve ratio specified by the user
      */
-    function openSafe(address tokenAddress, uint256 amount, uint256 reserveRatio) external payable {
-        require(amount > 0, "Amount must be greater than 0");
-        bytes32 id = keccak256(abi.encodePacked(msg.sender, tokenAddress));
+    function openSafe(address _token, uint256 _amount, uint256 _reserveRatio) external payable {
+        require(_amount > 0, "Amount must be greater than 0");
+        bytes32 id = keccak256(abi.encodePacked(msg.sender, _token));
 
         // Create a new Safe
         SBStructs.Safe memory safe = SBStructs.Safe({
-            token: tokenAddress,
-            depositedAmount: amount,
+            token: _token,
+            depositedAmount: _amount,
             borrowedAmount: 0,
-            reserveRatio: reserveRatio,
+            reserveRatio: _reserveRatio,
             originationFeePaid: 0
         });
 
@@ -169,10 +167,10 @@ contract StableBaseCDP {
         safes[id] = safe;
 
         // Deposit ETH or ERC20 token
-        if (tokenAddress == address(0)) {
-            require(msg.value == amount, "Incorrect ETH amount sent");
+        if (_token == address(0)) {
+            require(msg.value == _amount, "Incorrect ETH amount sent");
         } else {
-            require(ERC20(tokenAddress).transferFrom(msg.sender, address(this), amount), "Token transfer failed");
+            require(ERC20(_token).transferFrom(msg.sender, address(this), _amount), "Token transfer failed");
         }
     }
 
@@ -180,7 +178,7 @@ contract StableBaseCDP {
      * @dev Closes a Safe and returns the collateral to the owner.
      * Check if the borrowedAmount is 0, if there is any SB token borrowed, close should not work.
      * Return back the collateral
-     * @param id ID of the Safe to close, derived from keccak256(msg.sender, tokenAddress)
+     * @param id ID of the Safe to close, derived from keccak256(msg.sender, _token)
      */
     function closeSafe(bytes32 id) external {
         SBStructs.Safe storage safe = safes[id];

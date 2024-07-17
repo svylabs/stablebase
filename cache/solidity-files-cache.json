@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/rohitbharti/Desktop/stable base/stablebase/contracts/StableBaseCDP.sol": {
-      "lastModificationDate": 1721129073885,
-      "contentHash": "411106736e1ba5e2f38182de90838eaf",
+      "lastModificationDate": 1721192783158,
+      "contentHash": "75573e33d5cec166ba5f9e543ff2104a",
       "sourceName": "contracts/StableBaseCDP.sol",
       "solcConfig": {
         "version": "0.8.20",
