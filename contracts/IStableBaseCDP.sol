@@ -1,8 +1,8 @@
 interface IStableBaseCDP {
     function openSafe(address collateralToken, uint256 amount, uint256 reserveRatio, uint256 positionInReserve) external;
     function closeSafe(address collateralToken) external;
-    function borrowSBD(address collateralToken, uint256 amount) external;
-    function repaySBD(address collateralToken, uint256 amount) external;
+    function borrow(address collateralToken, uint256 amount) external;
+    function repay(address collateralToken, uint256 amount) external;
     function withdrawCollateral(address collateralToken, uint256 amount) external;
     function redeem(uint256 id) external;
     function liquidate(uint256 id) external;
