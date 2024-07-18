@@ -68,7 +68,7 @@ describe("StableBaseCDP", function () {
 
     // Compute the safe ID
     const safeId = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode([ "address", "address" ], [ addr1.address, ethers.ZeroAddress ]));
-    await stableBaseCDP.connect(addr1).closeSafe(safeId);
+    await stableBaseCDP.connect(addr1).closeSafe(ethers.ZeroAddress);
 
     // Check if the safe has been closed (deposited amount should be 0)
     const safe = await stableBaseCDP.safes(safeId);
