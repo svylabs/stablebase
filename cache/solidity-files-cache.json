@@ -2,7 +2,7 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/rohitbharti/Desktop/stable base/stablebase/contracts/ERC20Mock.sol": {
-      "lastModificationDate": 1721289280503,
+      "lastModificationDate": 1721388698833,
       "contentHash": "712129f1cae5735b85c30e7c52b10acb",
       "sourceName": "contracts/ERC20Mock.sol",
       "solcConfig": {
@@ -40,7 +40,7 @@
       ]
     },
     "/Users/rohitbharti/Desktop/stable base/stablebase/node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
-      "lastModificationDate": 1721289799824,
+      "lastModificationDate": 1721388042121,
       "contentHash": "c6375ef25e84c90b3d15f9ec4eef218f",
       "sourceName": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
       "solcConfig": {
@@ -81,7 +81,7 @@
       ]
     },
     "/Users/rohitbharti/Desktop/stable base/stablebase/node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
-      "lastModificationDate": 1721289799830,
+      "lastModificationDate": 1721388042169,
       "contentHash": "5517c8678c18eb1a8ba58810e7ca39ca",
       "sourceName": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
       "solcConfig": {
@@ -117,7 +117,7 @@
       ]
     },
     "/Users/rohitbharti/Desktop/stable base/stablebase/node_modules/@openzeppelin/contracts/utils/Context.sol": {
-      "lastModificationDate": 1721289799820,
+      "lastModificationDate": 1721388042090,
       "contentHash": "67bfbc07588eb8683b3fd8f6f909563e",
       "sourceName": "@openzeppelin/contracts/utils/Context.sol",
       "solcConfig": {
@@ -153,7 +153,7 @@
       ]
     },
     "/Users/rohitbharti/Desktop/stable base/stablebase/node_modules/@openzeppelin/contracts/interfaces/draft-IERC6093.sol": {
-      "lastModificationDate": 1721289799820,
+      "lastModificationDate": 1721388042094,
       "contentHash": "4aefc698f77ecbace7f401257dfe182d",
       "sourceName": "@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
       "solcConfig": {
@@ -191,7 +191,7 @@
       ]
     },
     "/Users/rohitbharti/Desktop/stable base/stablebase/node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": {
-      "lastModificationDate": 1721289799830,
+      "lastModificationDate": 1721388042170,
       "contentHash": "4c02fa6f7ae7b6c289cef80424f0c875",
       "sourceName": "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
       "solcConfig": {
@@ -229,8 +229,8 @@
       ]
     },
     "/Users/rohitbharti/Desktop/stable base/stablebase/contracts/Utilities.sol": {
-      "lastModificationDate": 1721289078681,
-      "contentHash": "e84dee8b16b55dae53618ccce44ccc09",
+      "lastModificationDate": 1721386411755,
+      "contentHash": "f805c0ddf84dd69e45f2b564887e671b",
       "sourceName": "contracts/Utilities.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -267,8 +267,8 @@
       ]
     },
     "/Users/rohitbharti/Desktop/stable base/stablebase/contracts/StableBaseCDP.sol": {
-      "lastModificationDate": 1721289105367,
-      "contentHash": "97c660320e01e33cb950194a4a2b7282",
+      "lastModificationDate": 1721389478677,
+      "contentHash": "285391fbb591199fb24dc850f524e947",
       "sourceName": "contracts/StableBaseCDP.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -307,8 +307,8 @@
       ]
     },
     "/Users/rohitbharti/Desktop/stable base/stablebase/contracts/Structures.sol": {
-      "lastModificationDate": 1721289089669,
-      "contentHash": "75dd22296c29a9e84def90181bfdf18b",
+      "lastModificationDate": 1721389807053,
+      "contentHash": "5731862dad79a51f36a83635a8379189",
       "sourceName": "contracts/Structures.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -335,14 +335,16 @@
         }
       },
       "imports": [],
-      "versionPragmas": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
       "artifacts": [
         "SBStructs"
       ]
     },
     "/Users/rohitbharti/Desktop/stable base/stablebase/contracts/StakingRewardAccumulator.sol": {
-      "lastModificationDate": 1721289098674,
-      "contentHash": "a92b1f442bdd3db28228c5a4b4fdd78a",
+      "lastModificationDate": 1721388770340,
+      "contentHash": "7c824466bbb2808aef58c4ce6ce45994",
       "sourceName": "contracts/StakingRewardAccumulator.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -372,10 +374,46 @@
         "@openzeppelin/contracts/token/ERC20/IERC20.sol"
       ],
       "versionPragmas": [
-        "^0.8.0"
+        "^0.8.20"
       ],
       "artifacts": [
         "StakingRewardsAccumulator"
+      ]
+    },
+    "/Users/rohitbharti/Desktop/stable base/stablebase/contracts/IStableBaseCDP.sol": {
+      "lastModificationDate": 1721389248479,
+      "contentHash": "d7ffd6701e6e594e6b84d9482b10fefe",
+      "sourceName": "contracts/IStableBaseCDP.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IStableBaseCDP"
       ]
     }
   }

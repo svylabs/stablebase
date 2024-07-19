@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
 interface IStableBaseCDP {
     function openSafe(address collateralToken, uint256 amount, uint256 reserveRatio, uint256 positionInReserve) external;
     function closeSafe(address collateralToken) external;
