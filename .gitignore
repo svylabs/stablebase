@@ -1,2 +1,4 @@
 timestamps
 node_modules/
+artifacts/
+cache/
