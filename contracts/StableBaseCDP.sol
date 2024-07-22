@@ -12,6 +12,8 @@ contract StableBaseCDP {
     // Mapping to track Safe balances
     mapping(bytes32 => SBStructs.Safe) public safes;
 
+    SBStructs.Mode public mode = SBStructs.Mode.BOOTSTRAP;
+
     mapping(address => bool) public whitelistedTokens;
 
     constructor() {
