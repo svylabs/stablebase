@@ -35,13 +35,21 @@ describe("StableBaseCDP", function () {
     const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
     const safe = await stableBaseCDP.safes(safeId);
 
+    // console.log("safeId:->  ", safeId);
+    // console.log("safe:->  ", safe);
+    // console.log("safe.token:->  ", safe.token);
+    // console.log("token.target:->  ", token.target);
+    // console.log("safe.depositedAmount:->  ", safe.depositedAmount);
+    // console.log("depositAmount:->  ", depositAmount);
+    // console.log("safe.depositedAmount:->  ", safe.depositedAmount.toString());
+    // console.log("depositAmount:->  ", depositAmount.toString());
+    // console.log("safe.reserveRatio:->  ", safe.reserveRatio);
+    // console.log("reserveRatio:->  ", reserveRatio);
+
     // Check if the safe has the correct deposited amount and reserve ratio
     expect(safe.token).to.equal(ethers.ZeroAddress);
     expect(safe.depositedAmount).to.equal(depositAmount);
     expect(safe.reserveRatio).to.equal(reserveRatio);
-
-    // expect(safe.depositedAmount.toString()).to.equal(depositAmount.toString());
-    // expect(safe.reserveRatio.toString()).to.equal(reserveRatio.toString());
   });
 
   // Test case for opening a new safe with ERC20 token
@@ -70,13 +78,9 @@ describe("StableBaseCDP", function () {
     console.log("reserveRatio:->  ", reserveRatio);
 
     // Check if the safe has the correct deposited amount and reserve ratio
-    // expect(safe.depositedAmount).to.equal(depositAmount);
-    // expect(safe.reserveRatio).to.equal(reserveRatio);
-
-    // Check the safe object manually
     expect(safe.token).to.equal(token.target);
-    expect(safe.depositedAmount.toString()).to.equal(depositAmount.toString());
-    expect(safe.reserveRatio.toString()).to.equal(reserveRatio.toString());
+    expect(safe.depositedAmount).to.equal(depositAmount);
+    expect(safe.reserveRatio).to.equal(reserveRatio);
   });
 
   // Test case for closing a safe and returning the collateral
