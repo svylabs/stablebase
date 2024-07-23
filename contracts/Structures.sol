@@ -12,6 +12,11 @@ library SBStructs {
         uint256 originationFeePaid;
     }
 
+    struct whitelistedTokens {
+        address priceOracle;
+        uint256 collateralRatio;
+    }
+
     enum Mode {
         BOOTSTRAP,
         NORMAL

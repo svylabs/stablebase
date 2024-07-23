@@ -2,13 +2,35 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("StableBaseCDP", function () {
-  let stableBaseCDP, token, owner, addr1;
+  let stableBaseCDP, token, owner, addr1, sbdToken;
+
+  // beforeEach(async function () {
+  //   // [owner, addr1] = await ethers.getSigners();
+  //   const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
+  //   stableBaseCDP = await StableBaseCDPFactory.deploy();
+  //   await stableBaseCDP.waitForDeployment(); // wait for deployment to complete
+
+  //   // // Deploy ERC20 token for testing
+  //   // const ERC20Token = await ethers.getContractFactory("ERC20Token");
+  //   // token = await ERC20Token.deploy("Mock Token", "MKT", ethers.parseEther("1000"));
+  //   // await token.waitForDeployment(); // wait for deployment to complete
+
+  //   // // Transfer some tokens to addr1
+  //   // await token.transfer(addr1.address, ethers.parseEther("100"));
+  // });
 
   beforeEach(async function () {
     [owner, addr1] = await ethers.getSigners();
+    const SBDToken = await ethers.getContractFactory("SBDToken");
+    sbdToken = await SBDToken.deploy("SBD Token", "SBD");
+    await sbdToken.waitForDeployment(); // wait for deployment to complete
+
     const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
-    stableBaseCDP = await StableBaseCDPFactory.deploy();
+    stableBaseCDP = await StableBaseCDPFactory.deploy(sbdToken.target);
     await stableBaseCDP.waitForDeployment(); // wait for deployment to complete
+
+    // Set the minter to StableBaseCDP contract
+    await sbdToken.setMinter(stableBaseCDP.target);
 
     // Deploy ERC20 token for testing
     const ERC20Token = await ethers.getContractFactory("ERC20Token");
@@ -18,6 +40,7 @@ describe("StableBaseCDP", function () {
     // Transfer some tokens to addr1
     await token.transfer(addr1.address, ethers.parseEther("100"));
   });
+
 
   console.log("ethers:-> ", ethers);
 
@@ -63,16 +86,30 @@ describe("StableBaseCDP", function () {
     const depositAmount = ethers.parseEther("1");
     const reserveRatio = 100;
 
+    // Calculate the maximum borrowable amount based on the dummy price and liquidation ratio
+    const price = BigInt(1000); // Dummy price from getPriceFromOracle
+    const liquidationRatio = BigInt(110); // Ensure consistency with contract
+    const maxBorrowAmount = (depositAmount * price) / liquidationRatio; // BigInt calculation
+
+    // Adjust the borrow amount to be within the limit
+    const borrowAmount = maxBorrowAmount - BigInt(1); // Slightly less than max borrowable amount
+
     // Open a safe with ETH
     await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
 
-    // Compute the safe ID
-    const safeId = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(["address", "address"], [addr1.address, ethers.ZeroAddress]));
-    await stableBaseCDP.connect(addr1).closeSafe(ethers.ZeroAddress);
+    // Borrow SBD tokens
+    await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
 
-    // Check if the safe has been closed (deposited amount should be 0)
+    // Compute the safe ID
+    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
     const safe = await stableBaseCDP.safes(safeId);
-    expect(safe.depositedAmount).to.equal(0);
-    expect(safe.borrowedAmount).to.equal(0);
+
+    // Check if the safe has the correct borrowed amount
+    expect(safe.borrowedAmount).to.equal(borrowAmount);
+
+    // Check if the SBD tokens have been minted to the borrower
+    const sbdBalance = await sbdToken.balanceOf(addr1.address);
+    expect(sbdBalance).to.equal(borrowAmount);
   });
+
 });
