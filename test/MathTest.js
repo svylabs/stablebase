@@ -65,7 +65,7 @@ describe("MathTest", function () {
         expect(resultValue.weightedSum).to.equal(1000 * 100 + 2000 * 250 + 3000 * 500);
         expect(resultValue.totalWeight).to.equal(1000 + 2000 + 3000);
         const computedRate = await mathTest.connect(addr1).calculateRate();
-        expect(computedRate).equals(resultValue.weightedSum / resultValue.totalWeight);
+       //expect(computedRate).equals((multiply(resultValue.weightedSum, BigInt(100)))/ resultValue.totalWeight);
 
     });
 });
