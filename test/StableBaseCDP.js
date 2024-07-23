@@ -28,23 +28,10 @@ describe("StableBaseCDP", function () {
 
     // Open a safe with ETH
     await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
-    // const result  = await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
-    // console.log("stableBaseCDP:-> ", result);
 
     // Compute the safe ID
     const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
     const safe = await stableBaseCDP.safes(safeId);
-
-    // console.log("safeId:->  ", safeId);
-    // console.log("safe:->  ", safe);
-    // console.log("safe.token:->  ", safe.token);
-    // console.log("token.target:->  ", token.target);
-    // console.log("safe.depositedAmount:->  ", safe.depositedAmount);
-    // console.log("depositAmount:->  ", depositAmount);
-    // console.log("safe.depositedAmount:->  ", safe.depositedAmount.toString());
-    // console.log("depositAmount:->  ", depositAmount.toString());
-    // console.log("safe.reserveRatio:->  ", safe.reserveRatio);
-    // console.log("reserveRatio:->  ", reserveRatio);
 
     // Check if the safe has the correct deposited amount and reserve ratio
     expect(safe.token).to.equal(ethers.ZeroAddress);
@@ -62,20 +49,8 @@ describe("StableBaseCDP", function () {
     await stableBaseCDP.connect(addr1).openSafe(token.target, depositAmount, reserveRatio); // open safe
 
     // Compute the safe ID
-    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
+    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, token.target]);
     const safe = await stableBaseCDP.safes(safeId);
-
-
-    console.log("safeId:->  ", safeId);
-    console.log("safe:->  ", safe);
-    console.log("safe.token:->  ", safe.token);
-    console.log("token.target:->  ", token.target);
-    console.log("safe.depositedAmount:->  ", safe.depositedAmount);
-    console.log("depositAmount:->  ", depositAmount);
-    console.log("safe.depositedAmount:->  ", safe.depositedAmount.toString());
-    console.log("depositAmount:->  ", depositAmount.toString());
-    console.log("safe.reserveRatio:->  ", safe.reserveRatio);
-    console.log("reserveRatio:->  ", reserveRatio);
 
     // Check if the safe has the correct deposited amount and reserve ratio
     expect(safe.token).to.equal(token.target);
