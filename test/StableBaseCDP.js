@@ -76,7 +76,6 @@ describe("StableBaseCDP", function () {
     // Calculate the maximum borrowable amount based on the dummy price and liquidation ratio
     const price = BigInt(1000); // Dummy price from getPriceFromOracle
     const liquidationRatio = BigInt(110); // Ensure consistency with contract
-    const maxBorrowAmount = (depositAmount * price * 100) / liquidationRatio; // BigInt calculation
     const maxBorrowAmount = (depositAmount * price * BigInt(100)) / liquidationRatio; // BigInt calculation
 
     // Adjust the borrow amount to be within the limit
