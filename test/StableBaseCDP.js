@@ -5,42 +5,58 @@ describe("StableBaseCDP", function () {
   let stableBaseCDP, token, owner, addr1, sbdToken;
 
   // beforeEach(async function () {
-  //   // [owner, addr1] = await ethers.getSigners();
+  //   [owner, addr1] = await ethers.getSigners();
+
+  //   // Deploy SBDToken
+  //   const SBDToken = await ethers.getContractFactory("SBDToken");
+  //   sbdToken = await SBDToken.deploy("SBD Token", "SBD");
+  //   await sbdToken.waitForDeployment(); // wait for deployment to complete
+
+  //   // Deploy StableBaseCDP
   //   const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
-  //   stableBaseCDP = await StableBaseCDPFactory.deploy();
+  //   stableBaseCDP = await StableBaseCDPFactory.deploy(sbdToken.target);
   //   await stableBaseCDP.waitForDeployment(); // wait for deployment to complete
 
-  //   // // Deploy ERC20 token for testing
+  //   // Set the minter to StableBaseCDP contract
+  //   await sbdToken.setMinter(stableBaseCDP.target);
+
+  //   // Deploy ERC20 token for testing
   //   // const ERC20Token = await ethers.getContractFactory("ERC20Token");
   //   // token = await ERC20Token.deploy("Mock Token", "MKT", ethers.parseEther("1000"));
   //   // await token.waitForDeployment(); // wait for deployment to complete
 
-  //   // // Transfer some tokens to addr1
-  //   // await token.transfer(addr1.address, ethers.parseEther("100"));
+  //   const ERC20Token = await ethers.getContractFactory("SBDToken");
+  //   token = await ERC20Token.deploy("Mock Token", "MKT", ethers.parseEther("1000"));
+  //   await token.waitForDeployment(); // wait for deployment to complete
+
+  //   // const MockToken = await ethers.getContractFactory("SBDToken");
+  //   // mockToken = await MockToken.deploy("Mock Token", "MKT");
+  //   // await mockToken.waitForDeployment();
+
+  //   // Transfer some tokens to addr1
+  //   await token.transfer(addr1.address, ethers.parseEther("100"));
   // });
+
 
   beforeEach(async function () {
     [owner, addr1] = await ethers.getSigners();
     const SBDToken = await ethers.getContractFactory("SBDToken");
     sbdToken = await SBDToken.deploy("SBD Token", "SBD");
-    await sbdToken.waitForDeployment(); // wait for deployment to complete
+    await sbdToken.waitForDeployment();
 
     const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
     stableBaseCDP = await StableBaseCDPFactory.deploy(sbdToken.target);
-    await stableBaseCDP.waitForDeployment(); // wait for deployment to complete
+    await stableBaseCDP.waitForDeployment();
 
     // Set the minter to StableBaseCDP contract
     await sbdToken.setMinter(stableBaseCDP.target);
 
-    // Deploy ERC20 token for testing
     const ERC20Token = await ethers.getContractFactory("ERC20Token");
     token = await ERC20Token.deploy("Mock Token", "MKT", ethers.parseEther("1000"));
-    await token.waitForDeployment(); // wait for deployment to complete
+    await token.waitForDeployment();
 
-    // Transfer some tokens to addr1
     await token.transfer(addr1.address, ethers.parseEther("100"));
   });
-
 
   console.log("ethers:-> ", ethers);
 
@@ -71,6 +87,10 @@ describe("StableBaseCDP", function () {
     await token.connect(addr1).approve(stableBaseCDP.target, depositAmount); // approve token transfer
     await stableBaseCDP.connect(addr1).openSafe(token.target, depositAmount, reserveRatio); // open safe
 
+    // Approve the token transfer and open a safe with the ERC20 token
+    await mockToken.connect(addr1).approve(stableBaseCDP.target, depositAmount); // approve token transfer
+    await stableBaseCDP.connect(addr1).openSafe(mockToken.target, depositAmount, reserveRatio); // open safe
+
     // Compute the safe ID
     const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, token.target]);
     const safe = await stableBaseCDP.safes(safeId);
@@ -81,8 +101,8 @@ describe("StableBaseCDP", function () {
     expect(safe.reserveRatio).to.equal(reserveRatio);
   });
 
-  // Test case for closing a safe and returning the collateral
-  it("should close a safe and return the collateral", async function () {
+  // Test case for borrowing against the collateral in a safe
+  it("should allow borrowing SBD tokens against the collateral and return the borrowed amount", async function () {
     const depositAmount = ethers.parseEther("1");
     const reserveRatio = 100;
 
@@ -110,6 +130,24 @@ describe("StableBaseCDP", function () {
     // Check if the SBD tokens have been minted to the borrower
     const sbdBalance = await sbdToken.balanceOf(addr1.address);
     expect(sbdBalance).to.equal(borrowAmount);
+  });
+
+  // Test case for closing a safe and returning the collateral
+  it("should close a safe and return the collateral to the owner", async function () {
+    const depositAmount = ethers.parseEther("1");
+    const reserveRatio = 100;
+
+    // Open a safe with ETH
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+
+    // Compute the safe ID
+    const safeId = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(["address", "address"], [addr1.address, ethers.ZeroAddress]));
+    await stableBaseCDP.connect(addr1).closeSafe(ethers.ZeroAddress); // Close the safe
+
+    // Check if the safe has been closed (deposited amount should be 0)
+    const safe = await stableBaseCDP.safes(safeId);
+    expect(safe.depositedAmount).to.equal(0);
+    expect(safe.borrowedAmount).to.equal(0);
   });
 
 });
