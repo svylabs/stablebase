@@ -2,6 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+// import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import "./Structures.sol";
 import "./Utilities.sol";
 import "./SBDToken.sol";
@@ -18,16 +20,25 @@ contract StableBaseCDP {
 
     mapping(address => bool) public whitelistedTokens;
 
-    // constructor() {
-    //     // Add ETH to the whitelist
-    //     whitelistedTokens[address(0)] = true;
-    // }
+    // Chainlink Price Feed Mapping
+    mapping(address => address) public priceFeedAddresses;
 
     SBDToken public sbdToken;
 
     constructor(address _sbdToken) {
         whitelistedTokens[address(0)] = true;
         sbdToken = SBDToken(_sbdToken);
+    }
+
+    /**
+     * @dev Sets the Chainlink price feed address for a given token.
+     * @param _token Address of the token
+     * @param _priceFeed Address of the Chainlink price feed contract
+     */
+    function setPriceFeedAddress(address _token, address _priceFeed) external {
+        // Only allow setting price feed for whitelisted tokens
+        require(whitelistedTokens[_token], "Token not whitelisted");
+        priceFeedAddresses[_token] = _priceFeed;
     }
 
     /**
@@ -75,17 +86,10 @@ contract StableBaseCDP {
     function closeSafe(address collateralToken) external {
         bytes32 id = SBUtils.getSafeId(msg.sender, collateralToken);
         SBStructs.Safe storage safe = safes[id];
-        require(
-            safe.borrowedAmount == 0,
-            "Cannot close Safe with borrowed amount"
-        );
+        require(safe.borrowedAmount == 0, "Cannot close Safe with borrowed amount");
 
         // Withdraw ETH or ERC20 token using SBUtils library (Transfer collateral back to the owner)
-        SBUtils.withdrawEthOrToken(
-            safe.token,
-            msg.sender,
-            safe.depositedAmount
-        );
+        SBUtils.withdrawEthOrToken(safe.token, msg.sender, safe.depositedAmount);
 
         // Remove the Safe from the mapping
         delete safes[id];
@@ -100,10 +104,10 @@ contract StableBaseCDP {
         uint256 price = getPriceFromOracle(_token);
 
         // Calculate the maximum borrowable amount
-        uint256 maxBorrowAmount = (safe.depositedAmount * price) / liquidationRatio;
+        uint256 maxBorrowAmount = (safe.depositedAmount * price * 100) / liquidationRatio;
 
         // Check if the requested amount is within the maximum borrowable limit
-        require(_amount <= maxBorrowAmount, "Borrow amount exceeds the maximum allowed");
+        require(safe.borrowedAmount + _amount <= maxBorrowAmount, "Borrow amount exceeds the maximum allowed");
 
         // Calculate origination fee
         uint256 originationFee = (_amount * originationFeeRateBasisPoints) / BASIS_POINTS_DIVISOR;
@@ -116,8 +120,25 @@ contract StableBaseCDP {
         sbdToken.mint(msg.sender, _amount - originationFee);
     }
 
+    // function getPriceFromOracle(address _token) internal view returns (uint256) {
+    //     // Dummy implementation for fetching price from oracle
+    //     return 1000; // For example, 1000 USD per ETH
+    // }
+
+    /**
+     * @dev Gets the price of a token from the oracle.
+     * @param _token Address of the token
+     * @return uint256 Price of the token in USD (8 decimal places)
+     */
     function getPriceFromOracle(address _token) internal view returns (uint256) {
-        // Dummy implementation for fetching price from oracle
-        return 1000; // For example, 1000 USD per ETH
+        address priceFeedAddress = priceFeedAddresses[_token];
+        require(priceFeedAddress != address(0), "Price feed not set for token");
+
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(priceFeedAddress);
+        (, int256 price,,,) = priceFeed.latestRoundData();
+
+        require(price > 0, "Invalid price data");
+
+        return uint256(price);
     }
 }
