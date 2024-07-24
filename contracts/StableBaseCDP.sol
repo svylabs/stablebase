@@ -121,6 +121,8 @@ contract StableBaseCDP {
 
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amount - originationFee);
+        // TODO: Mint origination fee to the fee holder
+        //sbdToken.mint(feeHolder, originationFee);
     }
 
     function getPriceFromOracle(address _token) internal view returns (uint256) {
