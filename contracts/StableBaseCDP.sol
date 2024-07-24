@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./Structures.sol";
 import "./Utilities.sol";
 import "./SBDToken.sol";
+import "./dependencies/price-oracle/MockPriceOracle.sol";
+import "./interfaces/IPriceOracle.sol";
 
 contract StableBaseCDP {
     uint256 private originationFeeRateBasisPoints = 0; // start with 0% origination fee
@@ -16,7 +18,7 @@ contract StableBaseCDP {
 
     SBStructs.Mode public mode = SBStructs.Mode.BOOTSTRAP;
 
-    mapping(address => bool) public whitelistedTokens;
+    mapping(address => SBStructs.WhitelistedToken) public whitelistedTokens;
 
     // constructor() {
     //     // Add ETH to the whitelist
@@ -26,7 +28,10 @@ contract StableBaseCDP {
     SBDToken public sbdToken;
 
     constructor(address _sbdToken) {
-        whitelistedTokens[address(0)] = true;
+        whitelistedTokens[address(0)] = SBStructs.WhitelistedToken({
+            priceOracle: address(new MockPriceOracle()),
+            collateralRatio: 110
+        });
         sbdToken = SBDToken(_sbdToken);
     }
 
@@ -96,8 +101,10 @@ contract StableBaseCDP {
         SBStructs.Safe storage safe = safes[id];
         require(safe.depositedAmount > 0, "Safe does not exist");
 
+        IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[_token].priceOracle);
+
         // Fetch the price of the collateral from the oracle
-        uint256 price = getPriceFromOracle(_token);
+        uint256 price = priceOracle.getPrice();
 
         // Calculate the maximum borrowable amount
         uint256 maxBorrowAmount = (safe.depositedAmount * price * 100) / liquidationRatio;

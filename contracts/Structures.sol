@@ -12,7 +12,7 @@ library SBStructs {
         uint256 originationFeePaid;
     }
 
-    struct whitelistedTokens {
+    struct WhitelistedToken {
         address priceOracle;
         uint256 collateralRatio;
     }
