@@ -2,41 +2,8 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("StableBaseCDP", function () {
-  let stableBaseCDP, token, owner, addr1, sbdToken;
-
-  // beforeEach(async function () {
-  //   [owner, addr1] = await ethers.getSigners();
-
-  //   // Deploy SBDToken
-  //   const SBDToken = await ethers.getContractFactory("SBDToken");
-  //   sbdToken = await SBDToken.deploy("SBD Token", "SBD");
-  //   await sbdToken.waitForDeployment(); // wait for deployment to complete
-
-  //   // Deploy StableBaseCDP
-  //   const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
-  //   stableBaseCDP = await StableBaseCDPFactory.deploy(sbdToken.target);
-  //   await stableBaseCDP.waitForDeployment(); // wait for deployment to complete
-
-  //   // Set the minter to StableBaseCDP contract
-  //   await sbdToken.setMinter(stableBaseCDP.target);
-
-  //   // Deploy ERC20 token for testing
-  //   // const ERC20Token = await ethers.getContractFactory("ERC20Token");
-  //   // token = await ERC20Token.deploy("Mock Token", "MKT", ethers.parseEther("1000"));
-  //   // await token.waitForDeployment(); // wait for deployment to complete
-
-  //   const ERC20Token = await ethers.getContractFactory("SBDToken");
-  //   token = await ERC20Token.deploy("Mock Token", "MKT", ethers.parseEther("1000"));
-  //   await token.waitForDeployment(); // wait for deployment to complete
-
-  //   // const MockToken = await ethers.getContractFactory("SBDToken");
-  //   // mockToken = await MockToken.deploy("Mock Token", "MKT");
-  //   // await mockToken.waitForDeployment();
-
-  //   // Transfer some tokens to addr1
-  //   await token.transfer(addr1.address, ethers.parseEther("100"));
-  // });
-
+  // let stableBaseCDP, token, owner, addr1, sbdToken;
+  let stableBaseCDP, sbdToken, mockToken, owner, addr1;
 
   beforeEach(async function () {
     [owner, addr1] = await ethers.getSigners();
@@ -51,11 +18,16 @@ describe("StableBaseCDP", function () {
     // Set the minter to StableBaseCDP contract
     await sbdToken.setMinter(stableBaseCDP.target);
 
-    const ERC20Token = await ethers.getContractFactory("ERC20Token");
-    token = await ERC20Token.deploy("Mock Token", "MKT", ethers.parseEther("1000"));
-    await token.waitForDeployment();
+    // Deploy a mock ERC20 token
+    const MockToken = await ethers.getContractFactory("SBDToken");
+    mockToken = await MockToken.deploy("Mock Token", "MKT");
+    await mockToken.waitForDeployment();
 
-    await token.transfer(addr1.address, ethers.parseEther("100"));
+    // Mint tokens to owner so that we can transfer them to addr1
+    await mockToken.mint(owner.address, ethers.parseEther("1000"));
+
+    // Transfer some tokens to addr1
+    await mockToken.transfer(addr1.address, ethers.parseEther("100"));
   });
 
   console.log("ethers:-> ", ethers);
@@ -84,19 +56,15 @@ describe("StableBaseCDP", function () {
     const reserveRatio = 100;
 
     // Approve the token transfer and open a safe with the ERC20 token
-    await token.connect(addr1).approve(stableBaseCDP.target, depositAmount); // approve token transfer
-    await stableBaseCDP.connect(addr1).openSafe(token.target, depositAmount, reserveRatio); // open safe
-
-    // Approve the token transfer and open a safe with the ERC20 token
     await mockToken.connect(addr1).approve(stableBaseCDP.target, depositAmount); // approve token transfer
     await stableBaseCDP.connect(addr1).openSafe(mockToken.target, depositAmount, reserveRatio); // open safe
 
     // Compute the safe ID
-    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, token.target]);
+    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, mockToken.target]);
     const safe = await stableBaseCDP.safes(safeId);
 
     // Check if the safe has the correct deposited amount and reserve ratio
-    expect(safe.token).to.equal(token.target);
+    expect(safe.token).to.equal(mockToken.target);
     expect(safe.depositedAmount).to.equal(depositAmount);
     expect(safe.reserveRatio).to.equal(reserveRatio);
   });
