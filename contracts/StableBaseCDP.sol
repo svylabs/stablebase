@@ -100,10 +100,10 @@ contract StableBaseCDP {
         uint256 price = getPriceFromOracle(_token);
 
         // Calculate the maximum borrowable amount
-        uint256 maxBorrowAmount = (safe.depositedAmount * price) / liquidationRatio;
+        uint256 maxBorrowAmount = (safe.depositedAmount * price * 100) / liquidationRatio;
 
         // Check if the requested amount is within the maximum borrowable limit
-        require(_amount <= maxBorrowAmount, "Borrow amount exceeds the maximum allowed");
+        require(safe.borrowedAmount + _amount <= maxBorrowAmount, "Borrow amount exceeds the maximum allowed");
 
         // Calculate origination fee
         uint256 originationFee = (_amount * originationFeeRateBasisPoints) / BASIS_POINTS_DIVISOR;
