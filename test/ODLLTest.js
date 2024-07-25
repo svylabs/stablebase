@@ -355,6 +355,65 @@ describe("OrderedDoublyLinkedListTest", function () {
             expect(node.prev).to.equal(values[i].prev);
             expect(node.next).to.equal(values[i].next);
         }
+        const removeTest = {
+            remove: [
+                {
+                    id: 9,
+                    head: 4,
+                    tail: 15,
+                },
+                {
+                    id: 15,
+                    head: 4, 
+                    tail: 14
+                },
+                {
+                    id: 4,
+                    head: 5,
+                    tail: 14
+                }
+            ],
+            updatedValues: [
+                {
+                    id: 5,
+                    value: 5,
+                    prev: 0,
+                    next: 10,
+                    nearestInput: 0
+                },
+                {
+                    id: 10,
+                    value: 10,
+                    prev: 5,
+                    next: 14,
+                    nearestInput: 0
+                },
+                {
+                    id: 14,
+                    value: 15,
+                    prev: 10,
+                    next: 0,
+                    nearestInput: 5
+                }
+            ]
+        };
+        for (let i = 0; i < removeTest.remove.length; i++) {
+            const remove = removeTest.remove[i];
+            const result = await orderedDoublyLinkedList.connect(addr1).remove(remove.id);
+            const receipt = await result.wait();
+            const head2 = await orderedDoublyLinkedList.connect(addr1).head();
+            const tail2 = await orderedDoublyLinkedList.connect(addr1).tail();
+            console.log("(Removed, head, tail, gas)", remove, head2, tail2, receipt.gasUsed);
+            expect(head2).to.equal(remove.head);
+            expect(tail2).to.equal(remove.tail);
+        }
+        for (let i = 0; i < removeTest.updatedValues.length; i++) {
+            const node = await orderedDoublyLinkedList.connect(addr1).nodes(removeTest.updatedValues[i].id);
+            console.log("(id, node)", removeTest.updatedValues[i].id, removeTest.updatedValues[i].value, node);
+            expect(node.value).to.equal(removeTest.updatedValues[i].value);
+            expect(node.prev).to.equal(removeTest.updatedValues[i].prev);
+            expect(node.next).to.equal(removeTest.updatedValues[i].next);
+        }
     });
 
 });
