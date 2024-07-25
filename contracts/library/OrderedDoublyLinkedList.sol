@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 contract OrderedDoublyLinkedList {
     struct Node {
         uint256 value;
-        uint256 next;
         uint256 prev;
+        uint256 next;
     }
 
     uint256 public head;
@@ -114,8 +114,10 @@ contract OrderedDoublyLinkedList {
     }
 
     function _update(uint256 id, uint256 value, uint256 _nearestSpot) internal {
-        nodes[id].value = value;
         Node memory node = _remove(id);
+        node.value = value;
+        node.prev = 0;
+        node.next = 0;
         _insert(id, node, _nearestSpot);
     }
 

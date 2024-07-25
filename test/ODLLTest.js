@@ -153,4 +153,208 @@ describe("OrderedDoublyLinkedListTest", function () {
         }
     });
 
+    it("Test update", async function () {
+        const values = [
+            {
+                id: 5,
+                value: 5,
+                prev: 4,
+                next: 9,
+                nearestInput: 0
+            },
+            {
+                id: 10,
+                value: 10,
+                prev: 9,
+                next: 14,
+                nearestInput: 0
+            },
+            {
+                id: 15,
+                value: 15,
+                prev: 14,
+                next: 0,
+                nearestInput: 5
+            },
+            {
+                id: 14,
+                value: 15,
+                prev: 10,
+                next: 15,
+                nearestInput: 5
+            },
+            {
+                id: 9,
+                value: 10,
+                prev: 5,
+                next: 10,
+                nearestInput: 15
+            },
+            {
+                id: 4,
+                value: 5,
+                prev: 0,
+                next: 5,
+                nearestInput: 15
+            }
+        ];
+        for (let i = 0; i < values.length; i++) {
+            const value = values[i];
+            const result = await orderedDoublyLinkedList.connect(addr1).upsert(value.id, value.value, value.nearestInput);
+            const receipt = await result.wait();
+            const head = await orderedDoublyLinkedList.connect(addr1).head();
+            const node = await orderedDoublyLinkedList.connect(addr1).nodes(values[i].id);
+            const tail = await orderedDoublyLinkedList.connect(addr1).tail();
+            console.log("(Inserted, head, tail, node, gas)", value, head, tail, node, receipt.gasUsed);
+        }
+        const head = await orderedDoublyLinkedList.connect(addr1).head();
+        expect(head).to.equal(4);
+        const tail = await orderedDoublyLinkedList.connect(addr1).tail();
+        expect(tail).to.equal(15);
+        for (let i = 0; i < values.length; i++) {
+            const node = await orderedDoublyLinkedList.connect(addr1).nodes(values[i].id);
+            console.log("(id, node)", values[i].id, values[i].value, node);
+            expect(node.value).to.equal(values[i].value);
+            expect(node.prev).to.equal(values[i].prev);
+            expect(node.next).to.equal(values[i].next);
+        }
+        const update = {
+            id: 4,
+            value: 100,
+            prev: 15,
+            next: 0,
+            nearestInput: 15
+        };
+        const updatedValues = [
+            {
+                id: 5,
+                value: 5,
+                prev: 0,
+                next: 9,
+                nearestInput: 0
+            },
+            {
+                id: 10,
+                value: 10,
+                prev: 9,
+                next: 14,
+                nearestInput: 0
+            },
+            {
+                id: 15,
+                value: 15,
+                prev: 14,
+                next: 4,
+                nearestInput: 5
+            },
+            {
+                id: 14,
+                value: 15,
+                prev: 10,
+                next: 15,
+                nearestInput: 5
+            },
+            {
+                id: 9,
+                value: 10,
+                prev: 5,
+                next: 10,
+                nearestInput: 15
+            },
+            {
+                id: 4,
+                value: 100,
+                prev: 15,
+                next: 0,
+                nearestInput: 15
+            }
+        ];
+        const result = await orderedDoublyLinkedList.connect(addr1).upsert(update.id, update.value, update.nearestInput);
+        const receipt = await result.wait();
+        const node = await orderedDoublyLinkedList.connect(addr1).nodes(update.id);
+        console.log("(Updated, node, gas)", update, node, receipt.gasUsed);
+        expect(node.value).to.equal(update.value);
+        expect(node.prev).to.equal(update.prev);
+        expect(node.next).to.equal(update.next);
+        const head2 = await orderedDoublyLinkedList.connect(addr1).head();
+        const tail2 = await orderedDoublyLinkedList.connect(addr1).tail();
+        console.log("(head, tail)", head2, tail2);
+        expect(head2).to.equal(5);
+        expect(tail2).to.equal(4);
+        for (let i = 0; i < updatedValues.length; i++) {
+            const node = await orderedDoublyLinkedList.connect(addr1).nodes(updatedValues[i].id);
+            console.log("(id, node)", updatedValues[i].id, updatedValues[i].value, node);
+            expect(node.value).to.equal(updatedValues[i].value);
+            expect(node.prev).to.equal(updatedValues[i].prev);
+            expect(node.next).to.equal(updatedValues[i].next);
+        }
+    });
+
+    it("Test Remove", async function () {
+        const values = [
+            {
+                id: 5,
+                value: 5,
+                prev: 4,
+                next: 9,
+                nearestInput: 0
+            },
+            {
+                id: 10,
+                value: 10,
+                prev: 9,
+                next: 14,
+                nearestInput: 0
+            },
+            {
+                id: 15,
+                value: 15,
+                prev: 14,
+                next: 0,
+                nearestInput: 5
+            },
+            {
+                id: 14,
+                value: 15,
+                prev: 10,
+                next: 15,
+                nearestInput: 5
+            },
+            {
+                id: 9,
+                value: 10,
+                prev: 5,
+                next: 10,
+                nearestInput: 15
+            },
+            {
+                id: 4,
+                value: 5,
+                prev: 0,
+                next: 5,
+                nearestInput: 15
+            }
+        ];
+        for (let i = 0; i < values.length; i++) {
+            const value = values[i];
+            const result = await orderedDoublyLinkedList.connect(addr1).upsert(value.id, value.value, value.nearestInput);
+            const receipt = await result.wait();
+            const head = await orderedDoublyLinkedList.connect(addr1).head();
+            const node = await orderedDoublyLinkedList.connect(addr1).nodes(values[i].id);
+            const tail = await orderedDoublyLinkedList.connect(addr1).tail();
+            console.log("(Inserted, head, tail, node, gas)", value, head, tail, node, receipt.gasUsed);
+        }
+        const head = await orderedDoublyLinkedList.connect(addr1).head();
+        expect(head).to.equal(4);
+        const tail = await orderedDoublyLinkedList.connect(addr1).tail();
+        expect(tail).to.equal(15);
+        for (let i = 0; i < values.length; i++) {
+            const node = await orderedDoublyLinkedList.connect(addr1).nodes(values[i].id);
+            console.log("(id, node)", values[i].id, values[i].value, node);
+            expect(node.value).to.equal(values[i].value);
+            expect(node.prev).to.equal(values[i].prev);
+            expect(node.next).to.equal(values[i].next);
+        }
+    });
+
 });
