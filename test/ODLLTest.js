@@ -134,10 +134,11 @@ describe("OrderedDoublyLinkedListTest", function () {
         for (let i = 0; i < values.length; i++) {
             const value = values[i];
             const result = await orderedDoublyLinkedList.connect(addr1).upsert(value.id, value.value, value.nearestInput);
+            const receipt = await result.wait();
             const head = await orderedDoublyLinkedList.connect(addr1).head();
             const node = await orderedDoublyLinkedList.connect(addr1).nodes(values[i].id);
             const tail = await orderedDoublyLinkedList.connect(addr1).tail();
-            console.log("(Inserted, head, tail, node)", value, head, tail, node);
+            console.log("(Inserted, head, tail, node, gas)", value, head, tail, node, receipt.gasUsed);
         }
         const head = await orderedDoublyLinkedList.connect(addr1).head();
         expect(head).to.equal(4);
