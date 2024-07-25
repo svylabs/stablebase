@@ -2,14 +2,28 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("StableBaseCDP", function () {
-  let stableBaseCDP, sbdToken, mockToken, owner, addr1;
+  let stableBaseCDP, sbdToken, mockToken, owner, addr1, priceOracle, mockOracle;
 
   beforeEach(async function () {
     [owner, addr1] = await ethers.getSigners();
+
+    // Deploy SBDToken
     const SBDToken = await ethers.getContractFactory("SBDToken");
     sbdToken = await SBDToken.deploy("SBD Token", "SBD");
     await sbdToken.waitForDeployment();
 
+    // Deploy mock oracle
+    const MockOracle = await ethers.getContractFactory("MockV3Aggregator");
+    mockOracle = await MockOracle.deploy(8, ethers.utils.parseUnits("1000", 8)); // 8 decimal places, price 1000
+    await mockOracle.waitForDeployment();
+
+    // Deploy ChainlinkPriceOracle
+    const PriceConsumer = await ethers.getContractFactory("ChainlinkPriceOracle");
+    priceOracle = await PriceConsumer.deploy(mockOracle.address);
+    // priceOracle = await PriceConsumer.deploy(ethers.ZeroAddress);
+    await priceOracle.waitForDeployment();
+
+    // Deploy StableBaseCDP with the price oracle address
     const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
     stableBaseCDP = await StableBaseCDPFactory.deploy(sbdToken.target);
     await stableBaseCDP.waitForDeployment();
@@ -73,16 +87,19 @@ describe("StableBaseCDP", function () {
     const depositAmount = ethers.parseEther("1");
     const reserveRatio = 100;
 
+    // Open a safe with ETH
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+
     // Calculate the maximum borrowable amount based on the dummy price and liquidation ratio
-    const price = BigInt(1000); // Dummy price from getPriceFromOracle
+    // const price = BigInt(1000); // Dummy price from getPriceFromOracle
+    console.log("priceOracle:-> ", priceOracle);
+    const price = await priceOracle.getPrice();
+    console.log("price:-> ",price);
     const liquidationRatio = BigInt(110); // Ensure consistency with contract
     const maxBorrowAmount = (depositAmount * price * BigInt(100)) / liquidationRatio; // BigInt calculation
 
     // Adjust the borrow amount to be within the limit
     const borrowAmount = maxBorrowAmount - BigInt(1); // Slightly less than max borrowable amount
-
-    // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
 
     // Borrow SBD tokens
     await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);

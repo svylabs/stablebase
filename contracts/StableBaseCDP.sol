@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-// import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import "./Structures.sol";
 import "./Utilities.sol";
@@ -22,9 +20,6 @@ contract StableBaseCDP {
 
     mapping(address => SBStructs.WhitelistedToken) public whitelistedTokens;
 
-    // Chainlink Price Feed Mapping
-    mapping(address => address) public priceFeedAddresses;
-
     SBDToken public sbdToken;
 
     constructor(address _sbdToken) {
@@ -33,17 +28,6 @@ contract StableBaseCDP {
             collateralRatio: 110
         });
         sbdToken = SBDToken(_sbdToken);
-    }
-
-    /**
-     * @dev Sets the Chainlink price feed address for a given token.
-     * @param _token Address of the token
-     * @param _priceFeed Address of the Chainlink price feed contract
-     */
-    function setPriceFeedAddress(address _token, address _priceFeed) external {
-        // Only allow setting price feed for whitelisted tokens
-        require(whitelistedTokens[_token], "Token not whitelisted");
-        priceFeedAddresses[_token] = _priceFeed;
     }
 
     /**
@@ -127,27 +111,5 @@ contract StableBaseCDP {
         sbdToken.mint(msg.sender, _amount - originationFee);
         // TODO: Mint origination fee to the fee holder
         //sbdToken.mint(feeHolder, originationFee);
-    }
-
-    // function getPriceFromOracle(address _token) internal view returns (uint256) {
-    //     // Dummy implementation for fetching price from oracle
-    //     return 1000; // For example, 1000 USD per ETH
-    // }
-
-    /**
-     * @dev Gets the price of a token from the oracle.
-     * @param _token Address of the token
-     * @return uint256 Price of the token in USD (8 decimal places)
-     */
-    function getPriceFromOracle(address _token) internal view returns (uint256) {
-        address priceFeedAddress = priceFeedAddresses[_token];
-        require(priceFeedAddress != address(0), "Price feed not set for token");
-
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(priceFeedAddress);
-        (, int256 price,,,) = priceFeed.latestRoundData();
-
-        require(price > 0, "Invalid price data");
-
-        return uint256(price);
     }
 }
