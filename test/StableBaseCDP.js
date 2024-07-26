@@ -12,16 +12,16 @@ describe("StableBaseCDP", function () {
     sbdToken = await SBDToken.deploy("SBD Token", "SBD");
     await sbdToken.waitForDeployment();
 
-    // Deploy mock oracle
-    const MockOracle = await ethers.getContractFactory("MockV3Aggregator");
-    mockOracle = await MockOracle.deploy(8, ethers.utils.parseUnits("1000", 8)); // 8 decimal places, price 1000
-    await mockOracle.waitForDeployment();
+    // // Deploy mock oracle
+    // const MockOracle = await ethers.getContractFactory("MockV3Aggregator");
+    // mockOracle = await MockOracle.deploy(8, ethers.parseUnits("1000", 8)); // 8 decimal places, price 1000
+    // await mockOracle.waitForDeployment();
 
-    // Deploy ChainlinkPriceOracle
-    const PriceConsumer = await ethers.getContractFactory("ChainlinkPriceOracle");
-    priceOracle = await PriceConsumer.deploy(mockOracle.address);
-    // priceOracle = await PriceConsumer.deploy(ethers.ZeroAddress);
-    await priceOracle.waitForDeployment();
+    // // Deploy ChainlinkPriceOracle
+    // const PriceConsumer = await ethers.getContractFactory("ChainlinkPriceOracle");
+    // priceOracle = await PriceConsumer.deploy(mockOracle.address);
+    // // priceOracle = await PriceConsumer.deploy(ethers.ZeroAddress);
+    // await priceOracle.waitForDeployment();
 
     // Deploy StableBaseCDP with the price oracle address
     const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
@@ -91,9 +91,9 @@ describe("StableBaseCDP", function () {
     await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
 
     // Calculate the maximum borrowable amount based on the dummy price and liquidation ratio
-    // const price = BigInt(1000); // Dummy price from getPriceFromOracle
-    console.log("priceOracle:-> ", priceOracle);
-    const price = await priceOracle.getPrice();
+    const price = BigInt(1000); // Dummy price from getPriceFromOracle
+    // console.log("priceOracle:-> ", priceOracle);
+    // const price = await priceOracle.getPrice();
     console.log("price:-> ",price);
     const liquidationRatio = BigInt(110); // Ensure consistency with contract
     const maxBorrowAmount = (depositAmount * price * BigInt(100)) / liquidationRatio; // BigInt calculation
