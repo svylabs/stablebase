@@ -1,9 +1,11 @@
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: MIT
+
+// pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract StakingRewardsAccumulator {
-
     // ERC20 token being staked
     IERC20 public token;
 
@@ -27,7 +29,7 @@ contract StakingRewardsAccumulator {
     // Function to stake tokens
     function stake(uint256 _amount) external {
         require(_amount > 0, "Amount must be greater than 0");
-        
+
         // Update staked balance
         stakedBalance[msg.sender] = stakedBalance[msg.sender] + _amount;
         totalStaked = totalStaked + _amount;
@@ -37,13 +39,19 @@ contract StakingRewardsAccumulator {
         rewardsBalance[msg.sender] = rewardsBalance[msg.sender] + userReward;
 
         // Transfer tokens from sender to contract
-        require(token.transferFrom(msg.sender, address(this), _amount), "Token transfer failed");
+        require(
+            token.transferFrom(msg.sender, address(this), _amount),
+            "Token transfer failed"
+        );
     }
 
     // Function to withdraw staked tokens
     function withdraw(uint256 _amount) external {
         require(_amount > 0, "Amount must be greater than 0");
-        require(_amount <= stakedBalance[msg.sender], "Insufficient staked balance");
+        require(
+            _amount <= stakedBalance[msg.sender],
+            "Insufficient staked balance"
+        );
 
         // Calculate and update rewards
         uint256 userReward = (totalRewards * _amount) / (totalStaked);
@@ -78,7 +86,9 @@ contract StakingRewardsAccumulator {
     }
 
     // Function to view accumulated rewards for a given staker
-    function viewAccumulatedRewards(address _staker) external view returns (uint256) {
+    function viewAccumulatedRewards(
+        address _staker
+    ) external view returns (uint256) {
         return calculateRewards(_staker);
     }
 
@@ -88,5 +98,4 @@ contract StakingRewardsAccumulator {
         uint256 reward = (totalRewards * stakerBalance) / (totalStaked);
         return reward;
     }
-
 }
