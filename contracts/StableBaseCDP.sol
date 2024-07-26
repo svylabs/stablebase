@@ -7,6 +7,7 @@ import "./Utilities.sol";
 import "./SBDToken.sol";
 import "./dependencies/price-oracle/MockPriceOracle.sol";
 import "./interfaces/IPriceOracle.sol";
+import "./library/OrderedDoublyLinkedList.sol";
 
 contract StableBaseCDP {
     uint256 private originationFeeRateBasisPoints = 0; // start with 0% origination fee
@@ -22,12 +23,18 @@ contract StableBaseCDP {
 
     SBDToken public sbdToken;
 
+    address public orderedReserveList;
+
+    address public orderedOriginationFeeList;
+
     constructor(address _sbdToken) {
         whitelistedTokens[address(0)] = SBStructs.WhitelistedToken({
             priceOracle: address(new MockPriceOracle()),
             collateralRatio: 110
         });
         sbdToken = SBDToken(_sbdToken);
+        orderedReserveList = address(new OrderedDoublyLinkedList());
+        orderedOriginationFeeList = address(new OrderedDoublyLinkedList());
     }
 
     /**
