@@ -119,4 +119,37 @@ contract StableBaseCDP {
         // TODO: Mint origination fee to the fee holder
         //sbdToken.mint(feeHolder, originationFee);
     }
+
+    /**
+     * @dev Repays the borrowed amount and reduces the Safe's borrowed amount.
+     * @param collateralToken ID of the Safe to repay, derived from keccak256(msg.sender, _token)
+     * @param amount Amount of SBD tokens to repay
+     */
+    function repay(address collateralToken, uint256 amount) external {
+        bytes32 id = SBUtils.getSafeId(msg.sender, collateralToken);
+        SBStructs.Safe storage safe = safes[id];
+
+        // Check if the Safe exists and has borrowed amount
+        require(safe.depositedAmount > 0, "Safe does not exist");
+        require(safe.borrowedAmount > 0, "No borrowed amount to repay");
+
+        // Calculate the maximum amount that can be repaid
+        uint256 repayAmount = amount > safe.borrowedAmount ? safe.borrowedAmount : amount;
+
+        // Transfer SBD tokens from the user to the contract
+        require(sbdToken.transferFrom(msg.sender, address(this), amount), "Token transfer failed");
+
+        // Update the Safe's borrowed amount and mint the repaid amount back to the user
+        safe.borrowedAmount -= repayAmount;
+        // sbdToken.mint(msg.sender, repayAmount);
+
+        // Check if the Safe's borrowed amount has been fully repaid
+        if (safe.borrowedAmount == 0) {
+            // Refund any remaining origination fee if applicable
+            uint256 remainingFee = safe.originationFeePaid;
+            if (remainingFee > 0) {
+                sbdToken.mint(msg.sender, remainingFee);
+            }
+        }
+    }
 }
