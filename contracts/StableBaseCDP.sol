@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 import "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import "./Structures.sol";
@@ -91,6 +91,7 @@ contract StableBaseCDP {
         delete safes[id];
     }
 
+    // borrow function
     function borrow(address _token, uint256 _amount) external {
         bytes32 id = SBUtils.getSafeId(msg.sender, _token);
         SBStructs.Safe storage safe = safes[id];
@@ -120,36 +121,50 @@ contract StableBaseCDP {
         //sbdToken.mint(feeHolder, originationFee);
     }
 
-    /**
-     * @dev Repays the borrowed amount and reduces the Safe's borrowed amount.
-     * @param collateralToken ID of the Safe to repay, derived from keccak256(msg.sender, _token)
-     * @param amount Amount of SBD tokens to repay
-     */
-    function repay(address collateralToken, uint256 amount) external {
-        bytes32 id = SBUtils.getSafeId(msg.sender, collateralToken);
-        SBStructs.Safe storage safe = safes[id];
+    // Repay function
+    function repay(address _token, uint256 _amount) external {
+    bytes32 id = SBUtils.getSafeId(msg.sender, _token);
+    SBStructs.Safe storage safe = safes[id];
+    require(safe.borrowedAmount > 0, "No borrowed amount to repay");
 
-        // Check if the Safe exists and has borrowed amount
-        require(safe.depositedAmount > 0, "Safe does not exist");
-        require(safe.borrowedAmount > 0, "No borrowed amount to repay");
+    // Calculate the amount to repay, including origination fee
+    uint256 amountToRepay = _amount;
+    uint256 originationFee = (amountToRepay * originationFeeRateBasisPoints) / BASIS_POINTS_DIVISOR;
+    amountToRepay += originationFee;
 
-        // Calculate the maximum amount that can be repaid
-        uint256 repayAmount = amount > safe.borrowedAmount ? safe.borrowedAmount : amount;
+    // Burn SBD tokens from the borrower
+    sbdToken.burnFrom(msg.sender, amountToRepay);
 
-        // Transfer SBD tokens from the user to the contract
-        require(sbdToken.transferFrom(msg.sender, address(this), amount), "Token transfer failed");
+    // Update the Safe's borrowed amount and origination fee paid
+    safe.borrowedAmount -= _amount;
+    safe.originationFeePaid += originationFee;
 
-        // Update the Safe's borrowed amount and mint the repaid amount back to the user
-        safe.borrowedAmount -= repayAmount;
-        // sbdToken.mint(msg.sender, repayAmount);
-
-        // Check if the Safe's borrowed amount has been fully repaid
-        if (safe.borrowedAmount == 0) {
-            // Refund any remaining origination fee if applicable
-            uint256 remainingFee = safe.originationFeePaid;
-            if (remainingFee > 0) {
-                sbdToken.mint(msg.sender, remainingFee);
-            }
-        }
+    // Check if the borrowed amount is fully repaid
+    if (safe.borrowedAmount == 0) {
+        // Reset the borrowed amount and origination fee paid
+        safe.borrowedAmount = 0;
+        safe.originationFeePaid = 0;
     }
+    }
+
+    // Withdraw collateral function
+    function withdrawCollateral(address _token, uint256 _amount) external {
+    bytes32 id = SBUtils.getSafeId(msg.sender, _token);
+    SBStructs.Safe storage safe = safes[id];
+    require(safe.depositedAmount > 0, "No collateral to withdraw");
+    require(safe.borrowedAmount == 0, "Cannot withdraw collateral with outstanding borrow");
+
+    // Calculate the amount to withdraw, ensuring it doesn't exceed the deposited amount
+    uint256 amountToWithdraw = _amount;
+    if (amountToWithdraw > safe.depositedAmount) {
+        amountToWithdraw = safe.depositedAmount;
+    }
+
+    // Withdraw ETH or ERC20 token using SBUtils library
+    SBUtils.withdrawEthOrToken(safe.token, msg.sender, amountToWithdraw);
+
+    // Update the Safe's deposited amount
+    safe.depositedAmount -= amountToWithdraw;
+    }
+
 }
