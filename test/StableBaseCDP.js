@@ -158,6 +158,10 @@ describe("StableBaseCDP", function () {
     expect(safe.depositedAmount).to.equal(0);
   });
 
+  it("should redeem collateral for the specified amount of stablecoins", async function () {
+    //
+  });
+
   // Test case for closing a safe and returning the collateral
   it("should close a safe and return the collateral to the owner", async function () {
     const depositAmount = ethers.parseEther("1");

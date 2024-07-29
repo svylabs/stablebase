@@ -167,4 +167,29 @@ contract StableBaseCDP {
     safe.depositedAmount -= amountToWithdraw;
     }
 
+    /**
+ * @dev Redeem collateral for the specified amount of stablecoins.
+ */
+function redeem(uint256 amount) external {
+    bytes32 id = SBUtils.getSafeId(msg.sender, address(0)); // assume ETH collateral for now
+    SBStructs.Safe storage safe = safes[id];
+    require(safe.depositedAmount > 0, "No collateral to redeem");
+    require(safe.borrowedAmount == 0, "Cannot redeem collateral with outstanding borrow");
+
+    // Calculate the amount of collateral to redeem
+    uint256 collateralAmount = amount * liquidationRatio / BASIS_POINTS_DIVISOR;
+
+    // Check if the user has sufficient collateral to redeem
+    require(safe.depositedAmount >= collateralAmount, "Insufficient collateral to redeem");
+
+    // Withdraw ETH collateral using SBUtils library
+    SBUtils.withdrawEthOrToken(safe.token, msg.sender, collateralAmount);
+
+    // Update the Safe's deposited amount
+    safe.depositedAmount -= collateralAmount;
+
+    // Mint SBD tokens to the user
+    sbdToken.mint(msg.sender, amount);
+}
+
 }
