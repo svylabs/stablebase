@@ -139,6 +139,41 @@ describe("StableBaseCDP", function () {
     expect(safe.borrowedAmount).to.equal(0);
   });
 
+
+
+
+  // Test case for partial repayment and balance adjustment
+  it("should correctly repay the borrowed amount and adjust the balances", async function () {
+    const depositAmount = ethers.parseEther("1");
+    const reserveRatio = 100;
+    const borrowAmount = ethers.parseEther("0.5");
+    const repayAmount = ethers.parseEther("0.3");
+
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
+
+    await stableBaseCDP.connect(addr1).repay(ethers.ZeroAddress, repayAmount);
+
+    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
+    const safe = await stableBaseCDP.safes(safeId);
+
+    expect(safe.borrowedAmount).to.equal(borrowAmount.sub(repayAmount));
+
+    const sbdBalance = await sbdToken.balanceOf(addr1.address);
+    expect(sbdBalance).to.equal(borrowAmount.sub(repayAmount));
+  });
+
+
+
+
+
+
+
+
+
+
+
+
   // Test case for withdrawing collateral
   it("should withdraw collateral", async function () {
     const depositAmount = ethers.parseEther("1");
