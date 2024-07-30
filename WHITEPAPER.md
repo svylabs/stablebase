@@ -124,4 +124,4 @@ ETH, StakedETH(stETH) and WrappedBTC(WBTC) will be the only collateral supported
 As a purely decentralized stablecoin, StableBase (SBD) does not offer any additional tokens apart from the stablecoin itself.
 
 # Conclusion
-StableBase represents a significant remodelling of existing CDP based protocols, with an experimental stability mechanism through the introduction of a 0% interest rate, coupled with user-defined Cash Reserve Ratio and user-defined Stability Rate, along with a better incentive structure through the introduction of yield bearing reserve pool.
+StableBase represents a significant remodelling of existing CDP based protocols, with new stability mechanics, where users benefit from 0% interest rate, coupled with user-defined Cash Reserve Ratio and user-defined Stability Rate, along with a better incentive structure through the introduction of yield bearing reserve pool.
