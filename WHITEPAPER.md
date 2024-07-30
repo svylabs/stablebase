@@ -2,7 +2,7 @@
                                                             Sridhar G<sg@svylabs.com>
 
 # Abstract
-One of the important functions of a reserve bank in Traditional Finance is price stability. This is achieved through multiple policy tools, the primary one being controlling interest rates. There are other lesser known policy tools- like Repo rate, Reserve Ratio, etc. These tools aid in contracting and expanding the supply of money in the economy. In the cryptocurrency world, the primary tool used to control money supply for stablecoin protocols are the interest rate and the collateral requirements(which is usually fixed for a given collateral). There has not been much innovations since then. In this paper, we introduce StableBase, a new stablecoin protocol with 0% interest rates, but achieve the same effect of contracting and expanding the money supply during different market conditions through two new policy tools, namely user defined stability rate, and user defined reserve ratio and how they play together to achieve price parity with the pegged currency.
+One of the important functions of reserve bank in Traditional Finance is price stability. This is achieved through multiple policy tools, the primary one being controlling interest rates. There are other lesser known policy tools- like Repo rate, Reserve Ratio, etc. These tools aid in contracting and expanding the supply of money in the economy. In the cryptocurrency world, the primary tool used to control money supply for stablecoin protocols are the interest rate and the collateral requirements(which is usually fixed for a given collateral). There has not been much innovations since then. In this paper, we introduce StableBase, a new stablecoin protocol with 0% interest rates, but achieve the same effect of contracting and expanding the money supply during different market conditions through two new policy tools, namely user defined stability rate, and user defined reserve ratio and how they play together to achieve price parity with the pegged currency.
 
 # Introduction
 Most existing stablecoin issuing protocols(eg: MakerDAO, CurveUSD) use interest rate as a mechanism to incentivse and disincentivise borrowing. Liquity Protocol is currently the only protocol that offers interest free loans, but it suffers from capital efficiency and also fails to adapt to different market conditions, especially seen during high interest rate period, further the incentive structure to pay fee revenue to token holders as opposed to liquidity providers has had negative impact on the protocol as can be seen from the reduced circulation of the stablecoin. To improve on this, Liquity Protocol proposed launching v2 of the protocol with user defined interest rate(February 2024)[1] after our team had proposed user defined origination fee back in December 2023[2]. This leaves a hole in interest free loans space as Liquity v1 is not suitable in all market conditions. In this paper, we discuss how we have evolved our original proposal of user defined origination fee into two new policy tools for CDP stablecoins- namely, user defined stability rate(origination fee is renamed to stability rate) and user defined reserve ratio(borrowing from reserve ratio in TradFi). Using these two tools, we also come up with robust stability mechanics and predictable redemptions for the StableBase protocol, at the same time the users enjoy maximum flexibility and predictability with their loans.
@@ -30,8 +30,9 @@ These rates directly determine the circulation of stablecoins and hence the pric
 ## Redemption Mechanism
 Redemption is an operation in the protocol, where users can reedem 1 stablecoin for the equivalent of 1 USD worth of underlying collateral. The protocol has to decide on the priority for redeeming open CDPs. This is where the *Stability Rate* and *Reserve Ratio* gets important.
 
-1. **StabilityRate** - User that paid the lowest stability rate will be the first to get redeemed.
-2. **Reserve Ratio** - If redemptions cannot happen based on (1), a user that sets the lowest Reserve Ratio will be redeemed.
+1. **Reserve Ratio** - The protocol targets reserve ratios set by the users to be closer, within a range of 1%. If the difference is more, the CDP that is the greater distance from the reference stake weighted reserve ratio will be the first to get redeemed, until the difference is again close to 1%.
+2. **StabilityRate** - If redemption cannot happen through (1), user that paid the lowest stability rate will be redeemed.
+3. **Reserve Ratio** - If redemption cannot happen through (2), lowest reserve ratio CDPs would be redeemed again, even if the difference is within 1%.
 
 Some users might also prefer more predictable redemptions, for these users the protocol offers Redemption Protection. We need to define **Target Stability Rate** in order to understand Redemption Protection.
 
@@ -44,9 +45,10 @@ A user, at the time of opening the CDP can pay **StabilityRate** equal to **Targ
 
 Thus taking into account the redemption protection, the following happens during a redemption.
 
-1. Check if there are any expired redemption protection, redeem these first.
-2. Users with the Lowest Stability Rate get redeemed next
-3. Followed by stake weighted Stability Rate set by reserve pool.
+1. **Expired Redemption Protected CDP**: Check if there are any expired redemption protected CDPs, redeem these first.
+2. **Reserve Ratio** - The protocol targets reserve ratios set by the users to be closer, within a range of 1%. If the difference is more, the CDP that is the greater distance from the reference stake weighted reserve ratio will be the first to get redeemed, until the difference is again close to 1%.
+3. **StabilityRate** - If redemption cannot happen through (1), user that paid the lowest stability rate will be redeemed.
+4. **Reserve Ratio** - Lowest reserve ratio CDPs would be targetted again.
 
 The net effect of this is that the Stability Rate should increase or decrease with market conditions, in addition to reserve ratio requirements, effectively expanding and contracting the supply of the stablecoins depending on market conditions.
 
@@ -85,7 +87,14 @@ ETH, StakedETH(stETH) and WrappedBTC(WBTC) will be the only collateral supported
 As a purely decentralized stablecoin, StableBase (SBD) does not offer any additional tokens apart from the stablecoin itself.
 
 # User Experience 
-The complexity of the CRR mechanism and the redemption process may present challenges for users, especially those unfamiliar with DeFi/TradFi concepts. Ensuring a smooth and intuitive user experience will be essential for adoption.
+In StableBase, the users set the rates and reserve ratio that they think is appropriate for the market conditions. Thus, the users need to be fairly advanced in order to reap the benefits of the protocol. However, for normal users, the protocol offers predictable redemptions through redemption protection which they can avail by paying a fee. This reduces the risk of redemption for normal users for a certain time period.
+
+There are three user profiles
+1. User that pays only stability rate.
+2. User that pays stability rate with redemption protection.
+3. User that doesn't pay any fee, but takes part in stability through reserve ratio.
+
+Users can choose how they want to use the protocol based on their risk tolerance and loan requirements.
 
 # Conclusion
 StableBase represents a significant remodelling of existing CDP based protocols, with better stability mechanism through the introduction of a user-defined Cash Reserve Ratio and crowd governed target Stability Rate, along with a better incentive structure through the introduction of yield bearing reserve pool, and by providing a reliable medium of exchange with low(user defined) rates, StableBase aims to accelerate the adoption of digital currencies in the global economy.
