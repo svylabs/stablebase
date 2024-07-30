@@ -1,11 +1,13 @@
-                                    StableBase: Experimental stablecoin protocol with alternate policy parameters.
+                                     StableBase: A Stablecoin protocol for wide user profiles.
                                                         Sridhar G<sg@svylabs.com>
 
 # Abstract
-One of the important functions of reserve bank in Traditional Finance is price stability. This is achieved through multiple policy tools, the primary one being controlling interest rates. There are other lesser known policy tools- like Repo rate, Reserve Ratio, etc. These tools aid in contracting and expanding the supply of money in the economy. In the cryptocurrency world, the primary tool used to control money supply for stablecoin protocols are the interest rate and the collateral requirements(which is usually fixed for a given collateral). There has not been much innovations since then. In this paper, we introduce StableBase, a new stablecoin protocol with 0% interest rates, but achieve the same effect of price stability, and contracting and expanding the money supply during different market conditions through two new policy tools, namely user defined stability rate, and user defined reserve ratio and how they play together to achieve price parity with the pegged currency.
+One of the important functions of reserve bank in Traditional Finance is price stability. This is achieved through multiple policy tools, the primary one being controlling interest rates. There are other lesser known policy tools- like Repo rate, Reserve Ratio, etc. These tools aid in contracting and expanding the supply of money in the economy. In the cryptocurrency world, the primary tool used to control money supply for stablecoin protocols are the interest rate and the collateral requirements(which is usually fixed for a given collateral). There has not been much innovations since then. In this paper, we introduce StableBase, a new stablecoin protocol with 0% interest rates, but achieve the same effect of price stability, and contracting and expanding the money supply during different market conditions through two new policy tools, namely user defined stability rate, and user defined reserve ratio and how they play together to achieve price parity with the pegged currency and in the process enhancing the borrowing experience for a range of user profiles(regular to advanced users).
 
 # Introduction
-Most existing stablecoin issuing protocols(eg: MakerDAO, CurveUSD) use interest rate as a mechanism to incentivse and disincentivise borrowing. Liquity Protocol is currently the only protocol that offers interest free loans, but it suffers from capital efficiency and also fails to adapt to different market conditions, especially seen during high interest rate period, further the incentive structure to pay fee revenue to token holders as opposed to liquidity providers has had negative impact on the protocol as can be seen from the reduced circulation of the stablecoin. To improve on this, Liquity Protocol proposed launching v2 of their protocol with user defined interest rate(February 2024)[1] after our team had proposed user defined origination fee back in December 2023[2]. This leaves a hole in interest free loans space as Liquity v1 is not suitable in all market conditions. In this paper, we discuss how we have evolved our original proposal of user defined origination fee into two new policy tools for CDP stablecoins- namely, user defined stability rate(origination fee is renamed to stability rate) and user defined reserve ratio(borrowing from reserve ratio in TradFi). Using these two tools, we also come up with robust stability mechanics and predictable redemptions for the StableBase protocol, at the same time the users enjoy maximum flexibility and predictability with their loans.
+Most existing stablecoin issuing protocols(eg: MakerDAO, CurveUSD) use interest rate as a mechanism to incentivse and disincentivise borrowing. Liquity Protocol is currently the only protocol that offers interest free loans, but it suffers from capital efficiency and also fails to adapt to different market conditions, especially seen during high interest rate period, further the incentive structure to pay fee revenue to token holders as opposed to liquidity providers has had negative impact on the protocol as can be seen from the reduced circulation of the stablecoin. To improve on this, Liquity Protocol proposed launching v2 of their protocol with user defined interest rate(February 2024)[1] after our team had proposed user defined origination fee back in December 2023[2]. However, interest rates and yield are not the only determining factors when it comes to improving the utility of stablecoins. The borrowing costs have to make sense for a range of user profiles. This cannot be achieved only through adaptible interest rates.
+
+Interest free loans by Liquity protocol were a step in the right direction, but it was an incomplete protocol that failed to adapt to market conditions. In this paper, we discuss a new protocol with 0% interest rate, and how we have evolved our original proposal of user defined origination fee into two new policy tools for CDP stablecoins- namely, user defined stability rate(origination fee is renamed to stability rate) and user defined reserve ratio(borrowing from reserve ratio in TradFi). Using these two tools, we also come up with robust stability mechanics and predictable redemptions for the StableBase protocol, at the same time the users enjoy maximum flexibility and predictability with their loans.
 
 # Collateral Debt Position
 Collateral Debt Position mechanism is the most popular mechanism used to create stablecoin protocols. Users can deposit collateral and borrow stablecoins based on the value of the collateral, provided the collateral sufficiently backs the debt at all times until the loan is closed. If the collateral drops in value beyond a threshold(usually 110% and varaible for different collateral types used based on the risk levels), a liquidation event is triggered that allows a liquidator to pay back the loan to get the underlying collateral for a discounted price(related to market value).
@@ -74,10 +76,10 @@ The fee is distributed in the following manner:
 1. Fees paid by Redemption Protected CDPs will be distributed to Reserve Pool(75%) and Savings Pool(25%).
 2. Fees paid by Unprotected CDPs will be distributed to Savings Pool(75%) and Reserve Pool(25%).
 
-The fee distribution structure encourages *reserve pool stakers* to set an optimal **target stability rate** to maximize their fee revenue.
+The fee distribution structure encourage the *reserve pool stakers* to set an optimal **target stability rate** to maximize their fee revenue for a given market condition.
 
 ## Price Oracle
-StableBase also needs price oracle to get the latest price of the collateral asset, just like any other CDP protocol.
+StableBase also needs price oracle to get the latest price of the collateral asset, just like any other CDP protocol. StableBase plans to use Chainlink as the price oracle for various collateral assets.
 
 ## Unique Features
 To summarize, StableBase offers several unique features:
@@ -87,36 +89,39 @@ To summarize, StableBase offers several unique features:
 3. Introduction of user defined stability rate to allow for flexible borrowing terms.
 4. Introduction of redemption protection for better UX for regular users.
 5. Yield for Reserve Pool and Savings Pool depositors.
+6. Experimental stability mechanics that caters to both advanced(traders, hedge funds, market makers, institutions, etc.) and regular borrowers(salaried).
+
+# User Profiles 
+There are four kinds of user profiles with StableBase.
+
+1. **Borrower: User that pays only stability rate**
+   - *Risk Level*: High Risk(low stability rate), Moderate Risk(High stability rate).
+   - *Reward*: Pays one time user-chosen stability fee depending on market conditions.
+   - *Skill Level*: Advanced, needs to monitor rates and increase stability rate if needed based on market condition.
+   - *Target User Profile*: (Active Traders, those looking for short term loans that can tolerate slight risk of redemption)
+2. **Borrower: User that pays stability rate with redemption protection**
+   - *Risk Level*: Low Risk(only Liquidation risk, redemptions are protected for the time period according to chosen stability rate)
+   - *Reward*: Lowest Risk
+   - *Skill Level*: Low
+   - *Target User Profile*: (Normal salaried crypto users that wants to borrow and repay at set intervals, those looking for predictable loan terms).
+3. **Borrower: User that doesn't pay any fee, but takes part in stability through reserve ratio**
+   - *Risk Level*: High Risk(those that deviate from reference reserve ratio significantly), Moderate Risk(Lowest Reserve Ratio).
+   - *Reward*: Share of Fee revenue, 0% stability rate
+   - *Skill Level*: Advanced, needs to monitor reserve ratio and adjust periodically to avoid redemptions, set stability rate to maximize fee revenue for given market conditions.
+   - *Target User Profile*: (Institutions, Hedge funds, Market makers, those looking to generate yield on their assets)
+4. **Holder: Acquired stablecoins through trade**
+   - *Risk Level*: Low(Only risk is that the stablecoin goes off peg).
+   - *Reward*: Share of Fee revenue through Savings Pool.
+   - *Skill Level*: Low
+   - *Target User Profile*: (Anyone that wants to use stablecoin for transactions / hold it)
+
+Users can choose how they want to use the protocol based on their risk tolerance and their requirements.
 
 # Available Collateral
 ETH, StakedETH(stETH) and WrappedBTC(WBTC) will be the only collateral supported by the protocol.
 
 # Tokenomics
 As a purely decentralized stablecoin, StableBase (SBD) does not offer any additional tokens apart from the stablecoin itself.
-
-# User Experience 
-In StableBase, the users set the stability rates and reserve ratio that they think is appropriate for the market conditions. Thus, the users need to be fairly advanced in order to reap the benefits of the protocol. 
-
-However, for normal users, the protocol offers predictable redemptions through redemption protection which they can avail by paying a fee. This reduces the risk of redemption for normal users for a certain time period.
-
-There are three kinds of user profiles with StableBase.
-1. User that pays only stability rate.
-   - Risk Level: High Risk(low stability rate), Moderate Risk(High stability rate).
-   - Reward: Pays one time stability fee depending on market condition.
-   - Skill Level: Advanced, needs to monitor rates and update stability rate if needed.
-   - Target User Profile: (Active Traders, those looking for short term loans that can tolerate slight risk of redemption)
-2. User that pays stability rate with redemption protection.
-   - Risk Level: Low Risk(only Liquidation risk, redemptions are protected for the time period)
-   - Reward: None
-   - Skill Level: Low
-   - Target User Profile: (Normal salaried crypto users that wants to borrow and repay at set intervals, those looking for predictable loans)
-3. User that doesn't pay any fee, but takes part in stability through reserve ratio.
-   - Risk Level: High Risk(those that deviate from reference reserve ratio significantly), Moderate Risk(Lowest Reserve Ratio).
-   - Reward: Share of Fee revenue, 0% stability rate
-   - Skill Level: Advanced, needs to monitor reserve ratio and adjust periodically to avoid redemptions.
-   - Target User Profile: (Institutions, Hedge funds, Market makers, those looking to generate yield on their assets)
-
-Users can choose how they want to use the protocol based on their risk tolerance and loan requirements.
 
 # Conclusion
 StableBase represents a significant remodelling of existing CDP based protocols, with an experimental stability mechanism through the introduction of a 0% interest rate, coupled with user-defined Cash Reserve Ratio and user-defined Stability Rate, along with a better incentive structure through the introduction of yield bearing reserve pool.
