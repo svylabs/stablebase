@@ -158,9 +158,37 @@ describe("StableBaseCDP", function () {
     expect(safe.depositedAmount).to.equal(0);
   });
 
-  it("should redeem collateral for the specified amount of stablecoins", async function () {
-    //
+  it("should redeem collateral", async function () {
+    const depositAmount = ethers.parseEther("1"); // 1 ETH
+    const reserveRatio = 100;
+    const borrowAmount = ethers.parseEther("0.5"); // Borrow 0.5 SBD
+    const redeemAmount = ethers.parseEther("0.5"); // Redeem 0.5 SBD worth of collateral
+  
+    // Open a safe with ETH
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+  
+    // Borrow SBD tokens
+    await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
+  
+    // Redeem collateral
+    await stableBaseCDP.connect(addr1).redeem(redeemAmount);
+  
+    // Compute the safe ID
+    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
+    const safe = await stableBaseCDP.safes(safeId);
+  
+    // Calculate the expected remaining collateral after redemption
+    const price = BigInt(1000); // Dummy price from getPriceFromOracle
+    const liquidationRatio = BigInt(110);
+    const expectedCollateralReduction = (redeemAmount * liquidationRatio) / (price * BigInt(100));
+  
+    // Check if the borrowed amount is reduced correctly
+    expect(safe.borrowedAmount).to.equal(borrowAmount - redeemAmount);
+  
+    // Check if the deposited amount is reduced correctly
+    expect(safe.depositedAmount).to.be.closeTo(depositAmount - expectedCollateralReduction, 1); // Using closeTo for precision differences
   });
+  
 
   // Test case for closing a safe and returning the collateral
   it("should close a safe and return the collateral to the owner", async function () {

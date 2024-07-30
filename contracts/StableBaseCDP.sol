@@ -168,28 +168,49 @@ contract StableBaseCDP {
     }
 
     /**
- * @dev Redeem collateral for the specified amount of stablecoins.
- */
-function redeem(uint256 amount) external {
+     * @dev Redeem collateral for the specified amount of stablecoins.
+     * @param amount Amount of stablecoins to redeem for collateral.
+     */
+    function redeem(uint256 amount) external {
     bytes32 id = SBUtils.getSafeId(msg.sender, address(0)); // assume ETH collateral for now
     SBStructs.Safe storage safe = safes[id];
+
+    // Ensure there is enough collateral deposited
     require(safe.depositedAmount > 0, "No collateral to redeem");
-    require(safe.borrowedAmount == 0, "Cannot redeem collateral with outstanding borrow");
+    
+    // Check for outstanding debt
+    require(safe.borrowedAmount == 0 || safe.borrowedAmount >= amount, "Cannot redeem collateral with outstanding debt");
 
     // Calculate the amount of collateral to redeem
-    uint256 collateralAmount = amount * liquidationRatio / BASIS_POINTS_DIVISOR;
+    uint256 collateralAmount;
+    if (safe.borrowedAmount > 0) {
+        // Redeeming against debt, use price oracle for calculation
+        IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[address(0)].priceOracle);
+        uint256 price = priceOracle.getPrice();
+        collateralAmount = (amount * liquidationRatio) / (price * 100);
+    } else {
+        // Redeeming deposited collateral without outstanding debt
+        collateralAmount = amount * liquidationRatio / BASIS_POINTS_DIVISOR;
+    }
 
-    // Check if the user has sufficient collateral to redeem
+    // Ensure the user has sufficient collateral to redeem
     require(safe.depositedAmount >= collateralAmount, "Insufficient collateral to redeem");
 
-    // Withdraw ETH collateral using SBUtils library
+    // Burn or mint SBD tokens accordingly
+    if (safe.borrowedAmount > 0) {
+        // Burn the stablecoins from the sender
+        sbdToken.burnFrom(msg.sender, amount);
+        // Update the Safe's borrowed amount
+        safe.borrowedAmount -= amount;
+    } else {
+        // Mint new SBD tokens to the user
+        sbdToken.mint(msg.sender, amount);
+    }
+
+    // Transfer the collateral to the sender
     SBUtils.withdrawEthOrToken(safe.token, msg.sender, collateralAmount);
 
     // Update the Safe's deposited amount
     safe.depositedAmount -= collateralAmount;
-
-    // Mint SBD tokens to the user
-    sbdToken.mint(msg.sender, amount);
-}
-
+    }
 }
