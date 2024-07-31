@@ -127,10 +127,14 @@ contract StableBaseCDP {
     SBStructs.Safe storage safe = safes[id];
     require(safe.borrowedAmount > 0, "No borrowed amount to repay");
 
+    // // Calculate the amount to repay, including origination fee
+    // uint256 amountToRepay = _amount;
+    // uint256 originationFee = (amountToRepay * originationFeeRateBasisPoints) / BASIS_POINTS_DIVISOR;
+    // amountToRepay += originationFee;
+
     // Calculate the amount to repay, including origination fee
-    uint256 amountToRepay = _amount;
-    uint256 originationFee = (amountToRepay * originationFeeRateBasisPoints) / BASIS_POINTS_DIVISOR;
-    amountToRepay += originationFee;
+    uint256 originationFee = (_amount * originationFeeRateBasisPoints) / BASIS_POINTS_DIVISOR;
+    uint256 amountToRepay = _amount + originationFee;
 
     // Burn SBD tokens from the borrower
     sbdToken.burnFrom(msg.sender, amountToRepay);
