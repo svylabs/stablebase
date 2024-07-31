@@ -47,7 +47,11 @@ contract StableBaseCDP {
      */
     // function openSafe(address _token, uint256 _amount, uint256 _reserveRatio, uint256 _positionInReserve) external payable {
     // function openSafe(address _token, uint256 _amount, uint256 _reserveRatio, uint256 /*_positionInReserve*/) external payable {
-    function openSafe(address _token, uint256 _amount, uint256 _reserveRatio) external payable {
+    function openSafe(
+        address _token,
+        uint256 _amount,
+        uint256 _reserveRatio
+    ) external payable {
         require(_amount > 0, "Amount must be greater than 0");
         bytes32 id = SBUtils.getSafeId(msg.sender, _token);
 
@@ -82,10 +86,17 @@ contract StableBaseCDP {
     function closeSafe(address collateralToken) external {
         bytes32 id = SBUtils.getSafeId(msg.sender, collateralToken);
         SBStructs.Safe storage safe = safes[id];
-        require(safe.borrowedAmount == 0, "Cannot close Safe with borrowed amount");
+        require(
+            safe.borrowedAmount == 0,
+            "Cannot close Safe with borrowed amount"
+        );
 
         // Withdraw ETH or ERC20 token using SBUtils library (Transfer collateral back to the owner)
-        SBUtils.withdrawEthOrToken(safe.token, msg.sender, safe.depositedAmount);
+        SBUtils.withdrawEthOrToken(
+            safe.token,
+            msg.sender,
+            safe.depositedAmount
+        );
 
         // Remove the Safe from the mapping
         delete safes[id];
@@ -97,19 +108,26 @@ contract StableBaseCDP {
         SBStructs.Safe storage safe = safes[id];
         require(safe.depositedAmount > 0, "Safe does not exist");
 
-        IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[_token].priceOracle);
+        IPriceOracle priceOracle = IPriceOracle(
+            whitelistedTokens[_token].priceOracle
+        );
 
         // Fetch the price of the collateral from the oracle
         uint256 price = priceOracle.getPrice();
 
         // Calculate the maximum borrowable amount
-        uint256 maxBorrowAmount = (safe.depositedAmount * price * 100) / liquidationRatio;
+        uint256 maxBorrowAmount = (safe.depositedAmount * price * 100) /
+            liquidationRatio;
 
         // Check if the requested amount is within the maximum borrowable limit
-        require(safe.borrowedAmount + _amount <= maxBorrowAmount, "Borrow amount exceeds the maximum allowed");
+        require(
+            safe.borrowedAmount + _amount <= maxBorrowAmount,
+            "Borrow amount exceeds the maximum allowed"
+        );
 
         // Calculate origination fee
-        uint256 originationFee = (_amount * originationFeeRateBasisPoints) / BASIS_POINTS_DIVISOR;
+        uint256 originationFee = (_amount * originationFeeRateBasisPoints) /
+            BASIS_POINTS_DIVISOR;
 
         // Update the Safe's borrowed amount and origination fee paid
         safe.borrowedAmount += _amount;
@@ -123,52 +141,71 @@ contract StableBaseCDP {
 
     // Repay function
     function repay(address _token, uint256 _amount) external {
-    bytes32 id = SBUtils.getSafeId(msg.sender, _token);
-    SBStructs.Safe storage safe = safes[id];
-    require(safe.borrowedAmount > 0, "No borrowed amount to repay");
+        bytes32 id = SBUtils.getSafeId(msg.sender, _token);
+        SBStructs.Safe storage safe = safes[id];
+        require(safe.borrowedAmount > 0, "No borrowed amount to repay");
 
-    // // Calculate the amount to repay, including origination fee
-    // uint256 amountToRepay = _amount;
-    // uint256 originationFee = (amountToRepay * originationFeeRateBasisPoints) / BASIS_POINTS_DIVISOR;
-    // amountToRepay += originationFee;
+        // // Calculate the amount to repay, including origination fee
+        // uint256 amountToRepay = _amount;
+        // uint256 originationFee = (amountToRepay * originationFeeRateBasisPoints) / BASIS_POINTS_DIVISOR;
+        // amountToRepay += originationFee;
 
-    // Calculate the amount to repay, including origination fee
-    uint256 originationFee = (_amount * originationFeeRateBasisPoints) / BASIS_POINTS_DIVISOR;
-    uint256 amountToRepay = _amount + originationFee;
+        // Calculate the amount to repay, including origination fee
+        uint256 originationFee = (_amount * originationFeeRateBasisPoints) /
+            BASIS_POINTS_DIVISOR;
+        uint256 amountToRepay = _amount + originationFee;
 
-    // Burn SBD tokens from the borrower
-    sbdToken.burnFrom(msg.sender, amountToRepay);
+        // Burn SBD tokens from the borrower
+        sbdToken.burnFrom(msg.sender, amountToRepay);
 
-    // Update the Safe's borrowed amount and origination fee paid
-    safe.borrowedAmount -= _amount;
-    safe.originationFeePaid += originationFee;
+        // Update the Safe's borrowed amount and origination fee paid
+        safe.borrowedAmount -= _amount;
+        safe.originationFeePaid += originationFee;
 
-    // Check if the borrowed amount is fully repaid
-    if (safe.borrowedAmount == 0) {
-        // Reset the borrowed amount and origination fee paid
-        safe.borrowedAmount = 0;
-        safe.originationFeePaid = 0;
-    }
+        // Check if the borrowed amount is fully repaid
+        if (safe.borrowedAmount == 0) {
+            // Reset the borrowed amount and origination fee paid
+            safe.borrowedAmount = 0;
+            safe.originationFeePaid = 0;
+        }
     }
 
     // Withdraw collateral function
     function withdrawCollateral(address _token, uint256 _amount) external {
-    bytes32 id = SBUtils.getSafeId(msg.sender, _token);
-    SBStructs.Safe storage safe = safes[id];
-    require(safe.depositedAmount > 0, "No collateral to withdraw");
-    require(safe.borrowedAmount == 0, "Cannot withdraw collateral with outstanding borrow");
+        bytes32 id = SBUtils.getSafeId(msg.sender, _token);
+        SBStructs.Safe storage safe = safes[id];
+        require(safe.depositedAmount > 0, "No collateral to withdraw");
 
-    // Calculate the amount to withdraw, ensuring it doesn't exceed the deposited amount
-    uint256 amountToWithdraw = _amount;
-    if (amountToWithdraw > safe.depositedAmount) {
-        amountToWithdraw = safe.depositedAmount;
-    }
+        if (safe.borrowedAmount > 0) {
+            // Calculate the price of the collateral
+            IPriceOracle priceOracle = IPriceOracle(
+                whitelistedTokens[_token].priceOracle
+            );
+            uint256 price = priceOracle.getPrice();
 
-    // Withdraw ETH or ERC20 token using SBUtils library
-    SBUtils.withdrawEthOrToken(safe.token, msg.sender, amountToWithdraw);
+            // Calculate the maximum withdrawal amount that maintains the liquidation ratio
+            uint256 maxWithdrawal = safe.depositedAmount -
+                (safe.borrowedAmount * liquidationRatio) /
+                (price * 100);
+            require(_amount <= maxWithdrawal, "Insufficient collateral");
 
-    // Update the Safe's deposited amount
-    safe.depositedAmount -= amountToWithdraw;
+            // Check if the remaining collateral is sufficient to cover the borrowed amount after withdrawal
+            require(
+                ((safe.depositedAmount - _amount) * price * 100) /
+                    safe.borrowedAmount >=
+                    liquidationRatio,
+                "Insufficient collateral after withdrawal"
+            );
+        } else {
+            // If there's no borrowed amount, ensure the withdrawal does not exceed deposited collateral
+            require(_amount <= safe.depositedAmount, "Insufficient collateral");
+        }
+
+        // Withdraw ETH or ERC20 token using SBUtils library
+        SBUtils.withdrawEthOrToken(safe.token, msg.sender, _amount);
+
+        // Update the Safe's deposited amount
+        safe.depositedAmount -= _amount;
     }
 
     /**
@@ -176,45 +213,55 @@ contract StableBaseCDP {
      * @param amount Amount of stablecoins to redeem for collateral.
      */
     function redeem(uint256 amount) external {
-    bytes32 id = SBUtils.getSafeId(msg.sender, address(0)); // assume ETH collateral for now
-    SBStructs.Safe storage safe = safes[id];
+        bytes32 id = SBUtils.getSafeId(msg.sender, address(0)); // assume ETH collateral for now
+        SBStructs.Safe storage safe = safes[id];
 
-    // Ensure there is enough collateral deposited
-    require(safe.depositedAmount > 0, "No collateral to redeem");
-    
-    // Check for outstanding debt
-    require(safe.borrowedAmount == 0 || safe.borrowedAmount >= amount, "Cannot redeem collateral with outstanding debt");
+        // Ensure there is enough collateral deposited
+        require(safe.depositedAmount > 0, "No collateral to redeem");
 
-    // Calculate the amount of collateral to redeem
-    uint256 collateralAmount;
-    if (safe.borrowedAmount > 0) {
-        // Redeeming against debt, use price oracle for calculation
-        IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[address(0)].priceOracle);
-        uint256 price = priceOracle.getPrice();
-        collateralAmount = (amount * liquidationRatio) / (price * 100);
-    } else {
-        // Redeeming deposited collateral without outstanding debt
-        collateralAmount = amount * liquidationRatio / BASIS_POINTS_DIVISOR;
-    }
+        // Check for outstanding debt
+        require(
+            safe.borrowedAmount == 0 || safe.borrowedAmount >= amount,
+            "Cannot redeem collateral with outstanding debt"
+        );
 
-    // Ensure the user has sufficient collateral to redeem
-    require(safe.depositedAmount >= collateralAmount, "Insufficient collateral to redeem");
+        // Calculate the amount of collateral to redeem
+        uint256 collateralAmount;
+        if (safe.borrowedAmount > 0) {
+            // Redeeming against debt, use price oracle for calculation
+            IPriceOracle priceOracle = IPriceOracle(
+                whitelistedTokens[address(0)].priceOracle
+            );
+            uint256 price = priceOracle.getPrice();
+            collateralAmount = (amount * liquidationRatio) / (price * 100);
+        } else {
+            // Redeeming deposited collateral without outstanding debt
+            collateralAmount =
+                (amount * liquidationRatio) /
+                BASIS_POINTS_DIVISOR;
+        }
 
-    // Burn or mint SBD tokens accordingly
-    if (safe.borrowedAmount > 0) {
-        // Burn the stablecoins from the sender
-        sbdToken.burnFrom(msg.sender, amount);
-        // Update the Safe's borrowed amount
-        safe.borrowedAmount -= amount;
-    } else {
-        // Mint new SBD tokens to the user
-        sbdToken.mint(msg.sender, amount);
-    }
+        // Ensure the user has sufficient collateral to redeem
+        require(
+            safe.depositedAmount >= collateralAmount,
+            "Insufficient collateral to redeem"
+        );
 
-    // Transfer the collateral to the sender
-    SBUtils.withdrawEthOrToken(safe.token, msg.sender, collateralAmount);
+        // Burn or mint SBD tokens accordingly
+        if (safe.borrowedAmount > 0) {
+            // Burn the stablecoins from the sender
+            sbdToken.burnFrom(msg.sender, amount);
+            // Update the Safe's borrowed amount
+            safe.borrowedAmount -= amount;
+        } else {
+            // Mint new SBD tokens to the user
+            sbdToken.mint(msg.sender, amount);
+        }
 
-    // Update the Safe's deposited amount
-    safe.depositedAmount -= collateralAmount;
+        // Transfer the collateral to the sender
+        SBUtils.withdrawEthOrToken(safe.token, msg.sender, collateralAmount);
+
+        // Update the Safe's deposited amount
+        safe.depositedAmount -= collateralAmount;
     }
 }

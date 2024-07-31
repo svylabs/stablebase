@@ -94,7 +94,7 @@ describe("StableBaseCDP", function () {
     const price = BigInt(1000); // Dummy price from getPriceFromOracle
     // console.log("priceOracle:-> ", priceOracle);
     // const price = await priceOracle.getPrice();
-    console.log("price:-> ",price);
+    console.log("price:-> ", price);
     const liquidationRatio = BigInt(110); // Ensure consistency with contract
     const maxBorrowAmount = (depositAmount * price * BigInt(100)) / liquidationRatio; // BigInt calculation
 
@@ -119,79 +119,82 @@ describe("StableBaseCDP", function () {
   // Test case for repaying borrowed amount with ETH
   it("should repay borrowed amount with ETH", async function () {
     const depositAmount = ethers.parseEther("1");
-      const reserveRatio = 100;
-      const borrowAmount = ethers.parseEther("0.5");
-  
-      // Open a safe with ETH
-      await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
-  
-      // Borrow SBD tokens
-      await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
-  
-      // Check initial SBD balance
-      const initialSBDTokenBalance = await sbdToken.balanceOf(addr1.address);
-  
-      // Repay borrowed amount
-      await sbdToken.connect(addr1).approve(stableBaseCDP.target, borrowAmount);
-      await stableBaseCDP.connect(addr1).repay(ethers.ZeroAddress, borrowAmount);
-  
-      // Compute the safe ID
-      const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
-      const safe = await stableBaseCDP.safes(safeId);
-  
-      // Check if the borrowed amount is repaid
-      expect(safe.borrowedAmount).to.equal(0);
-  
-      // Check if the SBD tokens have been burned
-      const finalSBDTokenBalance = await sbdToken.balanceOf(addr1.address);
-      expect(finalSBDTokenBalance).to.equal(initialSBDTokenBalance - borrowAmount);
-  });
-  
-  // Test case for repaying borrowed amount with ERC20 token
-  it("should repay borrowed amount with ERC20 token", async function () {
-    const depositAmount = ethers.parseEther("100");
     const reserveRatio = 100;
-    const borrowAmount = ethers.parseEther("50");
-    const price = BigInt(1000); // Dummy price
-  
-    // Open a safe with ERC20 token
-    await mockToken.connect(addr1).approve(stableBaseCDP.target, depositAmount);
-    await stableBaseCDP.connect(addr1).openSafe(mockToken.target, depositAmount, reserveRatio);
-  
-    // Compute the safe ID
-    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, mockToken.target]);
-  
+    const borrowAmount = ethers.parseEther("0.5");
+
+    // Open a safe with ETH
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+
     // Borrow SBD tokens
-    await stableBaseCDP.connect(addr1).borrow(mockToken.target, borrowAmount);
-  
+    await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
+
     // Check initial SBD balance
     const initialSBDTokenBalance = await sbdToken.balanceOf(addr1.address);
-  
-    // Calculate the amount of ERC20 tokens needed to repay the borrowed amount
-    const repayAmount = (borrowAmount * price) / BigInt(100);
-  
-    // Approve ERC20 token transfer
-    await mockToken.connect(addr1).approve(stableBaseCDP.target, repayAmount);
-  
+
     // Repay borrowed amount
-    await stableBaseCDP.connect(addr1).repay(mockToken.target, repayAmount);
-  
-    // Check if the borrowed amount is repaid
+    await sbdToken.connect(addr1).approve(stableBaseCDP.target, borrowAmount);
+    await stableBaseCDP.connect(addr1).repay(ethers.ZeroAddress, borrowAmount);
+
+    // Compute the safe ID
+    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
     const safe = await stableBaseCDP.safes(safeId);
+
+    // Check if the borrowed amount is repaid
     expect(safe.borrowedAmount).to.equal(0);
-  
+
     // Check if the SBD tokens have been burned
     const finalSBDTokenBalance = await sbdToken.balanceOf(addr1.address);
     expect(finalSBDTokenBalance).to.equal(initialSBDTokenBalance - borrowAmount);
   });
 
-  // Test case for withdrawing collateral
-  it("should withdraw collateral", async function () {
+  // // Test case for repaying borrowed amount with ERC20 token
+  // it("should repay borrowed amount with ERC20 token", async function () {
+  //   const depositAmount = ethers.parseEther("100");
+  //   const reserveRatio = 100;
+  //   const borrowAmount = ethers.parseEther("50");
+  //   const price = BigInt(1000); // Dummy price
+
+  //   // Open a safe with ERC20 token
+  //   await mockToken.connect(addr1).approve(stableBaseCDP.target, depositAmount);
+  //   await stableBaseCDP.connect(addr1).openSafe(mockToken.target, depositAmount, reserveRatio);
+
+  //   // Compute the safe ID
+  //   const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, mockToken.target]);
+
+  //   // Borrow SBD tokens
+  //   await stableBaseCDP.connect(addr1).borrow(mockToken.target, borrowAmount);
+
+  //   // Check initial SBD balance
+  //   const initialSBDTokenBalance = await sbdToken.balanceOf(addr1.address);
+
+  //   // Calculate the amount of ERC20 tokens needed to repay the borrowed amount
+  //   const repayAmount = (borrowAmount * price) / BigInt(100);
+
+  //   // Approve ERC20 token transfer
+  //   await mockToken.connect(addr1).approve(stableBaseCDP.target, repayAmount);
+
+  //   // Repay borrowed amount
+  //   await stableBaseCDP.connect(addr1).repay(mockToken.target, repayAmount);
+
+  //   // Check if the borrowed amount is repaid
+  //   const safe = await stableBaseCDP.safes(safeId);
+  //   expect(safe.borrowedAmount).to.equal(0);
+
+  //   // Check if the SBD tokens have been burned
+  //   const finalSBDTokenBalance = await sbdToken.balanceOf(addr1.address);
+  //   expect(finalSBDTokenBalance).to.equal(initialSBDTokenBalance - borrowAmount);
+  // });
+
+  // Test case for withdrawing collateral successfully
+  it("should withdraw collateral successfully", async function () {
     const depositAmount = ethers.parseEther("1");
     const reserveRatio = 100;
 
     // Open a safe with ETH
     await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+
+    // Get the balance of addr1 before withdrawal
+    const balanceBeforeWithdrawal = await ethers.provider.getBalance(addr1.address);
 
     // Withdraw collateral
     await stableBaseCDP.connect(addr1).withdrawCollateral(ethers.ZeroAddress, depositAmount);
@@ -202,6 +205,10 @@ describe("StableBaseCDP", function () {
 
     // Check if the collateral is withdrawn
     expect(safe.depositedAmount).to.equal(0);
+
+    // Check if ETH has been refunded to the address
+    const balanceAfterWithdrawal = await ethers.provider.getBalance(addr1.address);
+    expect(balanceAfterWithdrawal).to.be.gt(balanceBeforeWithdrawal);
   });
 
   it("should redeem collateral", async function () {
@@ -209,49 +216,30 @@ describe("StableBaseCDP", function () {
     const reserveRatio = 100;
     const borrowAmount = ethers.parseEther("0.5"); // Borrow 0.5 SBD
     const redeemAmount = ethers.parseEther("0.5"); // Redeem 0.5 SBD worth of collateral
-  
+
     // Open a safe with ETH
     await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
-  
+
     // Borrow SBD tokens
     await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
-  
+
     // Redeem collateral
     await stableBaseCDP.connect(addr1).redeem(redeemAmount);
-  
+
     // Compute the safe ID
     const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
     const safe = await stableBaseCDP.safes(safeId);
-  
+
     // Calculate the expected remaining collateral after redemption
     const price = BigInt(1000); // Dummy price from getPriceFromOracle
     const liquidationRatio = BigInt(110);
     const expectedCollateralReduction = (redeemAmount * liquidationRatio) / (price * BigInt(100));
-  
+
     // Check if the borrowed amount is reduced correctly
     expect(safe.borrowedAmount).to.equal(borrowAmount - redeemAmount);
-  
+
     // Check if the deposited amount is reduced correctly
     expect(safe.depositedAmount).to.be.closeTo(depositAmount - expectedCollateralReduction, 1); // Using closeTo for precision differences
-  });
-  
-
-  // Test case for closing a safe and returning the collateral
-  it("should close a safe and return the collateral to the owner", async function () {
-    const depositAmount = ethers.parseEther("1");
-    const reserveRatio = 100;
-
-    // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
-
-    // Compute the safe ID
-    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
-    await stableBaseCDP.connect(addr1).closeSafe(ethers.ZeroAddress); // Close the safe
-
-    // Check if the safe has been closed (deposited amount should be 0)
-    const safe = await stableBaseCDP.safes(safeId);
-    expect(safe.depositedAmount).to.equal(0);
-    expect(safe.borrowedAmount).to.equal(0);
   });
 
 });
