@@ -242,4 +242,60 @@ describe("StableBaseCDP", function () {
     expect(safe.depositedAmount).to.be.closeTo(depositAmount - expectedCollateralReduction, 1); // Using closeTo for precision differences
   });
 
+  // Test case for closing a safe and returning collateral
+  it("should close a safe and return collateral", async function () {
+    const depositAmount = ethers.parseEther("1");
+    const reserveRatio = 100;
+
+    // Open a safe with ETH
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+
+    // Close the safe
+    await stableBaseCDP.connect(addr1).closeSafe(ethers.ZeroAddress);
+
+    // Compute the safe ID
+    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
+    const safe = await stableBaseCDP.safes(safeId);
+
+    // Check if the collateral is returned and the safe is closed
+    expect(safe.depositedAmount).to.equal(0);
+    expect(safe.borrowedAmount).to.equal(0);
+  });
+
+  // Test case for failing to withdraw more collateral than deposited
+  it("should fail to withdraw more collateral than deposited", async function () {
+    const depositAmount = ethers.parseEther("1");
+    const reserveRatio = 100;
+
+    // Open a safe with ETH
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+
+    // Attempt to withdraw more collateral than deposited
+    await expect(
+      stableBaseCDP.connect(addr1).withdrawCollateral(ethers.ZeroAddress, ethers.parseEther("2"))
+    ).to.be.revertedWith("Insufficient collateral");
+  });
+
+  // Test case for failing to repay more than borrowed amount
+  it("should fail to repay more than borrowed amount", async function () {
+    const depositAmount = ethers.parseEther("1");
+    const reserveRatio = 100;
+    const borrowAmount = ethers.parseEther("0.5");
+    const excessiveRepayAmount = ethers.parseEther("1");
+
+    // Open a safe with ETH
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+
+    // Borrow SBD tokens
+    await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
+
+    // Approve the repayment amount
+    await sbdToken.connect(addr1).approve(stableBaseCDP.target, excessiveRepayAmount);
+
+    // Ensure that the repayment fails due to insufficient balance
+    await expect(
+      stableBaseCDP.connect(addr1).repay(ethers.ZeroAddress, excessiveRepayAmount)
+    ).to.be.revertedWith("Insufficient balance");
+  });
+
 });
