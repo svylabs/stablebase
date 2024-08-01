@@ -328,10 +328,10 @@ describe("StableBaseCDP", function () {
     // Approve the repayment amount
     await sbdToken.connect(addr1).approve(stableBaseCDP.target, excessiveRepayAmount);
 
-    // Ensure that the repayment fails due to insufficient balance
+    // Ensure that the repayment fails due to excessive repayment amount
     await expect(
       stableBaseCDP.connect(addr1).repay(ethers.ZeroAddress, excessiveRepayAmount)
-    ).to.be.revertedWith("Insufficient balance");
+    ).to.be.revertedWith("Repayment amount exceeds borrowed amount");
   });
 
 });
