@@ -94,7 +94,7 @@ describe("StableBaseCDP", function () {
     const price = BigInt(1000); // Dummy price from getPriceFromOracle
     // console.log("priceOracle:-> ", priceOracle);
     // const price = await priceOracle.getPrice();
-    console.log("price:-> ", price);
+    // console.log("price:-> ", price);
     const liquidationRatio = BigInt(110); // Ensure consistency with contract
     const maxBorrowAmount = (depositAmount * price * BigInt(100)) / liquidationRatio; // BigInt calculation
 
@@ -147,46 +147,79 @@ describe("StableBaseCDP", function () {
     expect(finalSBDTokenBalance).to.equal(initialSBDTokenBalance - borrowAmount);
   });
 
+  // Test case for repaying borrowed amount with ETH and checking ETH balances
+  it("should repay borrowed amount with ETH and check ETH balances", async function () {
+    const depositAmount = ethers.parseEther("1");
+    const reserveRatio = 100;
+    const borrowAmount = ethers.parseEther("0.5");
+
+    // Open a safe with ETH
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+
+    // Borrow SBD tokens
+    await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
+
+    // Check initial ETH balance
+    const initialETHBalance = await ethers.provider.getBalance(addr1.address);
+    // console.log("initialETHBalance;->", initialETHBalance);
+
+    // Approve and repay borrowed amount with ETH
+    await sbdToken.connect(addr1).approve(stableBaseCDP.target, borrowAmount);
+    await stableBaseCDP.connect(addr1).repay(ethers.ZeroAddress, borrowAmount);
+
+    // Compute the safe ID
+    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
+    const safe = await stableBaseCDP.safes(safeId);
+
+    // Check if the borrowed amount is repaid
+    expect(safe.borrowedAmount).to.equal(0);
+
+    // Check if the ETH balance is reduced correctly
+    const finalETHBalance = await ethers.provider.getBalance(addr1.address);
+    expect(finalETHBalance).to.be.closeTo(initialETHBalance, ethers.parseEther("0.01")); // Allow for gas cost differences
+  });
+
+
   // Test case for repaying borrowed amount with ERC20 token
   it("should repay borrowed amount with ERC20 tokens", async function () {
     const depositAmount = ethers.parseEther("1");
     const reserveRatio = 100;
     const borrowAmount = ethers.parseEther("0.5");
-  
+
     // Open a safe with ETH
     await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
-  
+
     // Borrow SBD tokens
     await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
-  
+
     // Check initial balances
     const initialSBDTokenBalance = await sbdToken.balanceOf(addr1.address);
-  
+
     // Convert initial balance to BigNumber using parseUnits if necessary
     const initialSBDTokenBalanceBN = ethers.parseUnits(initialSBDTokenBalance.toString(), 18);
-  
+
     // Repay borrowed amount with tokens
     await sbdToken.connect(addr1).approve(stableBaseCDP.target, borrowAmount);
     await stableBaseCDP.connect(addr1).repay(ethers.ZeroAddress, borrowAmount);
-  
+
     // Compute the safe ID
     const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
     const safe = await stableBaseCDP.safes(safeId);
-  
+
     // Check if the borrowed amount is repaid
     expect(safe.borrowedAmount).to.equal(0);
-  
+
     // Check if the SBD tokens have been burned
     const finalSBDTokenBalance = await sbdToken.balanceOf(addr1.address);
-  
+
     // Convert final balance to BigNumber using parseUnits
     const finalSBDTokenBalanceBN = ethers.parseUnits(finalSBDTokenBalance.toString(), 18);
     const borrowAmountBN = ethers.parseUnits(borrowAmount.toString(), 18);
-  
+
     // Verify the balance after repayment
     expect(finalSBDTokenBalanceBN).to.equal(initialSBDTokenBalanceBN - borrowAmountBN);
   });
-  
+
 
   // Test case for withdrawing collateral successfully
   it("should withdraw collateral successfully", async function () {
