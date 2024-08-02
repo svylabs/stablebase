@@ -22,7 +22,7 @@ In addition to Liquidation and Redemption, most protocols also collect fees in t
 In this paper, we introduce the StableBase protocol, using the Collateral Debt Position mechanism with Liquidation, Redemption, and 0% interest rates. In place of interest rates, we introduce two new policy tools and describe how they play together to contribute to robust stability of the protocol.
 
 ## Policy Tools
-1. **Shielding Rate** Shielding Rate is the fee that users pay to protect their CDP from redemptions. Users can choose to pay whatever fee(between 0-100%) is convenient for them. Redemption protection will be activated pro-rata based on the shielding rate and the **target shielding rate** at the time of opening the CDP.
+1. **Shielding Rate** Shielding Rate is the pre-paid fee that users pay to protect their CDP from redemptions. Users can choose to pay whatever fee(between 0-100%) is convenient for them. Redemption protection will be activated pro-rata based on the shielding rate paid and the **target shielding rate** at the time of opening the CDP.
 2. **Reserve Ratio** This rate is also fixed by the user when opening a CDP. By setting this, the user agrees to lock a percentage of borrowed stablecoin in the reserve pool.
 
 The protocol mandates a borrowing user to set either **Shielding Rate** or **Reserve Ratio**.
