@@ -1,4 +1,4 @@
-                                StableBase: A predictable, pre-paid stablecoin protocol with flexible borrowing terms
+                                StableBase: A pre-paid stablecoin protocol with flexible and predictable borrowing terms
                                                         Sridhar G<sg@svylabs.com>
 
 # Abstract
