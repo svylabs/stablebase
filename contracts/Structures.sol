@@ -8,8 +8,8 @@ library SBStructs {
         address token;
         uint256 depositedAmount;
         uint256 borrowedAmount;
-        uint256 reserveRatio;
-        uint256 originationFeePaid;
+        uint256 rates;
+        uint256 shieldedUntil;
     }
 
     struct WhitelistedToken {
@@ -20,6 +20,12 @@ library SBStructs {
     enum Mode {
         BOOTSTRAP,
         NORMAL
+    }
+
+    enum StabilityType {
+        SHIELDING_RATE,
+        RESERVE_RATIO,
+        TARGET_SHIELDING_RATE
     }
 
     struct GlobalVars {

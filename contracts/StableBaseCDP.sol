@@ -23,9 +23,13 @@ contract StableBaseCDP {
 
     SBDToken public sbdToken;
 
-    address public orderedReserveList;
+    address public orderedReserveRatios;
 
-    address public orderedOriginationFeeList;
+    address public orderedTargetShieldedRates;
+
+    address public shieldedSafes;
+
+    Math.Rate public referenceShieldingRate;
 
     constructor(address _sbdToken) {
         whitelistedTokens[address(0)] = SBStructs.WhitelistedToken({
@@ -33,8 +37,9 @@ contract StableBaseCDP {
             collateralRatio: 110
         });
         sbdToken = SBDToken(_sbdToken);
-        orderedReserveList = address(new OrderedDoublyLinkedList());
-        orderedOriginationFeeList = address(new OrderedDoublyLinkedList());
+        orderedReserveRatios = address(new OrderedDoublyLinkedList());
+        orderedTargetShieldedRates = address(new OrderedDoublyLinkedList());
+        shieldedSafes = address(new OrderedDoublyLinkedList());
     }
 
     /**
@@ -43,15 +48,11 @@ contract StableBaseCDP {
      *
      * @param _token Address of the ERC20 token, use address(0) for ETH
      * @param _amount Amount of tokens or ETH to deposit as collateral
-     * @param _reserveRatio Reserve ratio specified by the user
+     * 
      */
     // function openSafe(address _token, uint256 _amount, uint256 _reserveRatio, uint256 _positionInReserve) external payable {
     // function openSafe(address _token, uint256 _amount, uint256 _reserveRatio, uint256 /*_positionInReserve*/) external payable {
-    function openSafe(
-        address _token,
-        uint256 _amount,
-        uint256 _reserveRatio
-    ) external payable {
+    function openSafe(address _token, uint256 _amount) external payable {
         require(_amount > 0, "Amount must be greater than 0");
         bytes32 id = SBUtils.getSafeId(msg.sender, _token);
 
@@ -60,18 +61,17 @@ contract StableBaseCDP {
             token: _token,
             depositedAmount: _amount,
             borrowedAmount: 0,
-            reserveRatio: _reserveRatio,
-            originationFeePaid: 0
+            rates: 0,
+            shieldedUntil: 0
         });
 
         // Deposit ETH or ERC20 token using SBUtils library
         if (_token == address(0)) {
-            require(msg.value == _amount, "Invalid deposit amount");
             safe.depositedAmount = msg.value; // Assign ETH amount to depositedAmount
         } else {
-            SBUtils.depositEthOrToken(_token, address(this), _amount);
             safe.depositedAmount = _amount; // Assign ERC20 amount to depositedAmount
         }
+        SBUtils.depositEthOrToken(_token, address(this), _amount);
 
         // Add the Safe to the mapping
         safes[id] = safe;
@@ -100,6 +100,66 @@ contract StableBaseCDP {
 
         // Remove the Safe from the mapping
         delete safes[id];
+    }
+
+    /**
+     * Borrow stablecoins from the protocol
+     * 
+     * _borrowParams:
+     * minimum: 36 bytes, maximum 68 bytes
+     * bytes 0-3:
+     *     bit: 0 - shieldingRate, 1 - reserveRatio
+     *     bits 1-15: rate (either shieldingRate or reserveRatio)
+     *     bit 16: 1 if target shielding rate is set, 0 otherwise
+     *     bits 17-31: target shielding rate
+     * bytes 4-35: Nearest Spot in either shieldedSafes or orderedReserveRatiosList list
+     * bytes 36-67: If exists, is always the nearest spot in the orderedTargetShieldedRatesList
+     * 
+     */
+    function borrowWithParams(address _token, uint256 _amount, bytes calldata _borrowParams) external {
+        bytes32 id = SBUtils.getSafeId(msg.sender, _token);
+        SBStructs.Safe storage safe = safes[id];
+        require(safe.depositedAmount > 0, "Safe does not exist");
+        //bytes2 _rateByte = bytes2(_borrowParams[0: 2]);
+        //uint256 _rate = uint256(uint16(_rateByte) & 0x7FFF);
+        //SBStructs.StabilityType _rateType = (uint16(_rateByte) & 0x8000) >= 1 ? SBStructs.StabilityType.RESERVE_RATIO : SBStructs.StabilityType.SHIELDING_RATE;
+        //uint256 _nearestSpot = abi.decode(_borrowParams[4:32], (uint256));
+
+        IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[_token].priceOracle);
+
+        // Fetch the price of the collateral from the oracle
+        //uint256 price = priceOracle.getPrice();
+
+        // Calculate the maximum borrowable amount
+        uint256 maxBorrowAmount = (safe.depositedAmount * priceOracle.getPrice() * 100) / liquidationRatio;
+
+        // Check if the requested amount is within the maximum borrowable limits
+        require(safe.borrowedAmount + _amount <= maxBorrowAmount, "Borrow amount exceeds the maximum allowed");
+
+        // Calculate reserve or shielding rate
+        (uint256 shieldingRate, uint256 shieldingEnabled) = Math.getRate(0, SBStructs.StabilityType.SHIELDING_RATE);
+        (uint256 reserveRatio, uint256 reserveRatioEnabled) = Math.getRate(0, SBStructs.StabilityType.RESERVE_RATIO);
+
+        uint256 _amountToBorrow = _amount;
+        if (reserveRatioEnabled == 1) {
+            // Calculate origination fee
+            uint256 _reservePoolDeposit = (_amount * reserveRatio) / BASIS_POINTS_DIVISOR;
+            _amountToBorrow = _amount - _reservePoolDeposit;
+        } else {
+            uint256 _shieldingFee = (_amount * shieldingRate) / BASIS_POINTS_DIVISOR;
+            _amountToBorrow = _amount - _shieldingFee;
+            // Update the Safe's shieldedUntil timestamp
+            uint256 _shieldingHours = Math.getShieldingHours(referenceShieldingRate, shieldingRate);
+            safe.shieldedUntil = block.timestamp + Math.toSeconds(_shieldingHours);
+        }
+
+        // Update the Safe's borrowed amount and origination fee paid
+        safe.borrowedAmount += _amount;
+
+        // Mint SBD tokens to the borrower
+        sbdToken.mint(msg.sender, _amountToBorrow);
+        // TODO: Mint origination fee to the fee holder
+        //sbdToken.mint(feeHolder, originationFee);
     }
 
     // borrow function
@@ -131,7 +191,7 @@ contract StableBaseCDP {
 
         // Update the Safe's borrowed amount and origination fee paid
         safe.borrowedAmount += _amount;
-        safe.originationFeePaid += originationFee;
+        //safe.originationFeePaid += originationFee;
 
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amount - originationFee);

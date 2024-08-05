@@ -51,7 +51,8 @@ describe("StableBaseCDP", function () {
     const reserveRatio = 100;
 
     // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    //await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount,  { value: depositAmount });
 
     // Compute the safe ID
     const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
@@ -60,7 +61,7 @@ describe("StableBaseCDP", function () {
     // Check if the safe has the correct deposited amount and reserve ratio
     expect(safe.token).to.equal(ethers.ZeroAddress);
     expect(safe.depositedAmount).to.equal(depositAmount);
-    expect(safe.reserveRatio).to.equal(reserveRatio);
+    ///expect(safe.reserveRatio).to.equal(reserveRatio);
   });
 
   // Test case for opening a new safe with ERC20 token
@@ -70,7 +71,8 @@ describe("StableBaseCDP", function () {
 
     // Approve the token transfer and open a safe with the ERC20 token
     await mockToken.connect(addr1).approve(stableBaseCDP.target, depositAmount); // approve token transfer
-    await stableBaseCDP.connect(addr1).openSafe(mockToken.target, depositAmount, reserveRatio); // open safe
+    //await stableBaseCDP.connect(addr1).openSafe(mockToken.target, depositAmount, reserveRatio); // open safe
+    await stableBaseCDP.connect(addr1).openSafe(mockToken.target, depositAmount); // open safe
 
     // Compute the safe ID
     const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, mockToken.target]);
@@ -79,7 +81,7 @@ describe("StableBaseCDP", function () {
     // Check if the safe has the correct deposited amount and reserve ratio
     expect(safe.token).to.equal(mockToken.target);
     expect(safe.depositedAmount).to.equal(depositAmount);
-    expect(safe.reserveRatio).to.equal(reserveRatio);
+    //expect(safe.reserveRatio).to.equal(reserveRatio);
   });
 
   // Test case for borrowing against the collateral in a safe
@@ -88,7 +90,8 @@ describe("StableBaseCDP", function () {
     const reserveRatio = 100;
 
     // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    //await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount,  { value: depositAmount });
 
     // Calculate the maximum borrowable amount based on the dummy price and liquidation ratio
     const price = BigInt(1000); // Dummy price from getPriceFromOracle
@@ -227,7 +230,8 @@ describe("StableBaseCDP", function () {
     const reserveRatio = 100;
 
     // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    //await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount,  { value: depositAmount });
 
     // Get the balance of addr1 before withdrawal
     const balanceBeforeWithdrawal = await ethers.provider.getBalance(addr1.address);
