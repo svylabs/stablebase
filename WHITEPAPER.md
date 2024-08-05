@@ -1,8 +1,8 @@
-                                StableBase: A pre-paid stablecoin protocol with flexible and predictable borrowing terms
+                                StableBase: A stablecoin protocol with 0% interest rate and pre-paid protection
                                                         Sridhar G<sg@svylabs.com>
 
 # Abstract
-One of the important functions of reserve bank in Traditional Finance is price stability. This is achieved through multiple policy tools, the primary one being controlling interest rates. There are other lesser known policy tools- like Repo rate, Reserve Ratio, etc. These tools aid in contracting and expanding the supply of money in the economy. In the cryptocurrency world, the primary tool used to control money supply for stablecoin protocols are the interest rate and the collateral requirements(which is usually fixed for a given collateral). There has not been much innovations since then. In this paper, we introduce StableBase, a new stablecoin protocol with 0% interest rates, but achieve the same effect of price stability, and contracting and expanding the money supply during different market conditions through two new policy tools, namely user-set pre-paid **Shielding rate**, and user-set **Reserve Ratio** and how they play together to achieve price parity with the pegged currency and in the process enhancing the borrowing experience for a range of user profiles.
+One of the important functions of reserve bank in Traditional Finance is price stability. This is achieved through multiple policy tools, the primary one being controlling interest rates. There are other lesser known policy tools- like Repo rate, Reserve Ratio, etc. These tools aid in contracting and expanding the supply of money in the economy. In the cryptocurrency world, the primary tool used to control money supply for stablecoin protocols are the interest rate and the collateral requirements(which is usually fixed for a given collateral). There has not been much innovations since then. In this paper, we introduce StableBase, a new stablecoin protocol with 0% interest rates, but achieve the same effect of price stability during different market conditions through two new policy tools, namely pre-paid **Shielding rate**, and user-set **Reserve Ratio** and how they play together to achieve price parity with the pegged currency and in the process enhancing the borrowing experience for a range of user profiles.
 
 # Introduction
 Most existing stablecoin issuing protocols(eg: MakerDAO, CurveUSD) use interest rate as a mechanism to incentivse and disincentivise borrowing. Liquity Protocol is currently the only protocol that offers interest free loans, but it suffers from capital efficiency and also fails to adapt to different market conditions, especially seen during high interest rate period, further the incentive structure to pay fee revenue to token holders as opposed to liquidity providers has had negative impact on the protocol as can be seen from the reduced circulation of the stablecoin. To improve on this, Liquity Protocol proposed launching v2 of their protocol with user defined interest rate(February 2024)[1] after our team had proposed user defined origination fee back in December 2023[2]. However, interest rates and yield are not the only determining factors when it comes to improving the demand for stablecoins. The borrowing costs have to make sense for a range of user profiles. This cannot be achieved only through adaptible interest rates.
@@ -76,8 +76,8 @@ StableBase also needs price oracle to get the latest price of the collateral ass
 To summarize, StableBase offers several unique features:
 
 1. 0% interest rate
-2. Introduction of user defined reserve ratio as a way to contract and expand money supply.
-3. Introduction of user defined shielding rate to allow for flexible borrowing terms.
+2. Introduction of user-set reserve ratio as a way to contract and expand money supply.
+3. Introduction of pre-paid shielding rate to allow for flexible borrowing terms.
 4. Introduction of redemption protection for better UX for regular users.
 5. Yield for Reserve Pool and Savings Pool depositors.
 6. Experimental stability mechanics that caters to both advanced(traders, hedge funds, market makers, institutions, etc.) and regular borrowers(salaried).
