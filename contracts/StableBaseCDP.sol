@@ -8,6 +8,7 @@ import "./SBDToken.sol";
 import "./dependencies/price-oracle/MockPriceOracle.sol";
 import "./interfaces/IPriceOracle.sol";
 import "./library/OrderedDoublyLinkedList.sol";
+import "./library/MockToken.sol";
 
 contract StableBaseCDP {
     uint256 private originationFeeRateBasisPoints = 0; // start with 0% origination fee
@@ -29,6 +30,9 @@ contract StableBaseCDP {
 
     address public shieldedSafes;
 
+    // address public mockToken;
+    MockToken public mockTokenInstance;
+
     Math.Rate public referenceShieldingRate;
 
     constructor(address _sbdToken) {
@@ -37,6 +41,9 @@ contract StableBaseCDP {
             collateralRatio: 110
         });
         sbdToken = SBDToken(_sbdToken);
+        // mockToken = _mockToken;
+        // mockToken = address(new MockToken());
+        mockTokenInstance = new MockToken();
         orderedReserveRatios = address(new OrderedDoublyLinkedList());
         orderedTargetShieldedRates = address(new OrderedDoublyLinkedList());
         shieldedSafes = address(new OrderedDoublyLinkedList());
@@ -269,59 +276,120 @@ contract StableBaseCDP {
     }
 
     /**
-     * @dev Redeem collateral for the specified amount of stablecoins.
-     * @param amount Amount of stablecoins to redeem for collateral.
+     * @dev Redeems single collateral from one safe
+     * 
+     * _token: address of the collateral token
+     * _amount: amount of collateral to redeem
      */
-    function redeem(uint256 amount) external {
-        bytes32 id = SBUtils.getSafeId(msg.sender, address(0)); // assume ETH collateral for now
+    function redeemSingleCollateral(address _token, uint256 _amount) external {
+        bytes32 id = SBUtils.getSafeId(msg.sender, _token);
         SBStructs.Safe storage safe = safes[id];
+        require(safe.borrowedAmount > 0, "No borrowed amount to redeem");
+        require(_amount <= safe.borrowedAmount, "Redeem amount exceeds borrowed amount");
 
-        // Ensure there is enough collateral deposited
-        require(safe.depositedAmount > 0, "No collateral to redeem");
+        IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[_token].priceOracle);
+        uint256 price = priceOracle.getPrice();
 
-        // Check for outstanding debt
-        require(
-            safe.borrowedAmount == 0 || safe.borrowedAmount >= amount,
-            "Cannot redeem collateral with outstanding debt"
-        );
+        uint256 collateralToRedeem = (_amount * price) / 100;
+        require(collateralToRedeem <= safe.depositedAmount, "Insufficient collateral");
 
-        // Calculate the amount of collateral to redeem
-        uint256 collateralAmount;
-        if (safe.borrowedAmount > 0) {
-            // Redeeming against debt, use price oracle for calculation
-            IPriceOracle priceOracle = IPriceOracle(
-                whitelistedTokens[address(0)].priceOracle
-            );
+        safe.borrowedAmount -= _amount;
+        safe.depositedAmount -= collateralToRedeem;
+
+        sbdToken.burnFrom(msg.sender, _amount);
+        SBUtils.withdrawEthOrToken(safe.token, msg.sender, collateralToRedeem);
+    }
+
+    /**
+     * @dev Redeems single collateral from multiple safes
+     * 
+     * _token: address of the collateral token
+     * _amount: amount of collateral to redeem
+     */
+    function redeemSingleCollateralFromMultipleSafes(address _token, uint256 _amount) external {
+        bytes32[] memory safeIds = new bytes32[](2);
+        safeIds[0] = SBUtils.getSafeId(msg.sender, _token);
+        safeIds[1] = SBUtils.getSafeId(msg.sender, mockTokenInstance.target());
+
+        for (uint256 i = 0; i < safeIds.length; i++) {
+            SBStructs.Safe storage safe = safes[safeIds[i]];
+            require(safe.borrowedAmount > 0, "No borrowed amount to redeem");
+            require(_amount <= safe.borrowedAmount, "Redeem amount exceeds borrowed amount");
+
+            IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[_token].priceOracle);
             uint256 price = priceOracle.getPrice();
-            collateralAmount = (amount * liquidationRatio) / (price * 100);
-        } else {
-            // Redeeming deposited collateral without outstanding debt
-            collateralAmount =
-                (amount * liquidationRatio) /
-                BASIS_POINTS_DIVISOR;
+
+            uint256 collateralToRedeem = (_amount * price) / 100;
+            require(collateralToRedeem <= safe.depositedAmount, "Insufficient collateral");
+
+            safe.borrowedAmount -= _amount;
+            safe.depositedAmount -= collateralToRedeem;
+
+            sbdToken.burnFrom(msg.sender, _amount);
+            SBUtils.withdrawEthOrToken(safe.token, msg.sender, collateralToRedeem);
         }
+    }
 
-        // Ensure the user has sufficient collateral to redeem
-        require(
-            safe.depositedAmount >= collateralAmount,
-            "Insufficient collateral to redeem"
-        );
+    /**
+     * @dev Redeems multiple collateral from one safe
+     * 
+     * _tokens: array of collateral token addresses
+     * _amounts: array of amounts to redeem for each collateral
+     */
+    function redeemMultipleCollateral(address[] calldata _tokens, uint256[] calldata _amounts) external {
+        require(_tokens.length == _amounts.length, "Arrays must be of the same length");
 
-        // Burn or mint SBD tokens accordingly
-        if (safe.borrowedAmount > 0) {
-            // Burn the stablecoins from the sender
-            sbdToken.burnFrom(msg.sender, amount);
-            // Update the Safe's borrowed amount
-            safe.borrowedAmount -= amount;
-        } else {
-            // Mint new SBD tokens to the user
-            sbdToken.mint(msg.sender, amount);
+        for (uint256 i = 0; i < _tokens.length; i++) {
+            bytes32 id = SBUtils.getSafeId(msg.sender, _tokens[i]);
+            SBStructs.Safe storage safe = safes[id];
+            require(safe.borrowedAmount > 0, "No borrowed amount to redeem");
+            require(_amounts[i] <= safe.borrowedAmount, "Redeem amount exceeds borrowed amount");
+
+            IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[_tokens[i]].priceOracle);
+            uint256 price = priceOracle.getPrice();
+
+            uint256 collateralToRedeem = (_amounts[i] * price) / 100;
+            require(collateralToRedeem <= safe.depositedAmount, "Insufficient collateral");
+
+            safe.borrowedAmount -= _amounts[i];
+            safe.depositedAmount -= collateralToRedeem;
+
+            sbdToken.burnFrom(msg.sender, _amounts[i]);
+            SBUtils.withdrawEthOrToken(safe.token, msg.sender, collateralToRedeem);
         }
+    }
 
-        // Transfer the collateral to the sender
-        SBUtils.withdrawEthOrToken(safe.token, msg.sender, collateralAmount);
+        /**
+     * @dev Redeems multiple collateral from multiple safes
+     * 
+     * _tokens: array of collateral token addresses
+     * _amounts: array of amounts to redeem for each collateral
+     */
+    function redeemMultipleCollateralFromMultipleSafes(address[] calldata _tokens, uint256[] calldata _amounts) external {
+        require(_tokens.length == _amounts.length, "Arrays must be of the same length");
 
-        // Update the Safe's deposited amount
-        safe.depositedAmount -= collateralAmount;
+        for (uint256 i = 0; i < _tokens.length; i++) {
+            bytes32[] memory safeIds = new bytes32[](2);
+            safeIds[0] = SBUtils.getSafeId(msg.sender, _tokens[i]);
+            safeIds[1] = SBUtils.getSafeId(msg.sender, mockTokenInstance.target());
+
+            for (uint256 j = 0; j < safeIds.length; j++) {
+                SBStructs.Safe storage safe = safes[safeIds[j]];
+                require(safe.borrowedAmount > 0, "No borrowed amount to redeem");
+                require(_amounts[i] <= safe.borrowedAmount, "Redeem amount exceeds borrowed amount");
+
+                IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[_tokens[i]].priceOracle);
+                uint256 price = priceOracle.getPrice();
+
+                uint256 collateralToRedeem = (_amounts[i] * price) / 100;
+                require(collateralToRedeem <= safe.depositedAmount, "Insufficient collateral");
+
+                safe.borrowedAmount -= _amounts[i];
+                safe.depositedAmount -= collateralToRedeem;
+
+                sbdToken.burnFrom(msg.sender, _amounts[i]);
+                SBUtils.withdrawEthOrToken(safe.token, msg.sender, collateralToRedeem);
+            }
+        }
     }
 }
