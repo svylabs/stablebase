@@ -48,7 +48,6 @@ describe("StableBaseCDP", function () {
   // Test case for opening a new safe with ETH
   it("should open a new safe with ETH", async function () {
     const depositAmount = ethers.parseEther("1");
-    const reserveRatio = 100;
 
     // Open a safe with ETH
     //await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
@@ -61,17 +60,14 @@ describe("StableBaseCDP", function () {
     // Check if the safe has the correct deposited amount and reserve ratio
     expect(safe.token).to.equal(ethers.ZeroAddress);
     expect(safe.depositedAmount).to.equal(depositAmount);
-    ///expect(safe.reserveRatio).to.equal(reserveRatio);
   });
 
   // Test case for opening a new safe with ERC20 token
   it("should open a new safe with ERC20 token", async function () {
     const depositAmount = ethers.parseEther("100");
-    const reserveRatio = 100;
 
     // Approve the token transfer and open a safe with the ERC20 token
     await mockToken.connect(addr1).approve(stableBaseCDP.target, depositAmount); // approve token transfer
-    //await stableBaseCDP.connect(addr1).openSafe(mockToken.target, depositAmount, reserveRatio); // open safe
     await stableBaseCDP.connect(addr1).openSafe(mockToken.target, depositAmount); // open safe
 
     // Compute the safe ID
@@ -81,16 +77,13 @@ describe("StableBaseCDP", function () {
     // Check if the safe has the correct deposited amount and reserve ratio
     expect(safe.token).to.equal(mockToken.target);
     expect(safe.depositedAmount).to.equal(depositAmount);
-    //expect(safe.reserveRatio).to.equal(reserveRatio);
   });
 
   // Test case for borrowing against the collateral in a safe
   it("should allow borrowing SBD tokens against the collateral and return the borrowed amount", async function () {
     const depositAmount = ethers.parseEther("1");
-    const reserveRatio = 100;
 
     // Open a safe with ETH
-    //await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
     await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount,  { value: depositAmount });
 
     // Calculate the maximum borrowable amount based on the dummy price and liquidation ratio
@@ -122,11 +115,10 @@ describe("StableBaseCDP", function () {
   // Test case for repaying borrowed amount with ETH
   it("should repay borrowed amount with ETH", async function () {
     const depositAmount = ethers.parseEther("1");
-    const reserveRatio = 100;
     const borrowAmount = ethers.parseEther("0.5");
 
     // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
 
     // Borrow SBD tokens
     await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
@@ -153,11 +145,10 @@ describe("StableBaseCDP", function () {
   // Test case for repaying borrowed amount with ETH and checking ETH balances
   it("should repay borrowed amount with ETH and check ETH balances", async function () {
     const depositAmount = ethers.parseEther("1");
-    const reserveRatio = 100;
     const borrowAmount = ethers.parseEther("0.5");
 
     // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
 
     // Borrow SBD tokens
     await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
@@ -186,11 +177,10 @@ describe("StableBaseCDP", function () {
   // Test case for repaying borrowed amount with ERC20 token
   it("should repay borrowed amount with ERC20 tokens", async function () {
     const depositAmount = ethers.parseEther("1");
-    const reserveRatio = 100;
     const borrowAmount = ethers.parseEther("0.5");
 
     // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
 
     // Borrow SBD tokens
     await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
@@ -227,10 +217,8 @@ describe("StableBaseCDP", function () {
   // Test case for withdrawing collateral successfully
   it("should withdraw collateral successfully", async function () {
     const depositAmount = ethers.parseEther("1");
-    const reserveRatio = 100;
 
     // Open a safe with ETH
-    //await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
     await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount,  { value: depositAmount });
 
     // Get the balance of addr1 before withdrawal
@@ -253,12 +241,11 @@ describe("StableBaseCDP", function () {
 
   it("should redeem collateral", async function () {
     const depositAmount = ethers.parseEther("1"); // 1 ETH
-    const reserveRatio = 100;
     const borrowAmount = ethers.parseEther("0.5"); // Borrow 0.5 SBD
     const redeemAmount = ethers.parseEther("0.5"); // Redeem 0.5 SBD worth of collateral
 
     // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
 
     // Borrow SBD tokens
     await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
@@ -285,10 +272,9 @@ describe("StableBaseCDP", function () {
   // Test case for closing a safe and returning collateral
   it("should close a safe and return collateral", async function () {
     const depositAmount = ethers.parseEther("1");
-    const reserveRatio = 100;
 
     // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
 
     // Close the safe
     await stableBaseCDP.connect(addr1).closeSafe(ethers.ZeroAddress);
@@ -305,10 +291,9 @@ describe("StableBaseCDP", function () {
   // Test case for failing to withdraw more collateral than deposited
   it("should fail to withdraw more collateral than deposited", async function () {
     const depositAmount = ethers.parseEther("1");
-    const reserveRatio = 100;
 
     // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
 
     // Attempt to withdraw more collateral than deposited
     await expect(
@@ -319,12 +304,11 @@ describe("StableBaseCDP", function () {
   // Test case for failing to repay more than borrowed amount
   it("should fail to repay more than borrowed amount", async function () {
     const depositAmount = ethers.parseEther("1");
-    const reserveRatio = 100;
     const borrowAmount = ethers.parseEther("0.5");
     const excessiveRepayAmount = ethers.parseEther("1");
 
     // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
 
     // Borrow SBD tokens
     await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);

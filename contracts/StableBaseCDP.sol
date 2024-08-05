@@ -220,13 +220,13 @@ contract StableBaseCDP {
 
         // Update the Safe's borrowed amount and origination fee paid
         safe.borrowedAmount -= _amount;
-        safe.originationFeePaid += originationFee;
+        // safe.originationFeePaid += originationFee;
 
         // Check if the borrowed amount is fully repaid
         if (safe.borrowedAmount == 0) {
             // Reset the borrowed amount and origination fee paid
             safe.borrowedAmount = 0;
-            safe.originationFeePaid = 0;
+            // safe.originationFeePaid = 0;
         }
     }
 
