@@ -318,60 +318,60 @@ describe("StableBaseCDP", function () {
 
 
   // Test case for redeeming single collateral
-it("should redeem single collateral", async function () {
-  const depositAmount = ethers.parseEther("1");
-  const borrowAmount = ethers.parseEther("0.5");
+  it("should redeem single collateral", async function () {
+    const depositAmount = ethers.parseEther("1");
+    const borrowAmount = ethers.parseEther("0.5");
 
-  // Open a safe with ETH
-  await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
+    // Open a safe with ETH
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
 
-  // Borrow SBD tokens
-  await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
+    // Borrow SBD tokens
+    await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
 
-  // Approve the repayment amount
-  await sbdToken.connect(addr1).approve(stableBaseCDP.target, borrowAmount);
+    // Approve the repayment amount
+    await sbdToken.connect(addr1).approve(stableBaseCDP.target, borrowAmount);
 
-  // Redeem single collateral
-  await stableBaseCDP.connect(addr1).redeem(ethers.ZeroAddress, borrowAmount);
+    // Redeem single collateral
+    await stableBaseCDP.connect(addr1).redeem(ethers.ZeroAddress, borrowAmount);
 
-  // Compute the safe ID
-  const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
-  const safe = await stableBaseCDP.safes(safeId);
+    // Compute the safe ID
+    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
+    const safe = await stableBaseCDP.safes(safeId);
 
-  // Check if the borrowed amount is repaid
-  expect(safe.borrowedAmount).to.equal(0);
-});
+    // Check if the borrowed amount is repaid
+    expect(safe.borrowedAmount).to.equal(0);
+  });
 
-// Test case for redeeming multiple collateral
-it("should redeem multiple collateral", async function () {
-  const depositAmount1 = ethers.parseEther("1");
-  const borrowAmount1 = ethers.parseEther("0.5");
-  const depositAmount2 = ethers.parseEther("2");
-  const borrowAmount2 = ethers.parseEther("1");
+  // Test case for redeeming multiple collateral
+  it("should redeem multiple collateral", async function () {
+    const depositAmount1 = ethers.parseEther("1");
+    const borrowAmount1 = ethers.parseEther("0.5");
+    const depositAmount2 = ethers.parseEther("2");
+    const borrowAmount2 = ethers.parseEther("1");
 
-  // Open a safe with ETH
-  await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount1, { value: depositAmount1 });
-  await stableBaseCDP.connect(addr1).openSafe(mockToken.target, depositAmount2);
+    // Open a safe with ETH
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount1, { value: depositAmount1 });
+    await stableBaseCDP.connect(addr1).openSafe(mockToken.target, depositAmount2);
 
-  // Borrow SBD tokens
-  await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount1);
-  await stableBaseCDP.connect(addr1).borrow(mockToken.target, borrowAmount2);
+    // Borrow SBD tokens
+    await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount1);
+    await stableBaseCDP.connect(addr1).borrow(mockToken.target, borrowAmount2);
 
-  // Approve the repayment amount
-  await sbdToken.connect(addr1).approve(stableBaseCDP.target, borrowAmount1.add(borrowAmount2));
+    // Approve the repayment amount
+    await sbdToken.connect(addr1).approve(stableBaseCDP.target, borrowAmount1.add(borrowAmount2));
 
-  // Redeem multiple collateral
-  await stableBaseCDP.connect(addr1).redeemMultiple([ethers.ZeroAddress, mockToken.target], [borrowAmount1, borrowAmount2]);
+    // Redeem multiple collateral
+    await stableBaseCDP.connect(addr1).redeemMultiple([ethers.ZeroAddress, mockToken.target], [borrowAmount1, borrowAmount2]);
 
-  // Compute the safe IDs
-  const safeId1 = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
-  const safeId2 = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, mockToken.target]);
-  const safe1 = await stableBaseCDP.safes(safeId1);
-  const safe2 = await stableBaseCDP.safes(safeId2);
+    // Compute the safe IDs
+    const safeId1 = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
+    const safeId2 = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, mockToken.target]);
+    const safe1 = await stableBaseCDP.safes(safeId1);
+    const safe2 = await stableBaseCDP.safes(safeId2);
 
-  // Check if the borrowed amounts are repaid
-  expect(safe1.borrowedAmount).to.equal(0);
-  expect(safe2.borrowedAmount).to.equal(0);
-});
+    // Check if the borrowed amounts are repaid
+    expect(safe1.borrowedAmount).to.equal(0);
+    expect(safe2.borrowedAmount).to.equal(0);
+  });
 
 });

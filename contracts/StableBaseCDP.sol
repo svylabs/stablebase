@@ -272,7 +272,34 @@ contract StableBaseCDP {
         safe.depositedAmount -= _amount;
     }
 
-    function redeem(address _token, uint256 _amount) public {
+//     function redeem(address _token, uint256 _amount) public {
+//     require(_amount > 0, "Amount must be greater than 0");
+
+//     // Calculate the collateral equivalent of the redeemed SBD tokens
+//     IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[_token].priceOracle);
+//     uint256 price = priceOracle.getPrice();
+//     uint256 collateralAmount = (_amount * price) / (100 * liquidationRatio);
+
+//     // Burn the SBD tokens
+//     sbdToken.burnFrom(msg.sender, _amount);
+
+//     // Transfer the collateral to the user
+//     SBUtils.withdrawEthOrToken(_token, msg.sender, collateralAmount);
+// }
+
+//     function redeemMultiple(address[] memory _tokens, uint256[] memory _amounts) public {
+//     require(_tokens.length == _amounts.length, "Tokens and amounts length mismatch");
+
+//     for (uint256 i = 0; i < _tokens.length; i++) {
+//         // Approve the contract to transfer the ERC20 tokens
+//         IERC20 token = IERC20(_tokens[i]);
+//         token.approve(address(this), _amounts[i]);
+
+//         redeem(_tokens[i], _amounts[i]);
+//     }
+// }
+
+function redeem(address _token, uint256 _amount) public {
     require(_amount > 0, "Amount must be greater than 0");
 
     // Calculate the collateral equivalent of the redeemed SBD tokens
@@ -285,17 +312,22 @@ contract StableBaseCDP {
 
     // Transfer the collateral to the user
     SBUtils.withdrawEthOrToken(_token, msg.sender, collateralAmount);
+
+    // Update the borrowed amount in the Safe
+    bytes32 id = SBUtils.getSafeId(msg.sender, _token);
+    SBStructs.Safe storage safe = safes[id];
+    safe.borrowedAmount -= _amount;
 }
 
-    function redeemMultiple(address[] memory _tokens, uint256[] memory _amounts) public {
+function redeemMultiple(address[] memory _tokens, uint256[] memory _amounts) public {
     require(_tokens.length == _amounts.length, "Tokens and amounts length mismatch");
 
     for (uint256 i = 0; i < _tokens.length; i++) {
-        // Approve the contract to transfer the ERC20 tokens
-        IERC20 token = IERC20(_tokens[i]);
-        token.approve(address(this), _amounts[i]);
+        // Approve the contract to transfer the SBD tokens
+        sbdToken.approve(address(this), _amounts[i]);
 
         redeem(_tokens[i], _amounts[i]);
     }
 }
+
 }
