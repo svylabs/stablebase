@@ -8,13 +8,11 @@ interface IDoublyLinkedList {
         uint256 next;
     }
 
-    function insert(uint256 id, uint256 value, uint256 nearestSpot) external;
-
     function remove(uint256 id) external;
 
     function get(uint256 id) external view returns (Node memory);
 
-    function update(uint256 id, uint256 value, uint256 nearestSpot) external;
+    function upsert(uint256 id, uint256 value, uint256 _nearestSpot) external;
 
     function getHead() external view returns (uint256);
 

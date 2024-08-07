@@ -22,6 +22,12 @@ library SBStructs {
         NORMAL
     }
 
+    enum BorrowMode {
+        MINT_WITH_PROTECTION, // 00 - shielding rate
+        MINT_WITH_MANUAL_STABILITY, // 01 - reserve ratio
+        BORROW_FROM_POOL // 10
+    }
+
     enum StabilityType {
         SHIELDING_RATE,
         RESERVE_RATIO,
