@@ -15,6 +15,8 @@ contract StableBaseCDP {
     uint256 private constant BASIS_POINTS_DIVISOR = 10000;
 
     OrderedDoublyLinkedList public shieldedSafes;
+    OrderedDoublyLinkedList public orderedReserveRatios;
+    OrderedDoublyLinkedList public orderedTargetShieldedRates;
 
     // Mapping to track Safe balances
     mapping(bytes32 => SBStructs.Safe) public safes;
@@ -25,9 +27,9 @@ contract StableBaseCDP {
 
     SBDToken public sbdToken;
 
-    address public orderedReserveRatios;
+    // address public orderedReserveRatios;
 
-    address public orderedTargetShieldedRates;
+    // address public orderedTargetShieldedRates;
 
     // address public shieldedSafes;
 
@@ -39,8 +41,8 @@ contract StableBaseCDP {
             collateralRatio: 110
         });
         sbdToken = SBDToken(_sbdToken);
-        orderedReserveRatios = address(new OrderedDoublyLinkedList());
-        orderedTargetShieldedRates = address(new OrderedDoublyLinkedList());
+        // orderedReserveRatios = address(new OrderedDoublyLinkedList());
+        // orderedTargetShieldedRates = address(new OrderedDoublyLinkedList());
         // shieldedSafes = address(new OrderedDoublyLinkedList());
     }
 
@@ -301,25 +303,52 @@ contract StableBaseCDP {
         uint256 totalRedeemed = 0;
 
         // First check for expired shielded safes
-        // uint256 currentShieldedSafe = OrderedDoublyLinkedList(shieldedSafes).head;
         uint256 currentShieldedSafe = shieldedSafes.getHead();
         while (currentShieldedSafe != 0 && totalRedeemed < _amount) {
             bytes32 safeId = bytes32(currentShieldedSafe); // Convert uint256 to bytes32
-            // SBStructs.Safe storage safe = safes[currentShieldedSafe];
-            // SBStructs.Safe storage safe = safes[bytes32(currentShieldedSafe)];
             SBStructs.Safe storage safe = safes[safeId];
             if (safe.shieldedUntil <= block.timestamp) {
                 uint256 redeemableAmount = getCollateralValue(safe);
                 if (redeemableAmount > 0) {
                     uint256 toRedeem = (_amount - totalRedeemed) <= redeemableAmount ? (_amount - totalRedeemed) : redeemableAmount;
-                    // redeemSafe(currentShieldedSafe, toRedeem);
                     redeemSafe(safeId, toRedeem);
                     totalRedeemed += toRedeem;
                 }
-                // currentShieldedSafe = OrderedDoublyLinkedList(shieldedSafes).nodes[currentShieldedSafe].next;
                 currentShieldedSafe = shieldedSafes.getNode(currentShieldedSafe).next;
             } else {
                 break;
+            }
+        }
+
+        // If we still have amount to redeem, check reserve ratio
+        if (totalRedeemed < _amount) {
+            uint256 currentReserveSafe = orderedReserveRatios.getHead();
+            while (currentReserveSafe != 0 && totalRedeemed < _amount) {
+                bytes32 safeId = bytes32(currentReserveSafe); 
+                SBStructs.Safe storage safe = safes[safeId];
+                uint256 redeemableAmount = getCollateralValue(safe);
+                if (redeemableAmount > 0) {
+                    uint256 toRedeem = (_amount - totalRedeemed) <= redeemableAmount ? (_amount - totalRedeemed) : redeemableAmount;
+                    redeemSafe(safeId, toRedeem);
+                    totalRedeemed += toRedeem;
+                }
+                currentReserveSafe = orderedReserveRatios.getNode(currentReserveSafe).next;
+            }
+        }
+
+        // If we still have amount to redeem, check target shielding rate
+        if (totalRedeemed < _amount) {
+            uint256 currentShieldingSafe = orderedTargetShieldedRates.getHead();
+            while (currentShieldingSafe != 0 && totalRedeemed < _amount) {
+                bytes32 safeId = bytes32(currentShieldingSafe);
+                SBStructs.Safe storage safe = safes[safeId];
+                uint256 redeemableAmount = getCollateralValue(safe);
+                if (redeemableAmount > 0) {
+                    uint256 toRedeem = (_amount - totalRedeemed) <= redeemableAmount ? (_amount - totalRedeemed) : redeemableAmount;
+                    redeemSafe(safeId, toRedeem);
+                    totalRedeemed += toRedeem;
+                }
+                currentShieldingSafe = orderedTargetShieldedRates.getNode(currentShieldingSafe).next;
             }
         }
 
