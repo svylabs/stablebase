@@ -292,4 +292,46 @@ describe("StableBaseCDP", function () {
     ).to.be.revertedWith("Repayment amount exceeds borrowed amount");
   });
 
+  it("should redeem SBD tokens from expired shielded safes", async function () {
+    const depositAmount = ethers.parseEther("1");
+    const borrowAmount = ethers.parseEther("0.5");
+  
+    // Open a safe with ETH
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
+  
+    // Borrow SBD tokens
+    await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
+  
+    // Set the shielding rate and shielding until timestamp
+    const shieldingRate = 100; // 100% shielding rate
+    const shieldingUntil = Math.floor(Date.now() / 1000) - 3600; // 1 hour ago
+  
+    // Update the safe's shielding rate and shielding until timestamp
+    // await stableBaseCDP.connect(addr1).updateShieldingRate(ethers.ZeroAddress, shieldingRate);
+    await stableBaseCDP.connect(owner).updateShieldingRate(ethers.ZeroAddress, shieldingRate);
+    await stableBaseCDP.connect(addr1).updateShieldingUntil(ethers.ZeroAddress, shieldingUntil);
+  
+    // Fast forward time to expire the shielding
+    await ethers.provider.send("evm_increaseTime", [3600]); // increase time by 1 hour
+    await ethers.provider.send("evm_mine"); // mine a new block
+  
+    // Redeem SBD tokens from the expired shielded safe
+    await stableBaseCDP.connect(addr1).redeem(borrowAmount);
+  
+    // Check if the safe's deposited amount is reduced
+    const safe = await stableBaseCDP.safes(ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]));
+    expect(safe.depositedAmount).to.equal(depositAmount.sub(borrowAmount));
+  
+    // Check if the safe's borrowed amount is reduced to 0
+    expect(safe.borrowedAmount).to.equal(0);
+  
+    // Check if the SBD token balance of the user is increased
+    const sbdBalance = await sbdToken.balanceOf(addr1.address);
+    expect(sbdBalance).to.equal(borrowAmount);
+  
+    // Check if the safe is removed from the shielded safes list
+    const shieldedSafes = await stableBaseCDP.shieldedSafes();
+    expect(shieldedSafes.includes(ethers.ZeroAddress)).to.be.false;
+  });
+
 });
