@@ -9,6 +9,8 @@ import "./dependencies/price-oracle/MockPriceOracle.sol";
 import "./interfaces/IPriceOracle.sol";
 import "./library/OrderedDoublyLinkedList.sol";
 import "./interfaces/IDoublyLinkedList.sol";
+import "./interfaces/IReservePool.sol";
+import "./ReservePool.sol";
 
 contract StableBaseCDP {
     uint256 private originationFeeRateBasisPoints = 0; // start with 0% origination fee
@@ -30,6 +32,8 @@ contract StableBaseCDP {
 
     address public shieldedSafes;
 
+    address public reservePool;
+
     Math.Rate public referenceShieldingRate;
 
     constructor(address _sbdToken) {
@@ -41,6 +45,7 @@ contract StableBaseCDP {
         orderedReserveRatios = address(new OrderedDoublyLinkedList());
         orderedTargetShieldedRates = address(new OrderedDoublyLinkedList());
         shieldedSafes = address(new OrderedDoublyLinkedList());
+        reservePool = address(new ReservePool());
     }
 
     /**
@@ -107,6 +112,7 @@ contract StableBaseCDP {
                 uint256 compressedRate, 
                 uint256 amount, 
                 bytes calldata borrowParams) internal {
+        uint256 _id = uint256(id);
          // Calculate origination fee
         uint256 _reserveRatio = SBUtils.getRateAtPosition(compressedRate, 0);
         uint256 _reservePoolDeposit = (amount * _reserveRatio) / BASIS_POINTS_DIVISOR;
@@ -116,8 +122,12 @@ contract StableBaseCDP {
         sbdToken.mint(msg.sender, _amountToBorrow);
         IDoublyLinkedList _orderedReserveRatios = IDoublyLinkedList(orderedReserveRatios);
         uint256 _nearestSpot = abi.decode(borrowParams[4:32], (uint256));
-        _orderedReserveRatios.upsert(uint256(id), _reserveRatio, _nearestSpot);
         // TODO: Mint to reserve pool
+        sbdToken.mint(reservePool, _reservePoolDeposit);
+        IReservePool _reservePool = IReservePool(reservePool);
+        _reservePool.addStake(_id, _reservePoolDeposit);
+        uint _newReserveRatio = (safe.borrowedAmount * BASIS_POINTS_DIVISOR / _reservePool.getStake(_id));
+        _orderedReserveRatios.upsert(uint256(id), _newReserveRatio, _nearestSpot);
     }
 
     function handleBorrowShieldedSafes(bytes32 id, SBStructs.Safe memory safe, 
@@ -134,6 +144,8 @@ contract StableBaseCDP {
 
         uint256 _nearestSpot = abi.decode(borrowParams[4:32], (uint256));
         IDoublyLinkedList _shieldedSafes = IDoublyLinkedList(shieldedSafes);
+
+        // TODO: shieldedUntil needs to dynamically change based on the borrowings
         _shieldedSafes.upsert(uint256(id), safe.shieldedUntil, _nearestSpot);
 
         // Mint SBD tokens to the borrower
