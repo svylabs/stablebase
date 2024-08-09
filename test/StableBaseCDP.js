@@ -307,9 +307,8 @@ describe("StableBaseCDP", function () {
     const shieldingUntil = Math.floor(Date.now() / 1000) - 3600; // 1 hour ago
   
     // Update the safe's shielding rate and shielding until timestamp
-    // await stableBaseCDP.connect(addr1).updateShieldingRate(ethers.ZeroAddress, shieldingRate);
-    await stableBaseCDP.connect(owner).updateShieldingRate(ethers.ZeroAddress, shieldingRate);
-    await stableBaseCDP.connect(addr1).updateShieldingUntil(ethers.ZeroAddress, shieldingUntil);
+    await stableBaseCDP.connect(owner).renewProtection(ethers.ZeroAddress, shieldingRate);
+    await stableBaseCDP.connect(addr1).extendProtectionUntil(ethers.ZeroAddress, shieldingUntil);
   
     // Fast forward time to expire the shielding
     await ethers.provider.send("evm_increaseTime", [3600]); // increase time by 1 hour

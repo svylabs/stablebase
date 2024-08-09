@@ -46,6 +46,7 @@ contract StableBaseCDP {
         });
         sbdToken = SBDToken(_sbdToken);
         owner = msg.sender;
+        shieldedSafes = new OrderedDoublyLinkedList();
         // orderedReserveRatios = address(new OrderedDoublyLinkedList());
         // orderedTargetShieldedRates = address(new OrderedDoublyLinkedList());
         // shieldedSafes = address(new OrderedDoublyLinkedList());
@@ -302,7 +303,7 @@ contract StableBaseCDP {
         safe.depositedAmount -= _amount;
     }
 
-    function updateShieldingRate(address _safe, uint256 _shieldingRate) public {
+    function renewProtection(address _safe, uint256 _shieldingRate) public {
         // Only the owner can update the shielding rate
         require(msg.sender == owner, "Only the owner can update the shielding rate");
         // Update the shielding rate for the safe
@@ -311,7 +312,7 @@ contract StableBaseCDP {
 
     event SafeShielded(bytes32 safeId, address owner, uint256 shieldingUntil);
 
-    function updateShieldingUntil(address _token, uint256 _shieldingUntil) public {
+    function extendProtectionUntil(address _token, uint256 _shieldingUntil) public {
         bytes32 safeId = SBUtils.getSafeId(msg.sender, _token);
         SBStructs.Safe storage safe = safes[safeId];
         require(safe.owner == msg.sender, "Safe does not exist");
@@ -378,6 +379,9 @@ contract StableBaseCDP {
 
         require(totalRedeemed == _amount, "Unable to redeem full amount");
         sbdToken.burnFrom(msg.sender, _amount);
+
+        // Return a success status
+        return;
     }
 
     // Utility function to get collateral value
@@ -387,7 +391,6 @@ contract StableBaseCDP {
         return safe.depositedAmount * price;
     }
 
-    // function redeemSafe(uint256 safeId, uint256 amountToRedeem) internal {
     function redeemSafe(bytes32 safeId, uint256 amountToRedeem) internal {
         SBStructs.Safe storage safe = safes[safeId];
         uint256 amountInCollateral = amountToRedeem / getCollateralValue(safe);
