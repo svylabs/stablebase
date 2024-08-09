@@ -56,8 +56,15 @@ A user, at the time of opening the CDP can pay **Shielding Rate** equal to **Tar
 
 The protocol has an option to renew protection by paying a shielding rate again.
 
-## Savings Pool
-In addition to reserve pool, there will be a savings pool where any SBD holder can park their stablecoin savings in return for accrued fees from the protocol.
+## Liquidity Pool
+In addition to reserve pool, there will be a Liquidity Pool where any SBD holder can park their stablecoin savings in return for accrued fees from the protocol. The funds from Liquidity Pool will be used for the following
+1. Enable borrowing of Stablecoins without minting at preset terms.
+2. Enable Liquidations of bad debt.
+
+The stakers in the pool gain benefit from
+1. Accrued fees from borrowing.
+2. Liquidation gains.
+3. Liquidation and Redemption fees paid.
 
 ## Fee Collection and Distribution
 All the fees that are collected from users paying shielding rate at the time of opening the CDP or renewing redemption protection is paid to
@@ -66,8 +73,10 @@ All the fees that are collected from users paying shielding rate at the time of 
 2. Savings Pool depositors in proportion to their stake.
 
 The fee is distributed in the following manner:
-1. Fees paid by Redemption Protected CDPs will be distributed to Reserve Pool(50%) and Savings Pool(50%).
-2. Fees paid by Unprotected CDPs will be distributed to Savings Pool(50%) and Reserve Pool(50%).
+1. Fees paid by Redemption Protected CDPs will be distributed to Reserve Pool.
+2. All fee paid by borrowings from Liquidity Pool goes to the Liquidity pool stakers.
+3. All redemption fee goes to Liquidity Pool stakers.
+3. Liquidation fee goes to the user that triggered Liquidation.
 
 ## Price Oracle
 StableBase also needs price oracle to get the latest price of the collateral asset, just like any other CDP protocol. StableBase plans to use Chainlink as the price oracle for various collateral assets.

@@ -133,6 +133,10 @@ contract StableBaseCDP {
         IDoublyLinkedList _orderedTargetShieldedRates = IDoublyLinkedList(orderedTargetShieldedRates);
         uint256 _nearestSpotInTargetShieldingRate = abi.decode(borrowParams[36:68], (uint256));
         _orderedTargetShieldedRates.upsert(uint256(id), _targetShieldingRate, _nearestSpot);
+
+        Math.Rate memory _target = referenceShieldingRate;
+        referenceShieldingRate = Math.add(_target, _targetShieldingRate, _reservePool.getStake(_id));
+
     }
 
     function handleBorrowShieldedSafes(bytes32 id, SBStructs.Safe memory safe, 
