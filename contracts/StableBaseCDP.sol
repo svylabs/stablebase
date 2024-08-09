@@ -8,6 +8,9 @@ import "./SBDToken.sol";
 import "./dependencies/price-oracle/MockPriceOracle.sol";
 import "./interfaces/IPriceOracle.sol";
 import "./library/OrderedDoublyLinkedList.sol";
+import "./interfaces/IDoublyLinkedList.sol";
+import "./interfaces/IReservePool.sol";
+import "./ReservePool.sol";
 
 contract StableBaseCDP {
     uint256 private originationFeeRateBasisPoints = 0; // start with 0% origination fee
@@ -35,7 +38,9 @@ contract StableBaseCDP {
 
     // address public orderedTargetShieldedRates;
 
-    // address public shieldedSafes;
+    address public shieldedSafes;
+
+    address public reservePool;
 
     Math.Rate public referenceShieldingRate;
 
@@ -45,11 +50,10 @@ contract StableBaseCDP {
             collateralRatio: 110
         });
         sbdToken = SBDToken(_sbdToken);
-        owner = msg.sender;
-        shieldedSafes = new OrderedDoublyLinkedList();
-        // orderedReserveRatios = address(new OrderedDoublyLinkedList());
-        // orderedTargetShieldedRates = address(new OrderedDoublyLinkedList());
-        // shieldedSafes = address(new OrderedDoublyLinkedList());
+        orderedReserveRatios = address(new OrderedDoublyLinkedList());
+        orderedTargetShieldedRates = address(new OrderedDoublyLinkedList());
+        shieldedSafes = address(new OrderedDoublyLinkedList());
+        reservePool = address(new ReservePool());
     }
 
     /**
@@ -113,16 +117,65 @@ contract StableBaseCDP {
         delete safes[id];
     }
 
+    function handleBorrowReserveRatioSafes(bytes32 id, SBStructs.Safe memory safe, 
+                uint256 compressedRate, 
+                uint256 amount, 
+                bytes calldata borrowParams) internal {
+        uint256 _id = uint256(id);
+         // Calculate origination fee
+        uint256 _reserveRatio = SBUtils.getRateAtPosition(compressedRate, 0);
+        uint256 _reservePoolDeposit = (amount * _reserveRatio) / BASIS_POINTS_DIVISOR;
+        uint _amountToBorrow = amount - _reservePoolDeposit;
+        safe.borrowedAmount += amount;
+        // Mint SBD tokens to the borrower
+        sbdToken.mint(msg.sender, _amountToBorrow);
+        IDoublyLinkedList _orderedReserveRatios = IDoublyLinkedList(orderedReserveRatios);
+        uint256 _nearestSpot = abi.decode(borrowParams[4:32], (uint256));
+        // TODO: Mint to reserve pool
+        sbdToken.mint(reservePool, _reservePoolDeposit);
+        IReservePool _reservePool = IReservePool(reservePool);
+        _reservePool.addStake(_id, _reservePoolDeposit);
+        uint _newReserveRatio = (safe.borrowedAmount * BASIS_POINTS_DIVISOR / _reservePool.getStake(_id));
+        _orderedReserveRatios.upsert(uint256(id), _newReserveRatio, _nearestSpot);
+
+        uint256 _targetShieldingRate = SBUtils.getRateAtPosition(compressedRate, 1);
+        IDoublyLinkedList _orderedTargetShieldedRates = IDoublyLinkedList(orderedTargetShieldedRates);
+        uint256 _nearestSpotInTargetShieldingRate = abi.decode(borrowParams[36:68], (uint256));
+        _orderedTargetShieldedRates.upsert(uint256(id), _targetShieldingRate, _nearestSpot);
+    }
+
+    function handleBorrowShieldedSafes(bytes32 id, SBStructs.Safe memory safe, 
+                uint256 compressedRate, 
+                uint256 amount,
+                bytes calldata borrowParams) internal {
+        uint256 _shieldingRate = SBUtils.getRateAtPosition(compressedRate, 0);
+        uint256 _shieldingFee = (amount * _shieldingRate) / BASIS_POINTS_DIVISOR;
+        uint _amountToBorrow = amount - _shieldingFee;
+        // Update the Safe's shieldedUntil timestamp
+        uint256 _shieldingHours = Math.getShieldingHours(referenceShieldingRate, _shieldingRate);
+        safe.shieldedUntil = block.timestamp + Math.toSeconds(_shieldingHours);
+        safe.borrowedAmount += amount;
+
+        uint256 _nearestSpot = abi.decode(borrowParams[4:32], (uint256));
+        IDoublyLinkedList _shieldedSafes = IDoublyLinkedList(shieldedSafes);
+
+        // TODO: shieldedUntil needs to dynamically change based on the borrowings
+        _shieldedSafes.upsert(uint256(id), safe.shieldedUntil, _nearestSpot);
+
+        // Mint SBD tokens to the borrower
+        sbdToken.mint(msg.sender, _amountToBorrow);
+    }
+
     /**
      * Borrow stablecoins from the protocol
      *
      * _borrowParams:
      * minimum: 36 bytes, maximum 68 bytes
      * bytes 0-3:
-     *     bit: 0 - shieldingRate, 1 - reserveRatio
-     *     bits 1-15: rate (either shieldingRate or reserveRatio)
-     *     bit 16: 1 if target shielding rate is set, 0 otherwise
-     *     bits 17-31: target shielding rate
+     *     bit: 0,1 borrowMode: 00 - shieldingRate, 01 - reserveRatio
+     *     bits 2-15: rate (either shieldingRate or reserveRatio)
+     *     bit 16,17: 1 if target shielding rate is set, 0 otherwise
+     *     bits 18-31: target shielding rate
      * bytes 4-35: Nearest Spot in either shieldedSafes or orderedReserveRatiosList list
      * bytes 36-67: If exists, is always the nearest spot in the orderedTargetShieldedRatesList
      *
@@ -133,11 +186,11 @@ contract StableBaseCDP {
         bytes calldata _borrowParams
     ) external {
         bytes32 id = SBUtils.getSafeId(msg.sender, _token);
-        SBStructs.Safe storage safe = safes[id];
+        SBStructs.Safe memory safe = safes[id];
         require(safe.depositedAmount > 0, "Safe does not exist");
-        //bytes2 _rateByte = bytes2(_borrowParams[0: 2]);
-        //uint256 _rate = uint256(uint16(_rateByte) & 0x7FFF);
-        //SBStructs.StabilityType _rateType = (uint16(_rateByte) & 0x8000) >= 1 ? SBStructs.StabilityType.RESERVE_RATIO : SBStructs.StabilityType.SHIELDING_RATE;
+        bytes2 _rateByte = bytes2(_borrowParams[0: 2]);
+        uint32 _compressedRate = (uint32(uint16(_rateByte) & 0xFFFC));
+        SBStructs.BorrowMode _borrowMode = SBUtils.getBorrowMode(uint16(_rateByte));
         //uint256 _nearestSpot = abi.decode(_borrowParams[4:32], (uint256));
 
         IPriceOracle priceOracle = IPriceOracle(
@@ -145,12 +198,10 @@ contract StableBaseCDP {
         );
 
         // Fetch the price of the collateral from the oracle
-        //uint256 price = priceOracle.getPrice();
+        uint256 price = priceOracle.getPrice();
 
         // Calculate the maximum borrowable amount
-        uint256 maxBorrowAmount = (safe.depositedAmount *
-            priceOracle.getPrice() *
-            100) / liquidationRatio;
+        uint256 maxBorrowAmount = (safe.depositedAmount * price * 100) / liquidationRatio;
 
         // Check if the requested amount is within the maximum borrowable limits
         require(
@@ -158,43 +209,14 @@ contract StableBaseCDP {
             "Borrow amount exceeds the maximum allowed"
         );
 
-        // Calculate reserve or shielding rate
-        (uint256 shieldingRate, uint256 shieldingEnabled) = Math.getRate(
-            0,
-            SBStructs.StabilityType.SHIELDING_RATE
-        );
-        (uint256 reserveRatio, uint256 reserveRatioEnabled) = Math.getRate(
-            0,
-            SBStructs.StabilityType.RESERVE_RATIO
-        );
-
-        uint256 _amountToBorrow = _amount;
-        if (reserveRatioEnabled == 1) {
-            // Calculate origination fee
-            uint256 _reservePoolDeposit = (_amount * reserveRatio) /
-                BASIS_POINTS_DIVISOR;
-            _amountToBorrow = _amount - _reservePoolDeposit;
-        } else {
-            uint256 _shieldingFee = (_amount * shieldingRate) /
-                BASIS_POINTS_DIVISOR;
-            _amountToBorrow = _amount - _shieldingFee;
-            // Update the Safe's shieldedUntil timestamp
-            uint256 _shieldingHours = Math.getShieldingHours(
-                referenceShieldingRate,
-                shieldingRate
-            );
-            safe.shieldedUntil =
-                block.timestamp +
-                Math.toSeconds(_shieldingHours);
+        if (_borrowMode == SBStructs.BorrowMode.MINT_WITH_MANUAL_STABILITY) {
+            handleBorrowReserveRatioSafes(id, safe, _compressedRate, _amount, _borrowParams);
+        } else if (_borrowMode == SBStructs.BorrowMode.MINT_WITH_PROTECTION) {
+            handleBorrowShieldedSafes(id, safe, _compressedRate, _amount, _borrowParams);
+        } else if (_borrowMode == SBStructs.BorrowMode.BORROW_FROM_POOL) {
+            // TODO: Implement borrow from pool
         }
-
-        // Update the Safe's borrowed amount and origination fee paid
-        safe.borrowedAmount += _amount;
-
-        // Mint SBD tokens to the borrower
-        sbdToken.mint(msg.sender, _amountToBorrow);
-        // TODO: Mint origination fee to the fee holder
-        //sbdToken.mint(feeHolder, originationFee);
+        safes[id] = safe;
     }
 
     // borrow function
