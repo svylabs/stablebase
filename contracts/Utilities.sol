@@ -49,6 +49,11 @@ library SBUtils {
         }
     }
 
+    /**
+     * @dev Get the rate at a specific position in the compressed rate
+     * 
+     * Each rate block is 2 bytes long, with first two bits representing the rate type, and the next 14 bits representing the rate value.
+     */
     function getRateAtPosition(uint256 _compressedRate, uint256 _position) internal pure returns (uint256) {
         if (_position == 0) {
             return (_compressedRate & 0xff) >> 2;

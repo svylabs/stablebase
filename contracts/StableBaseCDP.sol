@@ -128,6 +128,11 @@ contract StableBaseCDP {
         _reservePool.addStake(_id, _reservePoolDeposit);
         uint _newReserveRatio = (safe.borrowedAmount * BASIS_POINTS_DIVISOR / _reservePool.getStake(_id));
         _orderedReserveRatios.upsert(uint256(id), _newReserveRatio, _nearestSpot);
+
+        uint256 _targetShieldingRate = SBUtils.getRateAtPosition(compressedRate, 1);
+        IDoublyLinkedList _orderedTargetShieldedRates = IDoublyLinkedList(orderedTargetShieldedRates);
+        uint256 _nearestSpotInTargetShieldingRate = abi.decode(borrowParams[36:68], (uint256));
+        _orderedTargetShieldedRates.upsert(uint256(id), _targetShieldingRate, _nearestSpot);
     }
 
     function handleBorrowShieldedSafes(bytes32 id, SBStructs.Safe memory safe, 
