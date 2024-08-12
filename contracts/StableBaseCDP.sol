@@ -21,6 +21,10 @@ contract StableBaseCDP {
     IDoublyLinkedList public orderedReserveRatios;
     IDoublyLinkedList public orderedTargetShieldedRates;
 
+    uint256 public targetShieldingRateMultiplier;
+
+    event Redeemed(bytes32 safeId, uint256 amount);
+
     // Mapping to track Safe balances
     mapping(bytes32 => SBStructs.Safe) public safes;
 
@@ -359,22 +363,112 @@ contract StableBaseCDP {
     }
 
     // Function to redeem SBD tokens for the underlying collateral
+//     function redeem(uint256 _amount) external {
+//     require(_amount > 0, "Amount must be greater than 0");
+
+//     uint256 totalRedeemed = 0;
+
+//     // First check for expired shielded safes
+//     uint256 currentShieldedSafe = IDoublyLinkedList(shieldedSafes).getHead();
+//     while (currentShieldedSafe != 0 && totalRedeemed < _amount) {
+//         bytes32 safeId = bytes32(currentShieldedSafe); // Convert uint256 to bytes32
+//         SBStructs.Safe storage safe = safes[safeId];
+//         if (safe.shieldedUntil <= block.timestamp) {
+//             uint256 redeemableAmount = getCollateralValue(safe);
+//             if (redeemableAmount > 0) {
+//                 uint256 toRedeem = (_amount - totalRedeemed) <= redeemableAmount ? (_amount - totalRedeemed) : redeemableAmount;
+//                 redeemSafe(safeId, toRedeem);
+//                 totalRedeemed += toRedeem;
+//             }
+//             currentShieldedSafe = IDoublyLinkedList(shieldedSafes).get(currentShieldedSafe).next;
+//         } else {
+//             break;
+//         }
+//     }
+
+//     // If we still have amount to redeem, check reserve ratio
+//     if (totalRedeemed < _amount) {
+//         uint256 currentReserveSafe = IDoublyLinkedList(orderedReserveRatios).getHead();
+//         while (currentReserveSafe != 0 && totalRedeemed < _amount) {
+//             bytes32 safeId = bytes32(currentReserveSafe); 
+//             SBStructs.Safe storage safe = safes[safeId];
+//             uint256 redeemableAmount = getCollateralValue(safe);
+//             if (redeemableAmount > 0) {
+//                 uint256 toRedeem = (_amount - totalRedeemed) <= redeemableAmount ? (_amount - totalRedeemed) : redeemableAmount;
+//                 redeemSafe(safeId, toRedeem);
+//                 totalRedeemed += toRedeem;
+//             }
+//             currentReserveSafe = IDoublyLinkedList(orderedReserveRatios).get(currentReserveSafe).next;
+//         }
+//     }
+
+//     // If we still have amount to redeem, check target shielding rate
+//     if (totalRedeemed < _amount) {
+//         uint256 currentShieldingSafe = IDoublyLinkedList(orderedTargetShieldedRates).getHead();
+//         while (currentShieldingSafe != 0 && totalRedeemed < _amount) {
+//             bytes32 safeId = bytes32(currentShieldingSafe);
+//             SBStructs.Safe storage safe = safes[safeId];
+//             uint256 redeemableAmount = getCollateralValue(safe);
+//             if (redeemableAmount > 0) {
+//                 uint256 toRedeem = (_amount - totalRedeemed) <= redeemableAmount ? (_amount - totalRedeemed) : redeemableAmount;
+//                 redeemSafe(safeId, toRedeem);
+//                 totalRedeemed += toRedeem;
+//             }
+//             currentShieldingSafe = IDoublyLinkedList(orderedTargetShieldedRates).get(currentShieldingSafe).next;
+//         }
+//     }
+
+//     require(totalRedeemed == _amount, "Unable to redeem full amount");
+//     sbdToken.burnFrom(msg.sender, _amount);
+
+//     // Return a success status
+//     return;
+// }
+
+//     // Utility function to get collateral value
+//     function getCollateralValue(SBStructs.Safe storage safe) internal view returns (uint256) {
+//         IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[safe.token].priceOracle);
+//         uint256 price = priceOracle.getPrice();
+//         return safe.depositedAmount * price;
+//     }
+
+//     function redeemSafe(bytes32 safeId, uint256 amountToRedeem) internal {
+//         SBStructs.Safe storage safe = safes[safeId];
+//         uint256 amountInCollateral = amountToRedeem / getCollateralValue(safe);
+//         safe.depositedAmount -= amountInCollateral;
+//         SBUtils.withdrawEthOrToken(safe.token, msg.sender, amountInCollateral);
+//         safe.borrowedAmount -= amountToRedeem;
+//             if (safe.borrowedAmount == 0) {
+//                 delete safes[safeId];
+//             }
+//     }
+
+
+    // Function to redeem SBD tokens for the underlying collateral
     function redeem(uint256 _amount) external {
-    require(_amount > 0, "Amount must be greater than 0");
+        require(_amount > 0, "Amount must be greater than 0");
 
     uint256 totalRedeemed = 0;
 
-    // First check for expired shielded safes
+    // Check for Expired Safes
     uint256 currentShieldedSafe = IDoublyLinkedList(shieldedSafes).getHead();
     while (currentShieldedSafe != 0 && totalRedeemed < _amount) {
         bytes32 safeId = bytes32(currentShieldedSafe); // Convert uint256 to bytes32
         SBStructs.Safe storage safe = safes[safeId];
         if (safe.shieldedUntil <= block.timestamp) {
-            uint256 redeemableAmount = getCollateralValue(safe);
-            if (redeemableAmount > 0) {
-                uint256 toRedeem = (_amount - totalRedeemed) <= redeemableAmount ? (_amount - totalRedeemed) : redeemableAmount;
-                redeemSafe(safeId, toRedeem);
-                totalRedeemed += toRedeem;
+            // Check the Reserve Ratio
+            uint256 reserveRatio = getReserveRatio(safe);
+            if (reserveRatio >= liquidationRatio) {
+                // Set a Target Shielding Rate
+                uint256 targetShieldingRate = getTargetShieldingRate(safe);
+                if (targetShieldingRate > 0) {
+                    uint256 redeemableAmount = getCollateralValue(safe);
+                    if (redeemableAmount > 0) {
+                        uint256 toRedeem = (_amount - totalRedeemed) <= redeemableAmount ? (_amount - totalRedeemed) : redeemableAmount;
+                        redeemSafe(safeId, toRedeem, targetShieldingRate);
+                        totalRedeemed += toRedeem;
+                    }
+                }
             }
             currentShieldedSafe = IDoublyLinkedList(shieldedSafes).get(currentShieldedSafe).next;
         } else {
@@ -388,11 +482,14 @@ contract StableBaseCDP {
         while (currentReserveSafe != 0 && totalRedeemed < _amount) {
             bytes32 safeId = bytes32(currentReserveSafe); 
             SBStructs.Safe storage safe = safes[safeId];
-            uint256 redeemableAmount = getCollateralValue(safe);
-            if (redeemableAmount > 0) {
-                uint256 toRedeem = (_amount - totalRedeemed) <= redeemableAmount ? (_amount - totalRedeemed) : redeemableAmount;
-                redeemSafe(safeId, toRedeem);
-                totalRedeemed += toRedeem;
+            uint256 reserveRatio = getReserveRatio(safe);
+            if (reserveRatio >= liquidationRatio) {
+                uint256 redeemableAmount = getCollateralValue(safe);
+                if (redeemableAmount > 0) {
+                    uint256 toRedeem = (_amount - totalRedeemed) <= redeemableAmount ? (_amount - totalRedeemed) : redeemableAmount;
+                    redeemSafe(safeId, toRedeem, 0);
+                    totalRedeemed += toRedeem;
+                }
             }
             currentReserveSafe = IDoublyLinkedList(orderedReserveRatios).get(currentReserveSafe).next;
         }
@@ -404,11 +501,14 @@ contract StableBaseCDP {
         while (currentShieldingSafe != 0 && totalRedeemed < _amount) {
             bytes32 safeId = bytes32(currentShieldingSafe);
             SBStructs.Safe storage safe = safes[safeId];
-            uint256 redeemableAmount = getCollateralValue(safe);
-            if (redeemableAmount > 0) {
-                uint256 toRedeem = (_amount - totalRedeemed) <= redeemableAmount ? (_amount - totalRedeemed) : redeemableAmount;
-                redeemSafe(safeId, toRedeem);
-                totalRedeemed += toRedeem;
+            uint256 targetShieldingRate = getTargetShieldingRate(safe);
+            if (targetShieldingRate > 0) {
+                uint256 redeemableAmount = getCollateralValue(safe);
+                if (redeemableAmount > 0) {
+                    uint256 toRedeem = (_amount - totalRedeemed) <= redeemableAmount ? (_amount - totalRedeemed) : redeemableAmount;
+                    redeemSafe(safeId, toRedeem, targetShieldingRate);
+                    totalRedeemed += toRedeem;
+                }
             }
             currentShieldingSafe = IDoublyLinkedList(orderedTargetShieldedRates).get(currentShieldingSafe).next;
         }
@@ -419,24 +519,44 @@ contract StableBaseCDP {
 
     // Return a success status
     return;
-}
-
-    // Utility function to get collateral value
-    function getCollateralValue(SBStructs.Safe storage safe) internal view returns (uint256) {
-        IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[safe.token].priceOracle);
-        uint256 price = priceOracle.getPrice();
-        return safe.depositedAmount * price;
     }
 
-    function redeemSafe(bytes32 safeId, uint256 amountToRedeem) internal {
+    function getReserveRatio(SBStructs.Safe storage safe) internal view returns (uint256) {
+        // Calculate the reserve ratio based on the safe's collateral and borrowed amount
+        uint256 collateralValue = getCollateralValue(safe);
+        uint256 borrowedAmount = safe.borrowedAmount;
+        return (collateralValue * liquidationRatio) / borrowedAmount;
+    }
+
+    function getTargetShieldingRate(SBStructs.Safe storage safe) internal view returns (uint256) {
+        // Calculate the target shielding rate based on the safe's collateral and borrowed amount
+        uint256 collateralValue = getCollateralValue(safe);
+        uint256 borrowedAmount = safe.borrowedAmount;
+        return (collateralValue * targetShieldingRateMultiplier) / borrowedAmount;
+    }
+
+    function getCollateralValue(SBStructs.Safe storage safe) internal view returns (uint256) {
+        // Calculate the collateral value based on the safe's collateral asset and amount
+        uint256 collateralAmount = safe.depositedAmount;
+        uint256 collateralPrice = getCollateralPrice(safe.token);
+        return collateralAmount * collateralPrice;
+   }
+
+    function getCollateralPrice(address collateralAsset) internal view returns (uint256) {
+        IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[collateralAsset].priceOracle);
+        uint256 price = priceOracle.getPrice();
+        return price;
+    }
+
+    function redeemSafe(bytes32 safeId, uint256 amountToRedeem, uint256 targetShieldingRate) internal {
         SBStructs.Safe storage safe = safes[safeId];
         uint256 amountInCollateral = amountToRedeem / getCollateralValue(safe);
         safe.depositedAmount -= amountInCollateral;
-        SBUtils.withdrawEthOrToken(safe.token, msg.sender, amountInCollateral);
         safe.borrowedAmount -= amountToRedeem;
-            if (safe.borrowedAmount == 0) {
-                delete safes[safeId];
-            }
+        if (targetShieldingRate > 0) {
+            safe.rates = targetShieldingRate;
+        }
+        emit Redeemed(safeId, amountToRedeem);
     }
        
 }
