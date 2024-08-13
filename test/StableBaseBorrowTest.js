@@ -61,17 +61,18 @@ describe("StableBaseCDP", function () {
     // next 4-35 bytes: nearestSpot
     // next 36-67 byte: nearestSpot(optional)
     const _nearestSpotForRate = ethers.ZeroHash;
-    // reserve ratio
-    const _compressedRate = 1 | (5 << 2) | (1 << 16) | (8 << 18);
+
+    // 1- reserve ratio, 5- reserve ratio value, 1- target shielding rate, 8- target shielding rate value 
+    const _compressedRate = 1 | (500 << 2) | (1 << 16) | (800 << 18); 
     console.log(_compressedRate.toString(16), _compressedRate.toString(2), _nearestSpotForRate);
     const borrowParams = ethers.solidityPacked(["uint32", "uint256", "uint256"], [BigInt(_compressedRate), BigInt(_nearestSpotForRate), BigInt(_nearestSpotForRate)]);
     console.log(borrowParams);
     const price = BigInt(1000);
-    const liquidationRatio = BigInt(110); // Ensure consistency with contract
-    const maxBorrowAmount = (depositAmount * price * BigInt(100)) / liquidationRatio; // BigInt calculation
+    //const liquidationRatio = BigInt(110); // Ensure consistency with contract
+    //const maxBorrowAmount = (depositAmount * price * BigInt(100)) / BigInt(liquidationRatio); // BigInt calculation
 
     // Adjust the borrow amount to be within the limit
-    const borrowAmount = maxBorrowAmount - BigInt(1); // Slightly less than max borrowable amount
+    const borrowAmount = (depositAmount * price) / BigInt(2); // Borrow nearly half
     console.log("Borrow amount: ", borrowAmount);
 
     await stableBaseCDP.connect(user).borrowWithParams(ethers.ZeroAddress, borrowAmount, borrowParams);
@@ -85,11 +86,26 @@ describe("StableBaseCDP", function () {
     console.log("After Borrow", contractSnapshotAfterBorrow);
     // Checks needed
     // 1. Check if the borrowed amount is correct
-    // 2. Check if the reference shielding rate is correct
+    expect(contractSnapshotAfterBorrow.safe.borrowedAmount).to.equal(borrowAmount);
     // 3. Check if the target shielding rate is added  to the list correctly
+    expect(contractSnapshotAfterBorrow.targetShieldingRateList.value.value).to.equal(800);
+    expect(contractSnapshotAfterBorrow.targetShieldingRateList.head).to.equal(safeId);
+    expect(contractSnapshotAfterBorrow.targetShieldingRateList.tail).to.equal(safeId);
+
+    const reserveRatioFromReservePoolStake = (contractSnapshotAfterBorrow.reservePool.stake * BigInt(10000) / contractSnapshotAfterBorrow.safe.borrowedAmount);
     // 4. Check if the reserve ratio is updated correctly
+    expect(contractSnapshotAfterBorrow.reserveRatioList.value.value).to.equal(reserveRatioFromReservePoolStake);
+    expect(contractSnapshotAfterBorrow.reserveRatioList.head).to.equal(safeId);
+    expect(contractSnapshotAfterBorrow.reserveRatioList.tail).to.equal(safeId);
+
     // 5. Check if the tokens equivalent to reserve ratio is added to the reserve pool.
+    expect(contractSnapshotAfterBorrow.reservePool.balance).to.equal(contractSnapshotBeforeBorrow.reservePool.balance + (borrowAmount * BigInt(5) / BigInt(100)));
+
     // 6. Check if the tokens are minted to the borrower's address
+    expect(contractSnapshotAfterBorrow.user.sbd).to.equal(contractSnapshotBeforeBorrow.user.sbd + borrowAmount - contractSnapshotAfterBorrow.reservePool.stake);
+    // 2. Check if the reference shielding rate is correct
+    expect((contractSnapshotAfterBorrow.referenceShieldingRate.weightedSum  * BigInt(100)) / contractSnapshotAfterBorrow.referenceShieldingRate.totalWeight).to.equal(800 * 100);
+    
     //expect(await sbdToken.balanceOf(owner.address)).to.equal(ethers.parseEther("100"));
   });
 

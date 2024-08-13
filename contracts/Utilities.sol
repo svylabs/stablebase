@@ -56,9 +56,9 @@ library SBUtils {
      */
     function getRateAtPosition(uint256 _compressedRate, uint256 _position) internal pure returns (uint256) {
         if (_position == 0) {
-            return (_compressedRate & 0xff) >> 2;
+            return (_compressedRate & 0xffff) >> 2;
         } else if (_position == 1) {
-            return ((_compressedRate & 0xff0000) >> 16) >> 2;
+            return ((_compressedRate & 0xffff0000) >> 16) >> 2;
         } else {
             revert("Invalid position");
         }

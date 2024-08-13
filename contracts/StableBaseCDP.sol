@@ -115,7 +115,7 @@ contract StableBaseCDP {
         _orderedTargetShieldedRates.upsert(id, _targetShieldingRate, _nearestSpotInTargetShieldingRate);
 
         Math.Rate memory _target = referenceShieldingRate;
-        referenceShieldingRate = Math.add(_target, compressedRate, _reservePool.getStake(id));
+        referenceShieldingRate = Math.add(_target, _targetShieldingRate, _reservePool.getStake(id));
     }
 
     function handleBorrowReserveRatioSafes(bytes32 id, SBStructs.Safe memory safe, 
@@ -136,7 +136,7 @@ contract StableBaseCDP {
         sbdToken.mint(reservePool, _reservePoolDeposit);
         IReservePool _reservePool = IReservePool(reservePool);
         _reservePool.addStake(_id, _reservePoolDeposit);
-        uint _newReserveRatio = (safe.borrowedAmount * BASIS_POINTS_DIVISOR / _reservePool.getStake(_id));
+        uint _newReserveRatio = (( _reservePool.getStake(_id) * BASIS_POINTS_DIVISOR) / safe.borrowedAmount);
         _orderedReserveRatios.upsert(_id, _newReserveRatio, _nearestSpot);
         
         updateTargetShieldingRate(_id, compressedRate, _reservePool, borrowParams);
