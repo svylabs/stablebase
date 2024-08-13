@@ -36,8 +36,8 @@ library SBUtils {
         }
     }
 
-    function getBorrowMode(uint16 mode) internal pure returns (SBStructs.BorrowMode) {
-        uint16 _mode = mode & 0x0003;
+    function getBorrowMode(uint32 mode) internal pure returns (SBStructs.BorrowMode) {
+        uint32 _mode = mode & 0x00000003;
         if (_mode == 0) {
             return SBStructs.BorrowMode.MINT_WITH_PROTECTION;
         } else if (_mode == 1) {
@@ -58,11 +58,7 @@ library SBUtils {
         if (_position == 0) {
             return (_compressedRate & 0xff) >> 2;
         } else if (_position == 1) {
-            return ((_compressedRate & 0xff00) >> 16) >> 2;
-        } else if (_position == 2) {
-            return ((_compressedRate & 0xff0000) >> 32) >> 2;
-        } else if (_position == 3) {
-            return ((_compressedRate & 0xff000000) >> 48) >> 2;
+            return ((_compressedRate & 0xff0000) >> 16) >> 2;
         } else {
             revert("Invalid position");
         }

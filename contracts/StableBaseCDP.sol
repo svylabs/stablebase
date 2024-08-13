@@ -34,7 +34,7 @@ contract StableBaseCDP {
 
     address public reservePool;
 
-    Math.Rate public referenceShieldingRate;
+    Math.Rate public referenceShieldingRate = Math.Rate(0, 0);
 
     constructor(address _sbdToken) {
         whitelistedTokens[address(0)] = SBStructs.WhitelistedToken({
@@ -108,6 +108,16 @@ contract StableBaseCDP {
         delete safes[id];
     }
 
+    function updateTargetShieldingRate(uint256 id, uint256 compressedRate, IReservePool _reservePool, bytes calldata borrowParams) internal {
+        uint256 _targetShieldingRate = SBUtils.getRateAtPosition(compressedRate, 1);
+        IDoublyLinkedList _orderedTargetShieldedRates = IDoublyLinkedList(orderedTargetShieldedRates);
+        uint256 _nearestSpotInTargetShieldingRate = uint256(bytes32(borrowParams[36:68]));
+        _orderedTargetShieldedRates.upsert(id, _targetShieldingRate, _nearestSpotInTargetShieldingRate);
+
+        Math.Rate memory _target = referenceShieldingRate;
+        referenceShieldingRate = Math.add(_target, compressedRate, _reservePool.getStake(id));
+    }
+
     function handleBorrowReserveRatioSafes(bytes32 id, SBStructs.Safe memory safe, 
                 uint256 compressedRate, 
                 uint256 amount, 
@@ -121,21 +131,15 @@ contract StableBaseCDP {
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amountToBorrow);
         IDoublyLinkedList _orderedReserveRatios = IDoublyLinkedList(orderedReserveRatios);
-        uint256 _nearestSpot = abi.decode(borrowParams[4:32], (uint256));
+        uint256 _nearestSpot = uint256(bytes32(borrowParams[4:32]));
         // TODO: Mint to reserve pool
         sbdToken.mint(reservePool, _reservePoolDeposit);
         IReservePool _reservePool = IReservePool(reservePool);
         _reservePool.addStake(_id, _reservePoolDeposit);
         uint _newReserveRatio = (safe.borrowedAmount * BASIS_POINTS_DIVISOR / _reservePool.getStake(_id));
-        _orderedReserveRatios.upsert(uint256(id), _newReserveRatio, _nearestSpot);
-
-        uint256 _targetShieldingRate = SBUtils.getRateAtPosition(compressedRate, 1);
-        IDoublyLinkedList _orderedTargetShieldedRates = IDoublyLinkedList(orderedTargetShieldedRates);
-        uint256 _nearestSpotInTargetShieldingRate = abi.decode(borrowParams[36:68], (uint256));
-        _orderedTargetShieldedRates.upsert(uint256(id), _targetShieldingRate, _nearestSpot);
-
-        Math.Rate memory _target = referenceShieldingRate;
-        referenceShieldingRate = Math.add(_target, _targetShieldingRate, _reservePool.getStake(_id));
+        _orderedReserveRatios.upsert(_id, _newReserveRatio, _nearestSpot);
+        
+        updateTargetShieldingRate(_id, compressedRate, _reservePool, borrowParams);
 
     }
 
@@ -151,7 +155,7 @@ contract StableBaseCDP {
         safe.shieldedUntil = block.timestamp + Math.toSeconds(_shieldingHours);
         safe.borrowedAmount += amount;
 
-        uint256 _nearestSpot = abi.decode(borrowParams[4:32], (uint256));
+        uint256 _nearestSpot = uint256(bytes32(borrowParams[4:36]));
         IDoublyLinkedList _shieldedSafes = IDoublyLinkedList(shieldedSafes);
 
         // TODO: shieldedUntil needs to dynamically change based on the borrowings
@@ -179,9 +183,10 @@ contract StableBaseCDP {
         bytes32 id = SBUtils.getSafeId(msg.sender, _token);
         SBStructs.Safe memory safe = safes[id];
         require(safe.depositedAmount > 0, "Safe does not exist");
-        bytes2 _rateByte = bytes2(_borrowParams[0: 2]);
-        uint32 _compressedRate = (uint32(uint16(_rateByte) & 0xFFFC));
-        SBStructs.BorrowMode _borrowMode = SBUtils.getBorrowMode(uint16(_rateByte));
+        bytes4 _rateByte = bytes4(_borrowParams[0: 4]);
+        uint32 _compressedRate = uint32(_rateByte);
+        safe.rates = _compressedRate;
+        SBStructs.BorrowMode _borrowMode = SBUtils.getBorrowMode(_compressedRate);
         //uint256 _nearestSpot = abi.decode(_borrowParams[4:32], (uint256));
 
         IPriceOracle priceOracle = IPriceOracle(whitelistedTokens[_token].priceOracle);
