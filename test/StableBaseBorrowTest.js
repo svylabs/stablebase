@@ -62,8 +62,13 @@ describe("StableBaseCDP", function () {
     // next 36-67 byte: nearestSpot(optional)
     const _nearestSpotForRate = ethers.ZeroHash;
 
+    const reserveRatioEnabled = 1;
+    const reserveRatio = 500; // 5%
+    const targetShieldingRate = 800; // 8%
+    const targetShieldingRateEnabled = 1;
     // 1- reserve ratio, 5- reserve ratio value, 1- target shielding rate, 8- target shielding rate value 
-    const _compressedRate = 1 | (500 << 2) | (1 << 16) | (800 << 18); 
+    // targetShieldingRate(14 bits) | targetShieldingRateEnabled(2 bits) | reserveRatio(14 bits) | reserveRatioEnabled(2 bits)
+    const _compressedRate = reserveRatioEnabled | (reserveRatio << 2) | (targetShieldingRateEnabled << 16) | (targetShieldingRate << 18); 
     console.log(_compressedRate.toString(16), _compressedRate.toString(2), _nearestSpotForRate);
     const borrowParams = ethers.solidityPacked(["uint32", "uint256", "uint256"], [BigInt(_compressedRate), BigInt(_nearestSpotForRate), BigInt(_nearestSpotForRate)]);
     console.log(borrowParams);

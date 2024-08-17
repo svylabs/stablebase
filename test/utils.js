@@ -60,4 +60,33 @@ async function takeContractSnapshots(stableBaseCDP, sbdToken, collateralToken, s
     return snapshot;
 }
 
-module.exports = { takeODLLSnapshot, takeContractSnapshots };
+async function borrow(contracts, user, safeId, borrowAmount, borrowParams) {
+    const contractSnapshotBeforeBorrow = await takeContractSnapshots(contracts.stableBaseCDP, contracts.sbdToken, contracts.mockToken, safeId, { address: user.address, collateral: true });
+    let _borrowParams;
+    if (borrowParams.reserveRatio) {
+        const _nearestSpotForReserveRatio = borrowParams.nearestSpotForReserveRatio | ethers.ZeroHash;
+        const _nearestSpotForTargetShieldingRate = borrowParams.nearestSpotForTargetShieldingRate | ethers.ZeroHash;
+        const reserveRatioEnabled = 1;
+        const reserveRatio = borrowParams.reserveRatio * 100// 5%
+        const targetShieldingRate = borrowParams.targetShieldingRate * 100; // 8%
+        const targetShieldingRateEnabled = 1;
+        // 1- reserve ratio, 5- reserve ratio value, 1- target shielding rate, 8- target shielding rate value 
+        // targetShieldingRate(14 bits) | targetShieldingRateEnabled(2 bits) | reserveRatio(14 bits) | reserveRatioEnabled(2 bits)
+        const _compressedRate = reserveRatioEnabled | (reserveRatio << 2) | (targetShieldingRateEnabled << 16) | (targetShieldingRate << 18); 
+        console.log(_compressedRate.toString(16), _compressedRate.toString(2), _nearestSpotForRate);
+        _borrowParams = ethers.solidityPacked(["uint32", "uint256", "uint256"], [BigInt(_compressedRate), BigInt(_nearestSpotForReserveRatio), BigInt(_nearestSpotForTargetShieldingRate)]);
+    } else if (borrowParams.shieldingRate) {
+        const _nearestSpotInShieldedSafe = borrowParams.nearestSpotInShieldedSafe | ethers.ZeroHash;
+        const reserveRatioEnabled = 0;
+        const shieldingRate = borrowParams.shieldingRate * 100; // 5%
+        // 1- shielding rate, 5- shielding rate value
+        // shieldingRate(14 bits) | shieldingRateEnabled(2 bits)
+        const _compressedRate = reserveRatioEnabled | (shieldingRate << 2);
+        _borrowParams = ethers.solidityPacked(["uint32", "uint256"], [BigInt(_compressedRate), BigInt(_nearestSpotForRate)]);
+    }
+    await stableBaseCDP.connect(user).borrowWithParams(ethers.ZeroAddress, borrowAmount, borrowParams);
+    const contractSnapshotAfterBorrow = await takeContractSnapshots(contracts.stableBaseCDP, contracts.sbdToken, contracts.mockToken, safeId, { address: user.address, collateral: true });
+    return { contractSnapshotBeforeBorrow, contractSnapshotAfterBorrow };
+}
+
+module.exports = { takeODLLSnapshot, takeContractSnapshots, borrow };
