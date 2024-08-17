@@ -151,7 +151,13 @@ contract StableBaseCDP {
         uint256 _shieldingFee = (amount * _shieldingRate) / BASIS_POINTS_DIVISOR;
         uint _amountToBorrow = amount - _shieldingFee;
         // Update the Safe's shieldedUntil timestamp
-        uint256 _shieldingHours = Math.getShieldingHours(referenceShieldingRate, _shieldingRate);
+        uint256 _shieldingHours = 0;
+        if (Math.isZero(referenceShieldingRate)) {
+            // Every 24 hours
+            _shieldingHours = Math.HOURS_IN_DAY;
+        } else {
+            _shieldingHours = Math.getShieldingHours(referenceShieldingRate, _shieldingRate);
+        }
         safe.shieldedUntil = block.timestamp + Math.toSeconds(_shieldingHours);
         safe.borrowedAmount += amount;
 
@@ -163,6 +169,7 @@ contract StableBaseCDP {
 
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amountToBorrow);
+        // TODO: mint fee
     }
 
     /**

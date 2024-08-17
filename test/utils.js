@@ -12,6 +12,7 @@ async function takeODLLSnapshot(address, id) {
       let value = await odll.get(id);
       snapshot.value = value;
     }
+    snapshot.address = address;
     return snapshot;
 }
 
@@ -73,18 +74,25 @@ async function borrow(contracts, user, safeId, borrowAmount, borrowParams) {
         // 1- reserve ratio, 5- reserve ratio value, 1- target shielding rate, 8- target shielding rate value 
         // targetShieldingRate(14 bits) | targetShieldingRateEnabled(2 bits) | reserveRatio(14 bits) | reserveRatioEnabled(2 bits)
         const _compressedRate = reserveRatioEnabled | (reserveRatio << 2) | (targetShieldingRateEnabled << 16) | (targetShieldingRate << 18); 
-        console.log(_compressedRate.toString(16), _compressedRate.toString(2), _nearestSpotForRate);
+       //console.log(_compressedRate.toString(16), _compressedRate.toString(2), _nearestSpotForReserveRatio);
         _borrowParams = ethers.solidityPacked(["uint32", "uint256", "uint256"], [BigInt(_compressedRate), BigInt(_nearestSpotForReserveRatio), BigInt(_nearestSpotForTargetShieldingRate)]);
-    } else if (borrowParams.shieldingRate) {
+    } else if (borrowParams.shieldingRate !== undefined) {
         const _nearestSpotInShieldedSafe = borrowParams.nearestSpotInShieldedSafe | ethers.ZeroHash;
         const reserveRatioEnabled = 0;
         const shieldingRate = borrowParams.shieldingRate * 100; // 5%
         // 1- shielding rate, 5- shielding rate value
         // shieldingRate(14 bits) | shieldingRateEnabled(2 bits)
         const _compressedRate = reserveRatioEnabled | (shieldingRate << 2);
-        _borrowParams = ethers.solidityPacked(["uint32", "uint256"], [BigInt(_compressedRate), BigInt(_nearestSpotForRate)]);
+        console.log(_compressedRate.toString(16), _compressedRate.toString(2), _nearestSpotInShieldedSafe);
+        _borrowParams = ethers.solidityPacked(["uint32", "uint256"], [BigInt(_compressedRate), BigInt(_nearestSpotInShieldedSafe)]);
+        console.log(_borrowParams);
     }
-    await stableBaseCDP.connect(user).borrowWithParams(ethers.ZeroAddress, borrowAmount, borrowParams);
+    let collateralAddress = ethers.ZeroAddress;
+    if (borrowParams.collateral) {
+        collateralAddress = contracts.mockToken.address;
+    }
+    console.log(_borrowParams);
+    await contracts.stableBaseCDP.connect(user).borrowWithParams(collateralAddress, borrowAmount, _borrowParams);
     const contractSnapshotAfterBorrow = await takeContractSnapshots(contracts.stableBaseCDP, contracts.sbdToken, contracts.mockToken, safeId, { address: user.address, collateral: true });
     return { contractSnapshotBeforeBorrow, contractSnapshotAfterBorrow };
 }

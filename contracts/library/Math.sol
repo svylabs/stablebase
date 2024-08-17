@@ -6,6 +6,7 @@ import "../Structures.sol";
 library Math {
     uint256 public constant DAYS_IN_YEAR = 365;
     uint256 public constant HOURS_IN_DAY = 24;
+    uint256 public constant DAYS_IN_MONTH = 30;
 
     struct Rate {
         uint256 weightedSum;
@@ -31,8 +32,12 @@ library Math {
         return rate;
     }
 
+    function isZero(Rate memory rate) internal pure returns (bool) {
+        return rate.totalWeight == 0 || rate.weightedSum == 0;
+    }
+
     function getShieldingHours(Rate memory referenceRate, uint256 currentRate) internal pure returns (uint256) {
-        if (referenceRate.totalWeight == 0) {
+        if (referenceRate.totalWeight == 0 || referenceRate.weightedSum == 0) {
             return 0;
         }
         //uint256 _referenceRate = (referenceRate.weightedSum / referenceRate.totalWeight);
