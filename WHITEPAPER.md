@@ -1,8 +1,9 @@
-                                StableBase: A stablecoin protocol with 0% interest rate and pre-paid protection
-                                                        Sridhar G<sg@svylabs.com>
+                           StableBase: A novel stablecoin protocol with enhanced borrowing experience
+                                    Sridhar G<sg@svylabs.com>, Gopalakrishnan G<gopal.g@gov.in>
+                        (SVY Labs,Netherlands), (PGPPM-IIM Bangalore, Civil Servant, Government of India)
 
 # Abstract
-One of the important functions of reserve bank in Traditional Finance is price stability. This is achieved through multiple policy tools, the primary one being controlling interest rates. There are other lesser known policy tools- like Repo rate, Reserve Ratio, etc. These tools aid in contracting and expanding the supply of money in the economy. In the cryptocurrency world, the primary tool used to control money supply for stablecoin protocols are the interest rate and the collateral requirements(which is usually fixed for a given collateral). There has not been much innovations since then. In this paper, we introduce StableBase, a new stablecoin protocol with 0% interest rates, but achieve the same effect of price stability during different market conditions through two new policy tools, namely pre-paid **Shielding rate**, and user-set **Reserve Ratio** and how they play together to achieve price parity with the pegged currency and in the process enhancing the borrowing experience for a range of user profiles.
+One of the important functions of reserve bank in traditional finance is price stability. This is achieved through multiple policy tools, the primary one being controlling interest rates. There are other lesser known policy tools- like Repo rate, Reserve Ratio, etc. These tools aid in contracting and expanding the supply of money in the economy. In the cryptocurrency world, the primary tool used to control money supply for stablecoin protocols are the interest rate and the collateral requirements(which is usually fixed for a given collateral). In this paper, we introduce StableBase, a novel stablecoin protocol based on CDP mechanism, that achieves price stability during different market conditions through two new policy tools, namely pre-paid **Shielding rate**, and user-set **Reserve Ratio** and how they play together to achieve price parity with the pegged currency and in the process enhancing the borrowing experience by offering flexibility and predictability for users.
 
 # Introduction
 Most existing stablecoin issuing protocols(eg: MakerDAO, CurveUSD) use interest rate as a mechanism to incentivse and disincentivise borrowing. Liquity Protocol is currently the only protocol that offers interest free loans, but it suffers from capital efficiency and also fails to adapt to different market conditions, especially seen during high interest rate period, further the incentive structure to pay fee revenue to token holders as opposed to liquidity providers has had negative impact on the protocol as can be seen from the reduced circulation of the stablecoin. To improve on this, Liquity Protocol proposed launching v2 of their protocol with user defined interest rate(February 2024)[1] after our team had proposed user defined origination fee back in December 2023[2]. However, interest rates and yield are not the only determining factors when it comes to improving the demand for stablecoins. The borrowing costs have to make sense for a range of user profiles. This cannot be achieved only through adaptible interest rates.
@@ -56,8 +57,15 @@ A user, at the time of opening the CDP can pay **Shielding Rate** equal to **Tar
 
 The protocol has an option to renew protection by paying a shielding rate again.
 
-## Savings Pool
-In addition to reserve pool, there will be a savings pool where any SBD holder can park their stablecoin savings in return for accrued fees from the protocol.
+## Liquidity Pool
+In addition to reserve pool, there will be a Liquidity Pool where any SBD holder can park their stablecoin savings in return for accrued fees from the protocol. The funds from Liquidity Pool will be used for the following
+1. Enable borrowing of Stablecoins without minting at preset terms.
+2. Enable Liquidations of bad debt.
+
+The stakers in the pool gain benefit from
+1. Accrued fees from borrowing.
+2. Liquidation gains.
+3. Liquidation and Redemption fees paid.
 
 ## Fee Collection and Distribution
 All the fees that are collected from users paying shielding rate at the time of opening the CDP or renewing redemption protection is paid to
@@ -66,8 +74,10 @@ All the fees that are collected from users paying shielding rate at the time of 
 2. Savings Pool depositors in proportion to their stake.
 
 The fee is distributed in the following manner:
-1. Fees paid by Redemption Protected CDPs will be distributed to Reserve Pool(50%) and Savings Pool(50%).
-2. Fees paid by Unprotected CDPs will be distributed to Savings Pool(50%) and Reserve Pool(50%).
+1. Fees paid by Redemption Protected CDPs will be distributed to Reserve Pool.
+2. All fee paid by borrowings from Liquidity Pool goes to the Liquidity pool stakers.
+3. All redemption fee goes to Liquidity Pool stakers.
+3. Liquidation fee goes to the user that triggered Liquidation.
 
 ## Price Oracle
 StableBase also needs price oracle to get the latest price of the collateral asset, just like any other CDP protocol. StableBase plans to use Chainlink as the price oracle for various collateral assets.
