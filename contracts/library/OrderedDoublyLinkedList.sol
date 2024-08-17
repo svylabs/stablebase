@@ -5,7 +5,6 @@ import "../interfaces/IDoublyLinkedList.sol";
 
 contract OrderedDoublyLinkedList is IDoublyLinkedList {
     uint256 public head;
-
     uint256 public tail;
 
     mapping(uint256 => Node) public nodes;
@@ -15,11 +14,7 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList {
         tail = 0;
     }
 
-    function _insert(
-        uint256 id,
-        Node memory node,
-        uint256 _nearestSpot
-    ) internal {
+    function _insert(uint256 id, Node memory node, uint256 _nearestSpot) internal {
         uint256 _head = head;
         if (_head == 0) {
             head = id;
@@ -30,34 +25,28 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList {
                 _nearestSpot = _head;
             }
 
-            //Node memory nearest = nodes[_nearestSpot];
-            if (
-                nodes[_nearestSpot].prev == 0 &&
-                nodes[_nearestSpot].next == 0 &&
-                nodes[_nearestSpot].value == 0
-            ) {
+            if (nodes[_nearestSpot].prev == 0 && nodes[_nearestSpot].next == 0 && nodes[_nearestSpot].value == 0) {
                 _nearestSpot = head;
                 //nearest = nodes[_nearestSpot];
             }
             // nearest: 7, node:10: 7, 7, 9, 11, 11
             // nearest: 9, node: 7: 7, 7, 9, 11, 11
             // nearest: 9, node: 12: 7, 7, 9, 11, 11
-            while (
-                _nearestSpot != _tail && nodes[_nearestSpot].value < node.value
-            ) {
+
+            while (_nearestSpot != _tail && nodes[_nearestSpot].value < node.value) {
                 _nearestSpot = nodes[_nearestSpot].next;
                 //nearest = nodes[_nearestSpot];
             }
             // nearest: 11, node:10: 7, 7, 9, 11, 11
             // nearest: 9, node:7: 7, 7, 9, 11, 11
             // nearest: 11(last), node: 12: 7, 7, 9, 11, 11
-            while (
-                _nearestSpot != _head && nodes[_nearestSpot].value >= node.value
-            ) {
+
+            while (_nearestSpot != _head && nodes[_nearestSpot].value >= node.value) {
                 _nearestSpot = nodes[_nearestSpot].prev;
                 //nearest = nodes[_nearestSpot];
             }
             // nearest: 7, node: 7: 7, 7, 9, 11, 11
+
             if (_nearestSpot == _head) {
                 if (nodes[_nearestSpot].value >= node.value) {
                     node.next = _nearestSpot;
@@ -154,4 +143,8 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList {
     function getTail() external view override returns (uint256) {
         return tail;
     }
-} 
+
+    function getNode(uint256 id) external view returns (Node memory) {
+        return nodes[id];
+    }
+}

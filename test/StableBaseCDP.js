@@ -51,7 +51,7 @@ describe("StableBaseCDP", function () {
 
     // Open a safe with ETH
     //await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount,  { value: depositAmount });
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
 
     // Compute the safe ID
     const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
@@ -84,7 +84,7 @@ describe("StableBaseCDP", function () {
     const depositAmount = ethers.parseEther("1");
 
     // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount,  { value: depositAmount });
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
 
     // Calculate the maximum borrowable amount based on the dummy price and liquidation ratio
     const price = BigInt(1000); // Dummy price from getPriceFromOracle
@@ -219,7 +219,7 @@ describe("StableBaseCDP", function () {
     const depositAmount = ethers.parseEther("1");
 
     // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount,  { value: depositAmount });
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
 
     // Get the balance of addr1 before withdrawal
     const balanceBeforeWithdrawal = await ethers.provider.getBalance(addr1.address);
@@ -237,36 +237,6 @@ describe("StableBaseCDP", function () {
     // Check if ETH has been refunded to the address
     const balanceAfterWithdrawal = await ethers.provider.getBalance(addr1.address);
     expect(balanceAfterWithdrawal).to.be.gt(balanceBeforeWithdrawal);
-  });
-
-  it("should redeem collateral", async function () {
-    const depositAmount = ethers.parseEther("1"); // 1 ETH
-    const borrowAmount = ethers.parseEther("0.5"); // Borrow 0.5 SBD
-    const redeemAmount = ethers.parseEther("0.5"); // Redeem 0.5 SBD worth of collateral
-
-    // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
-
-    // Borrow SBD tokens
-    await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
-
-    // Redeem collateral
-    await stableBaseCDP.connect(addr1).redeem(redeemAmount);
-
-    // Compute the safe ID
-    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
-    const safe = await stableBaseCDP.safes(safeId);
-
-    // Calculate the expected remaining collateral after redemption
-    const price = BigInt(1000); // Dummy price from getPriceFromOracle
-    const liquidationRatio = BigInt(110);
-    const expectedCollateralReduction = (redeemAmount * liquidationRatio) / (price * BigInt(100));
-
-    // Check if the borrowed amount is reduced correctly
-    expect(safe.borrowedAmount).to.equal(borrowAmount - redeemAmount);
-
-    // Check if the deposited amount is reduced correctly
-    expect(safe.depositedAmount).to.be.closeTo(depositAmount - expectedCollateralReduction, 1); // Using closeTo for precision differences
   });
 
   // Test case for closing a safe and returning collateral
@@ -320,6 +290,47 @@ describe("StableBaseCDP", function () {
     await expect(
       stableBaseCDP.connect(addr1).repay(ethers.ZeroAddress, excessiveRepayAmount)
     ).to.be.revertedWith("Repayment amount exceeds borrowed amount");
+  });
+
+  it("should redeem SBD tokens from expired shielded safes", async function () {
+    const depositAmount = ethers.parseEther("1");
+    const borrowAmount = ethers.parseEther("0.5");
+  
+    // Open a safe with ETH
+    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, { value: depositAmount });
+  
+    // Borrow SBD tokens
+    await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
+  
+    // Set the shielding rate and shielding until timestamp
+    const shieldingRate = 100; // 100% shielding rate
+    const shieldingUntil = Math.floor(Date.now() / 1000) - 3600; // 1 hour ago
+  
+    // Update the safe's shielding rate and shielding until timestamp
+    await stableBaseCDP.connect(owner).renewProtection(ethers.ZeroAddress, shieldingRate);
+    await stableBaseCDP.connect(addr1).extendProtectionUntil(ethers.ZeroAddress, shieldingUntil);
+  
+    // Fast forward time to expire the shielding
+    await ethers.provider.send("evm_increaseTime", [3600]); // increase time by 1 hour
+    await ethers.provider.send("evm_mine"); // mine a new block
+  
+    // Redeem SBD tokens from the expired shielded safe
+    await stableBaseCDP.connect(addr1).redeem(borrowAmount);
+  
+    // Check if the safe's deposited amount is reduced
+    const safe = await stableBaseCDP.safes(ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]));
+    expect(safe.depositedAmount).to.equal(depositAmount.sub(borrowAmount));
+  
+    // Check if the safe's borrowed amount is reduced to 0
+    expect(safe.borrowedAmount).to.equal(0);
+  
+    // Check if the SBD token balance of the user is increased
+    const sbdBalance = await sbdToken.balanceOf(addr1.address);
+    expect(sbdBalance).to.equal(borrowAmount);
+  
+    // Check if the safe is removed from the shielded safes list
+    const shieldedSafes = await stableBaseCDP.shieldedSafes();
+    expect(shieldedSafes.includes(ethers.ZeroAddress)).to.be.false;
   });
 
 });

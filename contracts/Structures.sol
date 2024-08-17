@@ -5,6 +5,7 @@ import "./library/Math.sol";
 
 library SBStructs {
     struct Safe {
+        address owner;
         address token;
         uint256 depositedAmount;
         uint256 borrowedAmount;
