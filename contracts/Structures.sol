@@ -40,4 +40,16 @@ library SBStructs {
         Math.Rate referenceOriginationFeeRate;
         Math.Rate referenceReserveRatio;
     }
+
+    struct Redemption {
+        uint256 requestedAmount;
+        uint256 redeemedAmount;
+        RedemptionToken[10] tokensList;
+        uint256 tokensCount;
+    }
+
+    struct RedemptionToken {
+        address token;
+        uint256 amount;
+    }
 }
