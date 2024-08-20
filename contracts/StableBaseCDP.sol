@@ -11,37 +11,9 @@ import "./library/OrderedDoublyLinkedList.sol";
 import "./interfaces/IDoublyLinkedList.sol";
 import "./interfaces/IReservePool.sol";
 import "./ReservePool.sol";
+import "./StableBase.sol";
 
-contract StableBaseCDP {
-    uint256 private originationFeeRateBasisPoints = 0; // start with 0% origination fee
-    uint256 private liquidationRatio = 110; // 110% liquidation ratio
-    uint256 private constant BASIS_POINTS_DIVISOR = 10000;
-
-    IDoublyLinkedList public shieldedSafes;
-    IDoublyLinkedList public orderedReserveRatios;
-    IDoublyLinkedList public orderedTargetShieldedRates;
-
-    // Mapping to track Safe balances
-    mapping(bytes32 => SBStructs.Safe) public safes;
-
-    SBStructs.Mode public mode = SBStructs.Mode.BOOTSTRAP;
-
-    mapping(address => SBStructs.WhitelistedToken) public whitelistedTokens;
-
-    SBDToken public sbdToken;
-
-    address public owner;
-
-    mapping(address => uint256) public shieldingRates;
-
-    // address public orderedReserveRatios;
-    // address public orderedTargetShieldedRates;
-    // address public shieldedSafes;
-
-    address public reservePool;
-
-    Math.Rate public referenceShieldingRate = Math.Rate(0, 0);
-
+contract StableBaseCDP is StableBase {
     constructor(address _sbdToken) {
         whitelistedTokens[address(0)] = SBStructs.WhitelistedToken({
             priceOracle: address(new MockPriceOracle()),
@@ -424,58 +396,51 @@ contract StableBaseCDP {
     }
 
     // Function to redeem SBD tokens for the underlying collateral
-    function redeem(uint256 _amount) external {
+
+    function redeem(uint256 _amount, bytes calldata redemptionParams) external {
         require(_amount > 0, "Amount must be greater than 0");
+        SBStructs.RedemptionToken[10] memory tokensList;
+        SBStructs.Redemption memory redemption = SBStructs.Redemption({
+            requestedAmount: _amount,
+            redeemedAmount: 0,
+            tokensList: tokensList,
+            tokensCount: 0
+        });
 
-        uint256 totalRedeemed = 0;
-
-        // First check for expired shielded safes
-        uint256 currentShieldedSafe = IDoublyLinkedList(shieldedSafes)
-            .getHead();
-        while (currentShieldedSafe != 0 && totalRedeemed < _amount) {
-            bytes32 safeId = bytes32(currentShieldedSafe); // Convert uint256 to bytes32
-            SBStructs.Safe storage safe = safes[safeId];
-            if (safe.shieldedUntil <= block.timestamp) {
-                uint256 redeemableAmount = getCollateralValue(safe);
-                if (redeemableAmount > 0) {
-                    uint256 toRedeem = (_amount - totalRedeemed) <=
-                        redeemableAmount
-                        ? (_amount - totalRedeemed)
-                        : redeemableAmount;
-                    redeemSafe(safeId, toRedeem);
-                    totalRedeemed += toRedeem;
-                }
-                currentShieldedSafe = IDoublyLinkedList(shieldedSafes)
-                    .get(currentShieldedSafe)
-                    .next;
-            } else {
-                break;
-            }
-        }
+        redemption = _redeemExpiredSafes(redemption);
+        redemption = _redeemSafesByTargetShieldingRate(
+            redemption,
+            redemptionParams
+        );
+        redemption = _redeemSafesByReserveRatio(redemption, redemptionParams);
+        // A redemption can always happen
+        redemption = _redeemSafesNonExpired(redemption);
 
         // If we still have amount to redeem, check reserve ratio
+        /*
         if (totalRedeemed < _amount) {
             uint256 currentReserveSafe = IDoublyLinkedList(orderedReserveRatios)
                 .getHead();
             while (currentReserveSafe != 0 && totalRedeemed < _amount) {
                 bytes32 safeId = bytes32(currentReserveSafe);
-                SBStructs.Safe storage safe = safes[safeId];
+                SBStructs.Safe memory safe = safes[safeId];
                 uint256 redeemableAmount = getCollateralValue(safe);
                 if (redeemableAmount > 0) {
                     uint256 toRedeem = (_amount - totalRedeemed) <=
                         redeemableAmount
                         ? (_amount - totalRedeemed)
                         : redeemableAmount;
-                    redeemSafe(safeId, toRedeem);
+                    redeemSafe(safeId, toRedeem, safe);
                     totalRedeemed += toRedeem;
                 }
                 currentReserveSafe = IDoublyLinkedList(orderedReserveRatios)
                     .get(currentReserveSafe)
                     .next;
             }
-        }
+        }*/
 
         // If we still have amount to redeem, check target shielding rate
+        /*
         if (totalRedeemed < _amount) {
             uint256 currentShieldingSafe = IDoublyLinkedList(
                 orderedTargetShieldedRates
@@ -489,7 +454,7 @@ contract StableBaseCDP {
                         redeemableAmount
                         ? (_amount - totalRedeemed)
                         : redeemableAmount;
-                    redeemSafe(safeId, toRedeem);
+                    redeemSafe(safeId, toRedeem, safe);
                     totalRedeemed += toRedeem;
                 }
                 currentShieldingSafe = IDoublyLinkedList(
@@ -497,33 +462,16 @@ contract StableBaseCDP {
                 ).get(currentShieldingSafe).next;
             }
         }
-
-        require(totalRedeemed == _amount, "Unable to redeem full amount");
-        sbdToken.burnFrom(msg.sender, _amount);
+        */
+        _redeemToUser(redemption);
+        //require(totalRedeemed == _amount, "Unable to redeem full amount");
+        //sbdToken.burnFrom(msg.sender, _amount);
 
         // Return a success status
         return;
     }
 
-    // Utility function to get collateral value
-    function getCollateralValue(
-        SBStructs.Safe storage safe
-    ) internal view returns (uint256) {
-        IPriceOracle priceOracle = IPriceOracle(
-            whitelistedTokens[safe.token].priceOracle
-        );
-        uint256 price = priceOracle.getPrice();
-        return safe.depositedAmount * price;
-    }
-
-    function redeemSafe(bytes32 safeId, uint256 amountToRedeem) internal {
-        SBStructs.Safe storage safe = safes[safeId];
-        uint256 amountInCollateral = amountToRedeem / getCollateralValue(safe);
-        safe.depositedAmount -= amountInCollateral;
-        SBUtils.withdrawEthOrToken(safe.token, msg.sender, amountInCollateral);
-        safe.borrowedAmount -= amountToRedeem;
-        if (safe.borrowedAmount == 0) {
-            delete safes[safeId];
-        }
+    function renewShielding(address token, uint256 feeRate) external override {
+        // TODO: Implement
     }
 }
