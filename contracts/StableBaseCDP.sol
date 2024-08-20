@@ -334,7 +334,19 @@ contract StableBaseCDP is StableBase {
         return;
     }
 
-    function renewShielding(address token, uint256 feeRate) external override {
-        // TODO: Implement
+    function renewSafe(
+        address token,
+        uint256 feeRate,
+        bytes calldata renewParams
+    ) external override {
+        //TODO:  Check if the required fee is paid
+        bytes32 safeId = SBUtils.getSafeId(msg.sender, token);
+        SBStructs.Safe memory safe = safes[safeId];
+        safe.shieldedUntil = _getShieldingTime(feeRate, safe.shieldedUntil);
+        safes[safeId] = safe;
+        uint256 nearestSpot = abi.decode(renewParams[0:32], (uint256));
+        // Update the spot in the shieldedSafes list
+        shieldedSafes.upsert(uint(safeId), safe.shieldedUntil, nearestSpot);
+        // Distribute the fee
     }
 }

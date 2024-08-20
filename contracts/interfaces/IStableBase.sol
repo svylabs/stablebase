@@ -13,7 +13,11 @@ interface IStableBase {
 
     function redeem(uint256 amount, bytes calldata redemptionParams) external;
 
-    function renewShielding(address token, uint256 feeRate) external;
+    function renewSafe(
+        address token,
+        uint256 feeRate,
+        bytes calldata renewParams
+    ) external;
 
     // TODO: add more functions
     // liquidate

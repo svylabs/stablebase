@@ -104,6 +104,23 @@ abstract contract StableBase is IStableBase {
         );
     }
 
+    function _getShieldingTime(
+        uint256 _shieldingRate,
+        uint256 startTime
+    ) internal view returns (uint256) {
+        uint256 _shieldingHours = 0;
+        if (Math.isZero(referenceShieldingRate)) {
+            // Every 24 hours
+            _shieldingHours = Math.HOURS_IN_DAY;
+        } else {
+            _shieldingHours = Math.getShieldingHours(
+                referenceShieldingRate,
+                _shieldingRate
+            );
+        }
+        return startTime + Math.toSeconds(_shieldingHours);
+    }
+
     function handleBorrowShieldedSafes(
         bytes32 id,
         SBStructs.Safe memory safe,
@@ -116,17 +133,7 @@ abstract contract StableBase is IStableBase {
             BASIS_POINTS_DIVISOR;
         uint _amountToBorrow = amount - _shieldingFee;
         // Update the Safe's shieldedUntil timestamp
-        uint256 _shieldingHours = 0;
-        if (Math.isZero(referenceShieldingRate)) {
-            // Every 24 hours
-            _shieldingHours = Math.HOURS_IN_DAY;
-        } else {
-            _shieldingHours = Math.getShieldingHours(
-                referenceShieldingRate,
-                _shieldingRate
-            );
-        }
-        safe.shieldedUntil = block.timestamp + Math.toSeconds(_shieldingHours);
+        safe.shieldedUntil = _getShieldingTime(_shieldingRate, block.timestamp);
         safe.borrowedAmount += amount;
 
         uint256 _nearestSpot = uint256(bytes32(borrowParams[4:36]));
