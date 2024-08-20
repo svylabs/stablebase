@@ -302,15 +302,30 @@ contract StableBaseCDP is StableBase {
             requestedAmount: _amount,
             redeemedAmount: 0,
             tokensList: tokensList,
-            tokensCount: 0
+            tokensCount: 0,
+            processedSpots: 0
         });
 
         redemption = _redeemExpiredSafes(redemption);
+
+        IDoublyLinkedList reserveRatioList = IDoublyLinkedList(
+            orderedReserveRatios
+        );
+        IDoublyLinkedList targetShieldedRateList = IDoublyLinkedList(
+            orderedTargetShieldedRates
+        );
         redemption = _redeemSafesByTargetShieldingRate(
             redemption,
-            redemptionParams
+            redemptionParams,
+            reserveRatioList,
+            targetShieldedRateList
         );
-        redemption = _redeemSafesByReserveRatio(redemption, redemptionParams);
+        redemption = _redeemSafesByReserveRatio(
+            redemption,
+            redemptionParams,
+            reserveRatioList,
+            targetShieldedRateList
+        );
         // A redemption can always happen
         redemption = _redeemSafesNonExpired(redemption);
 
