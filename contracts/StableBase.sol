@@ -231,7 +231,7 @@ abstract contract StableBase is IStableBase {
         } else if (diffHeadWithTarget < diffTailWithTarget) {
             return 2; // redeem tail
         } else {
-            return 0;
+            return 0; // cannot redeem
         }
     }
 
@@ -254,6 +254,7 @@ abstract contract StableBase is IStableBase {
                         32]
                 )
             );
+            processedSpots++;
             uint256 redeemTarget = shouldRedeemByTargetShieldingRate(
                 head,
                 tail,
@@ -278,8 +279,9 @@ abstract contract StableBase is IStableBase {
                     targetShieldingRateList,
                     spotForUpdate
                 );
+            } else {
+                break;
             }
-            processedSpots++;
         }
         redemption.processedSpots = processedSpots;
         return redemption;
