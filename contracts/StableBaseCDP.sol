@@ -330,9 +330,6 @@ contract StableBaseCDP is StableBase {
         redemption = _redeemSafesNonExpired(redemption);
 
         _redeemToUser(redemption);
-        //require(totalRedeemed == _amount, "Unable to redeem full amount");
-        //sbdToken.burnFrom(msg.sender, _amount);
-
         // Return a success status
         return;
     }
