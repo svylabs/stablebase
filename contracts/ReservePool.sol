@@ -14,11 +14,17 @@ contract ReservePool is IReservePool {
         return tokensStaked[id];
     }
 
-    function removeStake(uint256 id, uint256 amount) external {
-        tokensStaked[id] -= amount;
+    function removeStake(
+        uint256 id,
+        uint256 amount
+    ) public returns (bool, uint256) {
+        uint256 staked = tokensStaked[id];
+        tokensStaked[id] = staked - amount;
+        return (true, staked);
     }
 
-    function removeStake(uint256 id) external {
-        tokensStaked[id] = 0;
+    function removeStake(uint256 id) external returns (bool, uint256) {
+        uint256 staked = tokensStaked[id];
+        return removeStake(id, staked);
     }
 }

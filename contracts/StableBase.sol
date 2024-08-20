@@ -204,7 +204,6 @@ abstract contract StableBase is IStableBase {
     }
 
     function shouldRedeemByTargetShieldingRate(
-        SBStructs.Redemption memory redemption,
         uint256 head,
         uint256 tail,
         IDoublyLinkedList targetShieldingRateList
@@ -256,7 +255,6 @@ abstract contract StableBase is IStableBase {
                 )
             );
             uint256 redeemTarget = shouldRedeemByTargetShieldingRate(
-                redemption,
                 head,
                 tail,
                 targetShieldingRateList
@@ -287,6 +285,23 @@ abstract contract StableBase is IStableBase {
         return redemption;
     }
 
+    function removeFromReserveRatioListAndAdjustReferenceRate(
+        uint256 id,
+        IDoublyLinkedList reserveRatioList
+    ) internal {
+        // remove stake from reserve pool
+        // TODO: Returns the stake back to the user address
+        (, uint256 currentStake) = IReservePool(reservePool).removeStake(id);
+        IDoublyLinkedList.Node memory node = reserveRatioList.remove(id);
+        Math.Rate memory _target = referenceShieldingRate;
+        referenceShieldingRate = Math.subtract(
+            _target,
+            node.value,
+            currentStake
+        );
+        reserveRatioList.remove(id);
+    }
+
     function _redeemNode(
         uint256 id,
         SBStructs.Redemption memory redemption,
@@ -304,9 +319,10 @@ abstract contract StableBase is IStableBase {
         if (amountToRedeem == safe.borrowedAmount) {
             // If the safe was fully redeemed, remove it from both the lists
             targetShieldingRateList.remove(id);
-            reserveRatioList.remove(id);
-            // remove stake from reserve pool
-            IReservePool(reservePool).removeStake(id);
+            removeFromReserveRatioListAndAdjustReferenceRate(
+                id,
+                reserveRatioList
+            );
         } else {
             IReservePool _reservePool = IReservePool(reservePool);
             uint256 stake = _reservePool.getStake(id);
@@ -325,14 +341,23 @@ abstract contract StableBase is IStableBase {
         IDoublyLinkedList reserveRatioList,
         IDoublyLinkedList targetShieldingRateList
     ) internal returns (SBStructs.Redemption memory) {
+        uint256 processedSpots = redemption.processedSpots;
+        // Target within 1% = 100 points, 100% = 10000 points
         while (redemption.redeemedAmount < redemption.requestedAmount) {
+            uint256 spotForUpdate = uint256(
+                bytes32(
+                    redemptionParams[processedSpots * 32:processedSpots *
+                        32 +
+                        32]
+                )
+            );
             uint256 head = reserveRatioList.getHead();
             (, redemption) = _redeemNode(
                 head,
                 redemption,
                 reserveRatioList,
                 targetShieldingRateList,
-                0
+                spotForUpdate
             );
         }
         return redemption;
