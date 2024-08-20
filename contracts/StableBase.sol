@@ -5,8 +5,9 @@ import "./Structures.sol";
 import "./interfaces/IDoublyLinkedList.sol";
 import "./SBDToken.sol";
 import "./Utilities.sol";
+import "./interfaces/IStableBase.sol";
 
-abstract contract StableBase {
+abstract contract StableBase is IStableBase {
     uint256 internal originationFeeRateBasisPoints = 0; // start with 0% origination fee
     uint256 internal liquidationRatio = 110; // 110% liquidation ratio
     uint256 internal constant BASIS_POINTS_DIVISOR = 10000;

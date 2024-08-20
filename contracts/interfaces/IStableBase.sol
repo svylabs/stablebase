@@ -1,5 +1,5 @@
 interface IStableBase {
-    function openSafe(address token, uint256 amount) external;
+    function openSafe(address token, uint256 amount) external payable;
 
     function closeSafe(address token) external;
 
@@ -11,10 +11,7 @@ interface IStableBase {
 
     function repay(address token, uint256 amount) external;
 
-    function redeem(
-        uint256 amount,
-        bytes calldata redemptionParams
-    ) external returns (uint256);
+    function redeem(uint256 amount, bytes calldata redemptionParams) external;
 
     function renewShielding(address token, uint256 feeRate) external;
 

@@ -470,4 +470,8 @@ contract StableBaseCDP is StableBase {
         // Return a success status
         return;
     }
+
+    function renewShielding(address token, uint256 feeRate) external override {
+        // TODO: Implement
+    }
 }
