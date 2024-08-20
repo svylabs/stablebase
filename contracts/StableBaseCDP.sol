@@ -326,56 +326,9 @@ contract StableBaseCDP is StableBase {
             reserveRatioList,
             targetShieldedRateList
         );
-        // A redemption can always happen
+        // A redemption should always happen.
         redemption = _redeemSafesNonExpired(redemption);
 
-        // If we still have amount to redeem, check reserve ratio
-        /*
-        if (totalRedeemed < _amount) {
-            uint256 currentReserveSafe = IDoublyLinkedList(orderedReserveRatios)
-                .getHead();
-            while (currentReserveSafe != 0 && totalRedeemed < _amount) {
-                bytes32 safeId = bytes32(currentReserveSafe);
-                SBStructs.Safe memory safe = safes[safeId];
-                uint256 redeemableAmount = getCollateralValue(safe);
-                if (redeemableAmount > 0) {
-                    uint256 toRedeem = (_amount - totalRedeemed) <=
-                        redeemableAmount
-                        ? (_amount - totalRedeemed)
-                        : redeemableAmount;
-                    redeemSafe(safeId, toRedeem, safe);
-                    totalRedeemed += toRedeem;
-                }
-                currentReserveSafe = IDoublyLinkedList(orderedReserveRatios)
-                    .get(currentReserveSafe)
-                    .next;
-            }
-        }*/
-
-        // If we still have amount to redeem, check target shielding rate
-        /*
-        if (totalRedeemed < _amount) {
-            uint256 currentShieldingSafe = IDoublyLinkedList(
-                orderedTargetShieldedRates
-            ).getHead();
-            while (currentShieldingSafe != 0 && totalRedeemed < _amount) {
-                bytes32 safeId = bytes32(currentShieldingSafe);
-                SBStructs.Safe storage safe = safes[safeId];
-                uint256 redeemableAmount = getCollateralValue(safe);
-                if (redeemableAmount > 0) {
-                    uint256 toRedeem = (_amount - totalRedeemed) <=
-                        redeemableAmount
-                        ? (_amount - totalRedeemed)
-                        : redeemableAmount;
-                    redeemSafe(safeId, toRedeem, safe);
-                    totalRedeemed += toRedeem;
-                }
-                currentShieldingSafe = IDoublyLinkedList(
-                    orderedTargetShieldedRates
-                ).get(currentShieldingSafe).next;
-            }
-        }
-        */
         _redeemToUser(redemption);
         //require(totalRedeemed == _amount, "Unable to redeem full amount");
         //sbdToken.burnFrom(msg.sender, _amount);
