@@ -40,6 +40,7 @@ contract StableBaseCDP is StableBase {
      * @param _amount Amount of tokens or ETH to deposit as collateral
      * @param _safeId The ID of the Safe to create
      */
+     
     function openSafe(uint256 _safeId, address _token, uint256 _amount) external {
         require(_amount > 0, "Amount must be greater than 0");
         require(_token != address(0), "Invalid token address");
@@ -52,7 +53,7 @@ contract StableBaseCDP is StableBase {
             rates: 0,
             shieldedUntil: 0
         });
-        safes[safeId] = safe;
+        safes[_safeId] = safe;
 
         _mint(msg.sender, _safeId); // mint the NFT Safe to the owner
 
@@ -67,14 +68,14 @@ contract StableBaseCDP is StableBase {
      */
     function closeSafe(uint256 _safeId) external onlyOwner {
         SBStructs.Safe storage safe = safes[_safeId];
-        require(msg.sender == safe.owner, "Unauthorized");
+        require(msg.sender == safe.owner(), "Unauthorized");
         require(safe.borrowedAmount == 0, "Cannot close Safe with borrowed amount");
 
         // Withdraw ETH or ERC20 token using SBUtils library (Transfer collateral back to the owner)
         SBUtils.withdrawEthOrToken(safe.token, msg.sender, safe.depositedAmount);
 
         // Remove the Safe from the mapping
-        delete safes[safeId];
+        delete safes[_safeId];
 
         _burn(_safeId); // burn the NFT Safe
     }
@@ -94,8 +95,7 @@ contract StableBaseCDP is StableBase {
      *
      */
     function borrowWithParams(
-        // address _token,
-        uint256 _safeId
+        uint256 _safeId,
         uint256 _amount,
         bytes calldata _borrowParams
     ) external {
@@ -129,7 +129,7 @@ contract StableBaseCDP is StableBase {
 
         if (_borrowMode == SBStructs.BorrowMode.MINT_WITH_MANUAL_STABILITY) {
             handleBorrowReserveRatioSafes(
-                id,
+                _safeId,
                 safe,
                 _compressedRate,
                 _amount,
@@ -137,7 +137,7 @@ contract StableBaseCDP is StableBase {
             );
         } else if (_borrowMode == SBStructs.BorrowMode.MINT_WITH_PROTECTION) {
             handleBorrowShieldedSafes(
-                id,
+                _safeId,
                 safe,
                 _compressedRate,
                 _amount,
@@ -146,7 +146,7 @@ contract StableBaseCDP is StableBase {
         } else if (_borrowMode == SBStructs.BorrowMode.BORROW_FROM_POOL) {
             // TODO: Implement borrow from pool
         }
-        safes[id] = safe;
+        safes[_safeId] = safe;
     }
 
     // borrow function
@@ -226,7 +226,7 @@ contract StableBaseCDP is StableBase {
         if (safe.borrowedAmount > 0) {
             // Calculate the price of the collateral
             IPriceOracle priceOracle = IPriceOracle(
-                whitelistedTokens[_token].priceOracle
+                whitelistedTokens[safe.token].priceOracle
             );
             uint256 price = priceOracle.getPrice();
 
@@ -321,15 +321,15 @@ contract StableBaseCDP is StableBase {
         uint256 _safeId,
         uint256 feeRate,
         bytes calldata renewParams
-    ) external override {
+    ) external {
         //TODO:  Check if the required fee is paid
         SBStructs.Safe storage safe = safes[_safeId];
         require(msg.sender == safe.owner, "Unauthorized");
         safe.shieldedUntil = _getShieldingTime(feeRate, safe.shieldedUntil);
-        safes[safeId] = safe;
+        safes[_safeId] = safe;
         uint256 nearestSpot = abi.decode(renewParams[0:32], (uint256));
         // Update the spot in the shieldedSafes list
-        shieldedSafes.upsert(uint(safeId), safe.shieldedUntil, nearestSpot);
+        shieldedSafes.upsert(uint(_safeId), safe.shieldedUntil, nearestSpot);
         // Distribute the fee
     }
 
@@ -361,6 +361,6 @@ contract StableBaseCDP is StableBase {
         // TODO: Add liquidation fee
 
         // Remove the Safe from the mapping
-        delete safes[safeId];
+        delete safes[_safeId];
     }
 }

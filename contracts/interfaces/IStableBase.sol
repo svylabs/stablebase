@@ -1,25 +1,25 @@
 interface IStableBase {
-    function openSafe(address token, uint256 amount) external payable;
+    function openSafe(uint256 _safeId, address _token, uint256 _amount) external payable;
 
-    function closeSafe(address token) external;
+    function closeSafe(uint256 _safeId) external;
 
     function borrowWithParams(
-        address token,
+        uint256 _safeId,
         uint256 amount,
         bytes calldata borrowParams
     ) external;
 
-    function repay(address token, uint256 amount) external;
+    function repay(uint256 _safeId, uint256 amount) external;
 
     function redeem(uint256 amount, bytes calldata redemptionParams) external;
 
     function renewSafe(
-        address token,
+        uint256 _safeId,
         uint256 feeRate,
         bytes calldata renewParams
     ) external;
 
-    function liquidate(address token) external;
+    function liquidate(uint256 _safeId) external;
 
     // TODO: add more functions
     // liquidate
