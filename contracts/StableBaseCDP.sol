@@ -93,108 +93,6 @@ contract StableBaseCDP is StableBase {
         delete safes[id];
     }
 
-    function updateTargetShieldingRate(
-        uint256 id,
-        uint256 compressedRate,
-        IReservePool _reservePool,
-        bytes calldata borrowParams
-    ) internal {
-        uint256 _targetShieldingRate = SBUtils.getRateAtPosition(
-            compressedRate,
-            1
-        );
-        IDoublyLinkedList _orderedTargetShieldedRates = IDoublyLinkedList(
-            orderedTargetShieldedRates
-        );
-        uint256 _nearestSpotInTargetShieldingRate = uint256(
-            bytes32(borrowParams[36:68])
-        );
-        _orderedTargetShieldedRates.upsert(
-            id,
-            _targetShieldingRate,
-            _nearestSpotInTargetShieldingRate
-        );
-
-        Math.Rate memory _target = referenceShieldingRate;
-        referenceShieldingRate = Math.add(
-            _target,
-            _targetShieldingRate,
-            _reservePool.getStake(id)
-        );
-    }
-
-    function handleBorrowReserveRatioSafes(
-        bytes32 id,
-        SBStructs.Safe memory safe,
-        uint256 compressedRate,
-        uint256 amount,
-        bytes calldata borrowParams
-    ) internal {
-        uint256 _id = uint256(id);
-        // Calculate origination fee
-        uint256 _reserveRatio = SBUtils.getRateAtPosition(compressedRate, 0);
-        uint256 _reservePoolDeposit = (amount * _reserveRatio) /
-            BASIS_POINTS_DIVISOR;
-        uint _amountToBorrow = amount - _reservePoolDeposit;
-        safe.borrowedAmount += amount;
-        // Mint SBD tokens to the borrower
-        sbdToken.mint(msg.sender, _amountToBorrow);
-        IDoublyLinkedList _orderedReserveRatios = IDoublyLinkedList(
-            orderedReserveRatios
-        );
-        uint256 _nearestSpot = uint256(bytes32(borrowParams[4:32]));
-        // TODO: Mint to reserve pool
-        sbdToken.mint(reservePool, _reservePoolDeposit);
-        IReservePool _reservePool = IReservePool(reservePool);
-        _reservePool.addStake(_id, _reservePoolDeposit);
-        uint _newReserveRatio = ((_reservePool.getStake(_id) *
-            BASIS_POINTS_DIVISOR) / safe.borrowedAmount);
-        _orderedReserveRatios.upsert(_id, _newReserveRatio, _nearestSpot);
-
-        updateTargetShieldingRate(
-            _id,
-            compressedRate,
-            _reservePool,
-            borrowParams
-        );
-    }
-
-    function handleBorrowShieldedSafes(
-        bytes32 id,
-        SBStructs.Safe memory safe,
-        uint256 compressedRate,
-        uint256 amount,
-        bytes calldata borrowParams
-    ) internal {
-        uint256 _shieldingRate = SBUtils.getRateAtPosition(compressedRate, 0);
-        uint256 _shieldingFee = (amount * _shieldingRate) /
-            BASIS_POINTS_DIVISOR;
-        uint _amountToBorrow = amount - _shieldingFee;
-        // Update the Safe's shieldedUntil timestamp
-        uint256 _shieldingHours = 0;
-        if (Math.isZero(referenceShieldingRate)) {
-            // Every 24 hours
-            _shieldingHours = Math.HOURS_IN_DAY;
-        } else {
-            _shieldingHours = Math.getShieldingHours(
-                referenceShieldingRate,
-                _shieldingRate
-            );
-        }
-        safe.shieldedUntil = block.timestamp + Math.toSeconds(_shieldingHours);
-        safe.borrowedAmount += amount;
-
-        uint256 _nearestSpot = uint256(bytes32(borrowParams[4:36]));
-        IDoublyLinkedList _shieldedSafes = IDoublyLinkedList(shieldedSafes);
-
-        // TODO: shieldedUntil needs to dynamically change based on the borrowings
-        _shieldedSafes.upsert(uint256(id), safe.shieldedUntil, _nearestSpot);
-
-        // Mint SBD tokens to the borrower
-        sbdToken.mint(msg.sender, _amountToBorrow);
-        // TODO: mint fee
-    }
-
     /**
      * Borrow stablecoins from the protocol
      *
@@ -404,74 +302,82 @@ contract StableBaseCDP is StableBase {
             requestedAmount: _amount,
             redeemedAmount: 0,
             tokensList: tokensList,
-            tokensCount: 0
+            tokensCount: 0,
+            processedSpots: 0
         });
 
         redemption = _redeemExpiredSafes(redemption);
+
+        IDoublyLinkedList reserveRatioList = IDoublyLinkedList(
+            orderedReserveRatios
+        );
+        IDoublyLinkedList targetShieldedRateList = IDoublyLinkedList(
+            orderedTargetShieldedRates
+        );
         redemption = _redeemSafesByTargetShieldingRate(
             redemption,
-            redemptionParams
+            redemptionParams,
+            reserveRatioList,
+            targetShieldedRateList
         );
-        redemption = _redeemSafesByReserveRatio(redemption, redemptionParams);
-        // A redemption can always happen
+        redemption = _redeemSafesByReserveRatio(
+            redemption,
+            redemptionParams,
+            reserveRatioList,
+            targetShieldedRateList
+        );
+        // A redemption should always happen.
         redemption = _redeemSafesNonExpired(redemption);
 
-        // If we still have amount to redeem, check reserve ratio
-        /*
-        if (totalRedeemed < _amount) {
-            uint256 currentReserveSafe = IDoublyLinkedList(orderedReserveRatios)
-                .getHead();
-            while (currentReserveSafe != 0 && totalRedeemed < _amount) {
-                bytes32 safeId = bytes32(currentReserveSafe);
-                SBStructs.Safe memory safe = safes[safeId];
-                uint256 redeemableAmount = getCollateralValue(safe);
-                if (redeemableAmount > 0) {
-                    uint256 toRedeem = (_amount - totalRedeemed) <=
-                        redeemableAmount
-                        ? (_amount - totalRedeemed)
-                        : redeemableAmount;
-                    redeemSafe(safeId, toRedeem, safe);
-                    totalRedeemed += toRedeem;
-                }
-                currentReserveSafe = IDoublyLinkedList(orderedReserveRatios)
-                    .get(currentReserveSafe)
-                    .next;
-            }
-        }*/
-
-        // If we still have amount to redeem, check target shielding rate
-        /*
-        if (totalRedeemed < _amount) {
-            uint256 currentShieldingSafe = IDoublyLinkedList(
-                orderedTargetShieldedRates
-            ).getHead();
-            while (currentShieldingSafe != 0 && totalRedeemed < _amount) {
-                bytes32 safeId = bytes32(currentShieldingSafe);
-                SBStructs.Safe storage safe = safes[safeId];
-                uint256 redeemableAmount = getCollateralValue(safe);
-                if (redeemableAmount > 0) {
-                    uint256 toRedeem = (_amount - totalRedeemed) <=
-                        redeemableAmount
-                        ? (_amount - totalRedeemed)
-                        : redeemableAmount;
-                    redeemSafe(safeId, toRedeem, safe);
-                    totalRedeemed += toRedeem;
-                }
-                currentShieldingSafe = IDoublyLinkedList(
-                    orderedTargetShieldedRates
-                ).get(currentShieldingSafe).next;
-            }
-        }
-        */
         _redeemToUser(redemption);
-        //require(totalRedeemed == _amount, "Unable to redeem full amount");
-        //sbdToken.burnFrom(msg.sender, _amount);
-
         // Return a success status
         return;
     }
 
-    function renewShielding(address token, uint256 feeRate) external override {
-        // TODO: Implement
+    function renewSafe(
+        address token,
+        uint256 feeRate,
+        bytes calldata renewParams
+    ) external override {
+        //TODO:  Check if the required fee is paid
+        bytes32 safeId = SBUtils.getSafeId(msg.sender, token);
+        SBStructs.Safe memory safe = safes[safeId];
+        safe.shieldedUntil = _getShieldingTime(feeRate, safe.shieldedUntil);
+        safes[safeId] = safe;
+        uint256 nearestSpot = abi.decode(renewParams[0:32], (uint256));
+        // Update the spot in the shieldedSafes list
+        shieldedSafes.upsert(uint(safeId), safe.shieldedUntil, nearestSpot);
+        // Distribute the fee
+    }
+
+    function liquidate(address token) external {
+        bytes32 safeId = SBUtils.getSafeId(msg.sender, token);
+        SBStructs.Safe memory safe = safes[safeId];
+        require(safe.depositedAmount > 0, "Safe does not exist");
+        require(
+            safe.borrowedAmount > 0,
+            "Cannot liquidate a Safe with no borrowed amount"
+        );
+
+        uint256 collateralValue = _getCollateralValue(safe);
+        uint256 collateralRatio = (collateralValue * 10000) /
+            safe.borrowedAmount;
+        // Check if the collateral is sufficient for liquidation
+        require(
+            collateralRatio < liquidationRatio * 100,
+            "Can't liquidate yet"
+        );
+
+        // Burn the borrowed amount from the user
+        sbdToken.burnFrom(msg.sender, safe.borrowedAmount);
+
+        // TODO: cleanup the safe from reservePool, ShieldedSafes, and targetShieldedRates, reservePool etc..
+
+        // Transfer the collateral to the liquidator
+        SBUtils.withdrawEthOrToken(token, msg.sender, safe.depositedAmount);
+        // TODO: Add liquidation fee
+
+        // Remove the Safe from the mapping
+        delete safes[safeId];
     }
 }

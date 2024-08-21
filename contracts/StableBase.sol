@@ -6,6 +6,7 @@ import "./interfaces/IDoublyLinkedList.sol";
 import "./SBDToken.sol";
 import "./Utilities.sol";
 import "./interfaces/IStableBase.sol";
+import "./interfaces/IReservePool.sol";
 
 abstract contract StableBase is IStableBase {
     uint256 internal originationFeeRateBasisPoints = 0; // start with 0% origination fee
@@ -36,6 +37,115 @@ abstract contract StableBase is IStableBase {
     address public reservePool;
 
     Math.Rate public referenceShieldingRate = Math.Rate(0, 0);
+
+    function updateTargetShieldingRate(
+        uint256 id,
+        uint256 compressedRate,
+        IReservePool _reservePool,
+        bytes calldata borrowParams
+    ) internal {
+        uint256 _targetShieldingRate = SBUtils.getRateAtPosition(
+            compressedRate,
+            1
+        );
+        IDoublyLinkedList _orderedTargetShieldedRates = IDoublyLinkedList(
+            orderedTargetShieldedRates
+        );
+        uint256 _nearestSpotInTargetShieldingRate = uint256(
+            bytes32(borrowParams[36:68])
+        );
+        _orderedTargetShieldedRates.upsert(
+            id,
+            _targetShieldingRate,
+            _nearestSpotInTargetShieldingRate
+        );
+
+        Math.Rate memory _target = referenceShieldingRate;
+        referenceShieldingRate = Math.add(
+            _target,
+            _targetShieldingRate,
+            _reservePool.getStake(id)
+        );
+    }
+
+    function handleBorrowReserveRatioSafes(
+        bytes32 id,
+        SBStructs.Safe memory safe,
+        uint256 compressedRate,
+        uint256 amount,
+        bytes calldata borrowParams
+    ) internal {
+        uint256 _id = uint256(id);
+        // Calculate origination fee
+        uint256 _reserveRatio = SBUtils.getRateAtPosition(compressedRate, 0);
+        uint256 _reservePoolDeposit = (amount * _reserveRatio) /
+            BASIS_POINTS_DIVISOR;
+        uint _amountToBorrow = amount - _reservePoolDeposit;
+        safe.borrowedAmount += amount;
+        // Mint SBD tokens to the borrower
+        sbdToken.mint(msg.sender, _amountToBorrow);
+        IDoublyLinkedList _orderedReserveRatios = IDoublyLinkedList(
+            orderedReserveRatios
+        );
+        uint256 _nearestSpot = uint256(bytes32(borrowParams[4:32]));
+        // TODO: Mint to reserve pool
+        sbdToken.mint(reservePool, _reservePoolDeposit);
+        IReservePool _reservePool = IReservePool(reservePool);
+        _reservePool.addStake(_id, _reservePoolDeposit);
+        uint _newReserveRatio = ((_reservePool.getStake(_id) *
+            BASIS_POINTS_DIVISOR) / safe.borrowedAmount);
+        _orderedReserveRatios.upsert(_id, _newReserveRatio, _nearestSpot);
+
+        updateTargetShieldingRate(
+            _id,
+            compressedRate,
+            _reservePool,
+            borrowParams
+        );
+    }
+
+    function _getShieldingTime(
+        uint256 _shieldingRate,
+        uint256 startTime
+    ) internal view returns (uint256) {
+        uint256 _shieldingHours = 0;
+        if (Math.isZero(referenceShieldingRate)) {
+            // Every 24 hours
+            _shieldingHours = Math.HOURS_IN_DAY;
+        } else {
+            _shieldingHours = Math.getShieldingHours(
+                referenceShieldingRate,
+                _shieldingRate
+            );
+        }
+        return startTime + Math.toSeconds(_shieldingHours);
+    }
+
+    function handleBorrowShieldedSafes(
+        bytes32 id,
+        SBStructs.Safe memory safe,
+        uint256 compressedRate,
+        uint256 amount,
+        bytes calldata borrowParams
+    ) internal {
+        uint256 _shieldingRate = SBUtils.getRateAtPosition(compressedRate, 0);
+        uint256 _shieldingFee = (amount * _shieldingRate) /
+            BASIS_POINTS_DIVISOR;
+        uint _amountToBorrow = amount - _shieldingFee;
+        // Update the Safe's shieldedUntil timestamp
+        safe.shieldedUntil = _getShieldingTime(_shieldingRate, block.timestamp);
+        safe.borrowedAmount += amount;
+
+        uint256 _nearestSpot = uint256(bytes32(borrowParams[4:36]));
+        IDoublyLinkedList _shieldedSafes = IDoublyLinkedList(shieldedSafes);
+
+        // TODO: shieldedUntil needs to dynamically change based on the borrowings
+        _shieldedSafes.upsert(uint256(id), safe.shieldedUntil, _nearestSpot);
+
+        // Mint SBD tokens to the borrower
+        sbdToken.mint(msg.sender, _amountToBorrow);
+        // TODO: mint fee
+    }
 
     /**
      * 1. Redeem expired safes
@@ -100,39 +210,113 @@ abstract contract StableBase is IStableBase {
         }
     }
 
+    function shouldRedeemByTargetShieldingRate(
+        uint256 head,
+        uint256 tail,
+        IDoublyLinkedList targetShieldingRateList
+    ) internal returns (uint256) {
+        IDoublyLinkedList.Node memory headNode = targetShieldingRateList.get(
+            head
+        );
+        IDoublyLinkedList.Node memory tailNode = targetShieldingRateList.get(
+            tail
+        );
+        if (_diffBetween(headNode, tailNode) > 100) {
+            // Cannot redeem anymore
+            return 0;
+        }
+        uint256 diffHeadWithTarget = _diffBetween(
+            headNode,
+            referenceShieldingRate
+        );
+        uint256 diffTailWithTarget = _diffBetween(
+            tailNode,
+            referenceShieldingRate
+        );
+        if (diffHeadWithTarget > diffTailWithTarget) {
+            return 1; // redeem head
+        } else if (diffHeadWithTarget < diffTailWithTarget) {
+            return 2; // redeem tail
+        } else {
+            return 0; // cannot redeem
+        }
+    }
+
     function _redeemSafesByTargetShieldingRate(
         SBStructs.Redemption memory redemption,
-        bytes calldata _redemptionParams
+        bytes calldata _redemptionParams,
+        IDoublyLinkedList reserveRatioList,
+        IDoublyLinkedList targetShieldingRateList
     ) internal returns (SBStructs.Redemption memory) {
-        IDoublyLinkedList dll = IDoublyLinkedList(orderedReserveRatios);
-        uint256 head = dll.getHead();
-        uint256 tail = dll.getTail();
-        IDoublyLinkedList.Node memory headNode = dll.get(head);
-        IDoublyLinkedList.Node memory tailNode = dll.get(tail);
-        while (_diffBetween(headNode, tailNode) > 100) {
-            uint256 diffHeadWithTarget = _diffBetween(
-                headNode,
-                referenceShieldingRate
+        uint256 head = targetShieldingRateList.getHead();
+        uint256 tail = targetShieldingRateList.getTail();
+        SBStructs.Safe memory safe;
+        uint256 processedSpots = redemption.processedSpots;
+        // Target within 1% = 100 points, 100% = 10000 points
+        while (redemption.redeemedAmount < redemption.requestedAmount) {
+            uint256 spotForUpdate = uint256(
+                bytes32(
+                    _redemptionParams[processedSpots * 32:processedSpots *
+                        32 +
+                        32]
+                )
             );
-            uint256 diffTailWithTarget = _diffBetween(
-                tailNode,
-                referenceShieldingRate
+            processedSpots++;
+            uint256 redeemTarget = shouldRedeemByTargetShieldingRate(
+                head,
+                tail,
+                targetShieldingRateList
             );
-            if (diffHeadWithTarget > diffTailWithTarget) {
+            // 0 = cannot redeem, 1 = redeem head, 2 = redeem tail
+            if (redeemTarget == 1) {
                 // TODO: redeem head
-                SBStructs.Safe memory safe;
-                (safe, redemption) = _redeemNode(head, headNode, redemption);
-            } else {
+                (safe, redemption) = _redeemNode(
+                    head,
+                    redemption,
+                    reserveRatioList,
+                    targetShieldingRateList,
+                    spotForUpdate
+                );
+            } else if (redeemTarget == 2) {
                 // TODO: redeem tail
+                (safe, redemption) = _redeemNode(
+                    tail,
+                    redemption,
+                    reserveRatioList,
+                    targetShieldingRateList,
+                    spotForUpdate
+                );
+            } else {
+                break;
             }
         }
+        redemption.processedSpots = processedSpots;
         return redemption;
+    }
+
+    function removeFromReserveRatioListAndAdjustReferenceRate(
+        uint256 id,
+        IDoublyLinkedList reserveRatioList
+    ) internal {
+        // remove stake from reserve pool
+        // TODO: Returns the stake back to the user address
+        (, uint256 currentStake) = IReservePool(reservePool).removeStake(id);
+        IDoublyLinkedList.Node memory node = reserveRatioList.remove(id);
+        Math.Rate memory _target = referenceShieldingRate;
+        referenceShieldingRate = Math.subtract(
+            _target,
+            node.value,
+            currentStake
+        );
+        reserveRatioList.remove(id);
     }
 
     function _redeemNode(
         uint256 id,
-        IDoublyLinkedList.Node memory node,
-        SBStructs.Redemption memory redemption
+        SBStructs.Redemption memory redemption,
+        IDoublyLinkedList reserveRatioList,
+        IDoublyLinkedList targetShieldingRateList,
+        uint256 spotForUpdate
     ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
         bytes32 safeId = bytes32(id);
         SBStructs.Safe memory safe = safes[safeId];
@@ -141,13 +325,50 @@ abstract contract StableBase is IStableBase {
         if (amountToRedeem > safe.borrowedAmount) {
             amountToRedeem = safe.borrowedAmount;
         }
+        if (amountToRedeem == safe.borrowedAmount) {
+            // If the safe was fully redeemed, remove it from both the lists
+            targetShieldingRateList.remove(id);
+            removeFromReserveRatioListAndAdjustReferenceRate(
+                id,
+                reserveRatioList
+            );
+        } else {
+            IReservePool _reservePool = IReservePool(reservePool);
+            uint256 stake = _reservePool.getStake(id);
+            // Find an appropriate spot to insert the safe after updating the reserve ratio
+            uint256 _newReserveRatio = (stake * BASIS_POINTS_DIVISOR) /
+                (safe.borrowedAmount - amountToRedeem);
+            reserveRatioList.upsert(id, _newReserveRatio, spotForUpdate);
+        }
+        // update target shielding rate
         return redeemSafe(safeId, amountToRedeem, safe, redemption);
     }
 
     function _redeemSafesByReserveRatio(
         SBStructs.Redemption memory redemption,
-        bytes calldata redemptionParams
+        bytes calldata redemptionParams,
+        IDoublyLinkedList reserveRatioList,
+        IDoublyLinkedList targetShieldingRateList
     ) internal returns (SBStructs.Redemption memory) {
+        uint256 processedSpots = redemption.processedSpots;
+        // Target within 1% = 100 points, 100% = 10000 points
+        while (redemption.redeemedAmount < redemption.requestedAmount) {
+            uint256 spotForUpdate = uint256(
+                bytes32(
+                    redemptionParams[processedSpots * 32:processedSpots *
+                        32 +
+                        32]
+                )
+            );
+            uint256 head = reserveRatioList.getHead();
+            (, redemption) = _redeemNode(
+                head,
+                redemption,
+                reserveRatioList,
+                targetShieldingRateList,
+                spotForUpdate
+            );
+        }
         return redemption;
     }
 

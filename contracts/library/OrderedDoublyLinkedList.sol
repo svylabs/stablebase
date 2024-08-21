@@ -14,7 +14,11 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList {
         tail = 0;
     }
 
-    function _insert(uint256 id, Node memory node, uint256 _nearestSpot) internal {
+    function _insert(
+        uint256 id,
+        Node memory node,
+        uint256 _nearestSpot
+    ) internal {
         uint256 _head = head;
         if (_head == 0) {
             head = id;
@@ -25,7 +29,11 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList {
                 _nearestSpot = _head;
             }
 
-            if (nodes[_nearestSpot].prev == 0 && nodes[_nearestSpot].next == 0 && nodes[_nearestSpot].value == 0) {
+            if (
+                nodes[_nearestSpot].prev == 0 &&
+                nodes[_nearestSpot].next == 0 &&
+                nodes[_nearestSpot].value == 0
+            ) {
                 _nearestSpot = head;
                 //nearest = nodes[_nearestSpot];
             }
@@ -33,7 +41,9 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList {
             // nearest: 9, node: 7: 7, 7, 9, 11, 11
             // nearest: 9, node: 12: 7, 7, 9, 11, 11
 
-            while (_nearestSpot != _tail && nodes[_nearestSpot].value < node.value) {
+            while (
+                _nearestSpot != _tail && nodes[_nearestSpot].value < node.value
+            ) {
                 _nearestSpot = nodes[_nearestSpot].next;
                 //nearest = nodes[_nearestSpot];
             }
@@ -41,7 +51,9 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList {
             // nearest: 9, node:7: 7, 7, 9, 11, 11
             // nearest: 11(last), node: 12: 7, 7, 9, 11, 11
 
-            while (_nearestSpot != _head && nodes[_nearestSpot].value >= node.value) {
+            while (
+                _nearestSpot != _head && nodes[_nearestSpot].value >= node.value
+            ) {
                 _nearestSpot = nodes[_nearestSpot].prev;
                 //nearest = nodes[_nearestSpot];
             }
@@ -118,7 +130,11 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList {
         _insert(id, node, _nearestSpot);
     }
 
-    function upsert(uint256 id, uint256 value, uint256 _nearestSpot) external override {
+    function upsert(
+        uint256 id,
+        uint256 value,
+        uint256 _nearestSpot
+    ) external override {
         if (
             nodes[id].value == 0 && nodes[id].next == 0 && nodes[id].prev == 0
         ) {
@@ -128,11 +144,11 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList {
         }
     }
 
-    function remove(uint256 id) external override {
-        _remove(id);
+    function remove(uint256 id) external override returns (Node memory) {
+        return _remove(id);
     }
 
-    function get(uint256 id) external override view returns (Node memory) {
+    function get(uint256 id) external view override returns (Node memory) {
         return nodes[id];
     }
 

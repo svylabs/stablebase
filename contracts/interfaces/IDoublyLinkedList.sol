@@ -8,7 +8,7 @@ interface IDoublyLinkedList {
         uint256 next;
     }
 
-    function remove(uint256 id) external;
+    function remove(uint256 id) external returns (Node memory);
 
     function get(uint256 id) external view returns (Node memory);
 
