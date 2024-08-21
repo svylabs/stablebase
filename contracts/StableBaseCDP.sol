@@ -349,4 +349,35 @@ contract StableBaseCDP is StableBase {
         shieldedSafes.upsert(uint(safeId), safe.shieldedUntil, nearestSpot);
         // Distribute the fee
     }
+
+    function liquidate(address token) external {
+        bytes32 safeId = SBUtils.getSafeId(msg.sender, token);
+        SBStructs.Safe memory safe = safes[safeId];
+        require(safe.depositedAmount > 0, "Safe does not exist");
+        require(
+            safe.borrowedAmount > 0,
+            "Cannot liquidate a Safe with no borrowed amount"
+        );
+
+        uint256 collateralValue = _getCollateralValue(safe);
+        uint256 collateralRatio = (collateralValue * 10000) /
+            safe.borrowedAmount;
+        // Check if the collateral is sufficient for liquidation
+        require(
+            collateralRatio < liquidationRatio * 100,
+            "Can't liquidate yet"
+        );
+
+        // Burn the borrowed amount from the user
+        sbdToken.burnFrom(msg.sender, safe.borrowedAmount);
+
+        // TODO: cleanup the safe from reservePool, ShieldedSafes, and targetShieldedRates, reservePool etc..
+
+        // Transfer the collateral to the liquidator
+        SBUtils.withdrawEthOrToken(token, msg.sender, safe.depositedAmount);
+        // TODO: Add liquidation fee
+
+        // Remove the Safe from the mapping
+        delete safes[safeId];
+    }
 }

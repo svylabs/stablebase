@@ -19,6 +19,8 @@ interface IStableBase {
         bytes calldata renewParams
     ) external;
 
+    function liquidate(address token) external;
+
     // TODO: add more functions
     // liquidate
     // withdraw
