@@ -38,15 +38,12 @@ contract StableBaseCDP is StableBase {
      *
      * @param _token Address of the ERC20 token, use address(0) for ETH
      * @param _amount Amount of tokens or ETH to deposit as collateral
-     *
+     * @param _safeId The ID of the Safe to create
      */
-    // function openSafe(address _token, uint256 _amount, uint256 _reserveRatio, uint256 _positionInReserve) external payable {
-    // function openSafe(address _token, uint256 _amount, uint256 _reserveRatio, uint256 /*_positionInReserve*/) external payable {
-    function openSafe(address _token, uint256 _amount) external payable {
+    function openSafe(uint256 _safeId, address _token, uint256 _amount) external {
         require(_amount > 0, "Amount must be greater than 0");
-        bytes32 id = SBUtils.getSafeId(msg.sender, _token);
+        require(_token != address(0), "Invalid token address");
 
-        // Create a new Safe
         SBStructs.Safe memory safe = SBStructs.Safe({
             owner: msg.sender,
             token: _token,
@@ -55,42 +52,31 @@ contract StableBaseCDP is StableBase {
             rates: 0,
             shieldedUntil: 0
         });
+        safes[safeId] = safe;
 
-        // Deposit ETH or ERC20 token using SBUtils library
-        if (_token == address(0)) {
-            safe.depositedAmount = msg.value; // Assign ETH amount to depositedAmount
-        } else {
-            safe.depositedAmount = _amount; // Assign ERC20 amount to depositedAmount
-        }
+        _mint(msg.sender, _safeId); // mint the NFT Safe to the owner
+
         SBUtils.depositEthOrToken(_token, address(this), _amount);
-
-        // Add the Safe to the mapping
-        safes[id] = safe;
     }
 
     /**
      * @dev Closes a Safe and returns the collateral to the owner.
      * Check if the borrowedAmount is 0, if there is any SB token borrowed, close should not work.
      * Return back the collateral
-     * @param collateralToken ID of the Safe to close, derived from keccak256(msg.sender, _token)
+     * @param _safeId The ID of the Safe to close
      */
-    function closeSafe(address collateralToken) external {
-        bytes32 id = SBUtils.getSafeId(msg.sender, collateralToken);
-        SBStructs.Safe storage safe = safes[id];
-        require(
-            safe.borrowedAmount == 0,
-            "Cannot close Safe with borrowed amount"
-        );
+    function closeSafe(uint256 _safeId) external onlyOwner {
+        SBStructs.Safe storage safe = safes[_safeId];
+        require(msg.sender == safe.owner, "Unauthorized");
+        require(safe.borrowedAmount == 0, "Cannot close Safe with borrowed amount");
 
         // Withdraw ETH or ERC20 token using SBUtils library (Transfer collateral back to the owner)
-        SBUtils.withdrawEthOrToken(
-            safe.token,
-            msg.sender,
-            safe.depositedAmount
-        );
+        SBUtils.withdrawEthOrToken(safe.token, msg.sender, safe.depositedAmount);
 
         // Remove the Safe from the mapping
-        delete safes[id];
+        delete safes[safeId];
+
+        _burn(_safeId); // burn the NFT Safe
     }
 
     /**
@@ -108,12 +94,13 @@ contract StableBaseCDP is StableBase {
      *
      */
     function borrowWithParams(
-        address _token,
+        // address _token,
+        uint256 _safeId
         uint256 _amount,
         bytes calldata _borrowParams
     ) external {
-        bytes32 id = SBUtils.getSafeId(msg.sender, _token);
-        SBStructs.Safe memory safe = safes[id];
+        SBStructs.Safe storage safe = safes[_safeId];
+        require(msg.sender == safe.owner, "Unauthorized");
         require(safe.depositedAmount > 0, "Safe does not exist");
         bytes4 _rateByte = bytes4(_borrowParams[0:4]);
         uint32 _compressedRate = uint32(_rateByte);
@@ -124,7 +111,7 @@ contract StableBaseCDP is StableBase {
         //uint256 _nearestSpot = abi.decode(_borrowParams[4:32], (uint256));
 
         IPriceOracle priceOracle = IPriceOracle(
-            whitelistedTokens[_token].priceOracle
+            whitelistedTokens[safe.token].priceOracle
         );
 
         // Fetch the price of the collateral from the oracle
@@ -163,13 +150,13 @@ contract StableBaseCDP is StableBase {
     }
 
     // borrow function
-    function borrow(address _token, uint256 _amount) external {
-        bytes32 id = SBUtils.getSafeId(msg.sender, _token);
-        SBStructs.Safe storage safe = safes[id];
+    function borrow(uint256 _safeId, uint256 _amount) external {
+        SBStructs.Safe storage safe = safes[_safeId];
+        require(msg.sender == safe.owner, "Unauthorized");
         require(safe.depositedAmount > 0, "Safe does not exist");
 
         IPriceOracle priceOracle = IPriceOracle(
-            whitelistedTokens[_token].priceOracle
+            whitelistedTokens[safe.token].priceOracle
         );
 
         // Fetch the price of the collateral from the oracle
@@ -200,9 +187,9 @@ contract StableBaseCDP is StableBase {
     }
 
     // Repay function
-    function repay(address _token, uint256 _amount) external {
-        bytes32 id = SBUtils.getSafeId(msg.sender, _token);
-        SBStructs.Safe storage safe = safes[id];
+    function repay(uint256 _safeId, uint256 _amount) external {
+        SBStructs.Safe storage safe = safes[_safeId];
+        require(msg.sender == safe.owner, "Unauthorized");
         require(safe.borrowedAmount > 0, "No borrowed amount to repay");
 
         // Check if the repayment amount is valid
@@ -231,9 +218,9 @@ contract StableBaseCDP is StableBase {
     }
 
     // Withdraw collateral function
-    function withdrawCollateral(address _token, uint256 _amount) external {
-        bytes32 id = SBUtils.getSafeId(msg.sender, _token);
-        SBStructs.Safe storage safe = safes[id];
+    function withdrawCollateral(uint256 _safeId, uint256 _amount) external {
+        SBStructs.Safe storage safe = safes[_safeId];
+        require(msg.sender == safe.owner, "Unauthorized");
         require(safe.depositedAmount > 0, "No collateral to withdraw");
 
         if (safe.borrowedAmount > 0) {
@@ -278,15 +265,11 @@ contract StableBaseCDP is StableBase {
         shieldingRates[_safe] = _shieldingRate;
     }
 
-    event SafeShielded(bytes32 safeId, address owner, uint256 shieldingUntil);
+    event SafeShielded(uint256 safeId, address owner, uint256 shieldingUntil);
 
-    function extendProtectionUntil(
-        address _token,
-        uint256 _shieldingUntil
-    ) public {
-        bytes32 safeId = SBUtils.getSafeId(msg.sender, _token);
+    function extendProtectionUntil(uint256 safeId, uint256 _shieldingUntil) public {
         SBStructs.Safe storage safe = safes[safeId];
-        require(safe.owner == msg.sender, "Safe does not exist");
+        require(msg.sender == safe.owner, "Unauthorized");
         safe.shieldedUntil = _shieldingUntil;
         // shieldedSafes.insert(uint(safeId), 0, 0);
         IDoublyLinkedList(shieldedSafes).upsert(uint(safeId), 0, 0);
@@ -335,13 +318,13 @@ contract StableBaseCDP is StableBase {
     }
 
     function renewSafe(
-        address token,
+        uint256 _safeId,
         uint256 feeRate,
         bytes calldata renewParams
     ) external override {
         //TODO:  Check if the required fee is paid
-        bytes32 safeId = SBUtils.getSafeId(msg.sender, token);
-        SBStructs.Safe memory safe = safes[safeId];
+        SBStructs.Safe storage safe = safes[_safeId];
+        require(msg.sender == safe.owner, "Unauthorized");
         safe.shieldedUntil = _getShieldingTime(feeRate, safe.shieldedUntil);
         safes[safeId] = safe;
         uint256 nearestSpot = abi.decode(renewParams[0:32], (uint256));
@@ -350,9 +333,9 @@ contract StableBaseCDP is StableBase {
         // Distribute the fee
     }
 
-    function liquidate(address token) external {
-        bytes32 safeId = SBUtils.getSafeId(msg.sender, token);
-        SBStructs.Safe memory safe = safes[safeId];
+    function liquidate(uint256 _safeId) external {
+        SBStructs.Safe storage safe = safes[_safeId];
+        require(msg.sender == safe.owner, "Unauthorized");
         require(safe.depositedAmount > 0, "Safe does not exist");
         require(
             safe.borrowedAmount > 0,
@@ -374,7 +357,7 @@ contract StableBaseCDP is StableBase {
         // TODO: cleanup the safe from reservePool, ShieldedSafes, and targetShieldedRates, reservePool etc..
 
         // Transfer the collateral to the liquidator
-        SBUtils.withdrawEthOrToken(token, msg.sender, safe.depositedAmount);
+        SBUtils.withdrawEthOrToken(safe.token, msg.sender, safe.depositedAmount);
         // TODO: Add liquidation fee
 
         // Remove the Safe from the mapping
