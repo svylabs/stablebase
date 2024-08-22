@@ -7,8 +7,10 @@ import "./SBDToken.sol";
 import "./Utilities.sol";
 import "./interfaces/IStableBase.sol";
 import "./interfaces/IReservePool.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract StableBase is IStableBase {
+abstract contract StableBase is IStableBase, ERC721, Ownable {
     uint256 internal originationFeeRateBasisPoints = 0; // start with 0% origination fee
     uint256 internal liquidationRatio = 110; // 110% liquidation ratio
     uint256 internal constant BASIS_POINTS_DIVISOR = 10000;
@@ -18,7 +20,8 @@ abstract contract StableBase is IStableBase {
     IDoublyLinkedList public orderedTargetShieldedRates;
 
     // Mapping to track Safe balances
-    mapping(bytes32 => SBStructs.Safe) public safes;
+    // mapping(bytes32 => SBStructs.Safe) public safes;
+    mapping(uint256 => SBStructs.Safe) public safes;
 
     SBStructs.Mode public mode = SBStructs.Mode.BOOTSTRAP;
 
@@ -26,24 +29,26 @@ abstract contract StableBase is IStableBase {
 
     SBDToken public sbdToken;
 
-    address public owner;
+    // address public owner;
 
     mapping(address => uint256) public shieldingRates;
-
-    // address public orderedReserveRatios;
-    // address public orderedTargetShieldedRates;
-    // address public shieldedSafes;
 
     address public reservePool;
 
     Math.Rate public referenceShieldingRate = Math.Rate(0, 0);
 
+    constructor(address _sbdToken) ERC721("NFTSafe", "NFTS") {
+        sbdToken = SBDToken(_sbdToken);
+    }
+
     function updateTargetShieldingRate(
-        uint256 id,
+        uint256 _safeId,
         uint256 compressedRate,
         IReservePool _reservePool,
         bytes calldata borrowParams
     ) internal {
+        SBStructs.Safe storage safe = safes[_safeId];
+        require(ownerOf(_safeId) == msg.sender, "Only the NFT owner can update");
         uint256 _targetShieldingRate = SBUtils.getRateAtPosition(
             compressedRate,
             1
@@ -55,7 +60,7 @@ abstract contract StableBase is IStableBase {
             bytes32(borrowParams[36:68])
         );
         _orderedTargetShieldedRates.upsert(
-            id,
+            _safeId,
             _targetShieldingRate,
             _nearestSpotInTargetShieldingRate
         );
@@ -64,18 +69,19 @@ abstract contract StableBase is IStableBase {
         referenceShieldingRate = Math.add(
             _target,
             _targetShieldingRate,
-            _reservePool.getStake(id)
+            _reservePool.getStake(_safeId)
         );
     }
 
     function handleBorrowReserveRatioSafes(
-        bytes32 id,
+        uint256 _safeId,
         SBStructs.Safe memory safe,
         uint256 compressedRate,
         uint256 amount,
         bytes calldata borrowParams
     ) internal {
-        uint256 _id = uint256(id);
+        SBStructs.Safe storage currentSafe = safes[_safeId];
+    require(msg.sender == currentSafe.owner, "Only the safe owner can borrow");
         // Calculate origination fee
         uint256 _reserveRatio = SBUtils.getRateAtPosition(compressedRate, 0);
         uint256 _reservePoolDeposit = (amount * _reserveRatio) /
@@ -91,13 +97,13 @@ abstract contract StableBase is IStableBase {
         // TODO: Mint to reserve pool
         sbdToken.mint(reservePool, _reservePoolDeposit);
         IReservePool _reservePool = IReservePool(reservePool);
-        _reservePool.addStake(_id, _reservePoolDeposit);
-        uint _newReserveRatio = ((_reservePool.getStake(_id) *
+        _reservePool.addStake(_safeId, _reservePoolDeposit);
+        uint _newReserveRatio = ((_reservePool.getStake(_safeId) *
             BASIS_POINTS_DIVISOR) / safe.borrowedAmount);
-        _orderedReserveRatios.upsert(_id, _newReserveRatio, _nearestSpot);
+        _orderedReserveRatios.upsert(_safeId, _newReserveRatio, _nearestSpot);
 
         updateTargetShieldingRate(
-            _id,
+            _safeId,
             compressedRate,
             _reservePool,
             borrowParams
@@ -122,12 +128,14 @@ abstract contract StableBase is IStableBase {
     }
 
     function handleBorrowShieldedSafes(
-        bytes32 id,
+        uint256 _safeId,
         SBStructs.Safe memory safe,
         uint256 compressedRate,
         uint256 amount,
         bytes calldata borrowParams
     ) internal {
+        SBStructs.Safe storage currentSafe = safes[_safeId];
+        require(ownerOf(_safeId) == msg.sender, "Only the NFT owner can borrow");
         uint256 _shieldingRate = SBUtils.getRateAtPosition(compressedRate, 0);
         uint256 _shieldingFee = (amount * _shieldingRate) /
             BASIS_POINTS_DIVISOR;
@@ -140,12 +148,22 @@ abstract contract StableBase is IStableBase {
         IDoublyLinkedList _shieldedSafes = IDoublyLinkedList(shieldedSafes);
 
         // TODO: shieldedUntil needs to dynamically change based on the borrowings
-        _shieldedSafes.upsert(uint256(id), safe.shieldedUntil, _nearestSpot);
+        _shieldedSafes.upsert(_safeId, safe.shieldedUntil, _nearestSpot);
 
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amountToBorrow);
         // TODO: mint fee
     }
+
+    // function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override {
+    //     // Check if the safe is being transferred
+    //     if (from != address(0) && to != address(0)) {
+    //         bytes32 _safeId = bytes32(tokenId);
+    //         SBStructs.Safe storage safe = safes[_safeId];
+    //         require(from == safe.owner, "Only the safe owner can transfer");
+    //         safe.owner = to;
+    //     }
+    // }
 
     /**
      * 1. Redeem expired safes
@@ -161,8 +179,9 @@ abstract contract StableBase is IStableBase {
         IDoublyLinkedList _shieldedSafe = IDoublyLinkedList(shieldedSafes);
         uint256 currentShieldedSafe = _shieldedSafe.getHead();
         while (currentShieldedSafe != 0 && totalRedeemed < requestedAmount) {
-            bytes32 safeId = bytes32(currentShieldedSafe);
-            SBStructs.Safe memory safe = safes[safeId];
+            // bytes32 _safeId = bytes32(currentShieldedSafe);
+            uint256 _safeId = currentShieldedSafe;
+            SBStructs.Safe memory safe = safes[_safeId];
             if (safe.shieldedUntil <= block.timestamp) {
                 uint256 redeemableAmount = safe.borrowedAmount;
                 if (redeemableAmount > 0) {
@@ -171,7 +190,7 @@ abstract contract StableBase is IStableBase {
                         ? (requestedAmount - totalRedeemed)
                         : redeemableAmount;
                     (safe, redemption) = redeemSafe(
-                        safeId,
+                        _safeId,
                         toRedeem,
                         safe,
                         redemption
@@ -295,31 +314,31 @@ abstract contract StableBase is IStableBase {
     }
 
     function removeFromReserveRatioListAndAdjustReferenceRate(
-        uint256 id,
+        uint256 _safeId,
         IDoublyLinkedList reserveRatioList
     ) internal {
         // remove stake from reserve pool
         // TODO: Returns the stake back to the user address
-        (, uint256 currentStake) = IReservePool(reservePool).removeStake(id);
-        IDoublyLinkedList.Node memory node = reserveRatioList.remove(id);
+        (, uint256 currentStake) = IReservePool(reservePool).removeStake(_safeId);
+        IDoublyLinkedList.Node memory node = reserveRatioList.remove(_safeId);
         Math.Rate memory _target = referenceShieldingRate;
         referenceShieldingRate = Math.subtract(
             _target,
             node.value,
             currentStake
         );
-        reserveRatioList.remove(id);
+        reserveRatioList.remove(_safeId);
     }
 
     function _redeemNode(
-        uint256 id,
+        uint256 _safeId,
         SBStructs.Redemption memory redemption,
         IDoublyLinkedList reserveRatioList,
         IDoublyLinkedList targetShieldingRateList,
         uint256 spotForUpdate
     ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
-        bytes32 safeId = bytes32(id);
-        SBStructs.Safe memory safe = safes[safeId];
+        // bytes32 _safeId = bytes32(_safeId);
+        SBStructs.Safe memory safe = safes[_safeId];
         uint256 amountToRedeem = redemption.requestedAmount -
             redemption.redeemedAmount;
         if (amountToRedeem > safe.borrowedAmount) {
@@ -327,21 +346,21 @@ abstract contract StableBase is IStableBase {
         }
         if (amountToRedeem == safe.borrowedAmount) {
             // If the safe was fully redeemed, remove it from both the lists
-            targetShieldingRateList.remove(id);
+            targetShieldingRateList.remove(_safeId);
             removeFromReserveRatioListAndAdjustReferenceRate(
-                id,
+                _safeId,
                 reserveRatioList
             );
         } else {
             IReservePool _reservePool = IReservePool(reservePool);
-            uint256 stake = _reservePool.getStake(id);
+            uint256 stake = _reservePool.getStake(_safeId);
             // Find an appropriate spot to insert the safe after updating the reserve ratio
             uint256 _newReserveRatio = (stake * BASIS_POINTS_DIVISOR) /
                 (safe.borrowedAmount - amountToRedeem);
-            reserveRatioList.upsert(id, _newReserveRatio, spotForUpdate);
+            reserveRatioList.upsert(_safeId, _newReserveRatio, spotForUpdate);
         }
         // update target shielding rate
-        return redeemSafe(safeId, amountToRedeem, safe, redemption);
+        return redeemSafe(_safeId, amountToRedeem, safe, redemption);
     }
 
     function _redeemSafesByReserveRatio(
@@ -397,11 +416,12 @@ abstract contract StableBase is IStableBase {
     }
 
     function redeemSafe(
-        bytes32 safeId,
+        uint256 _safeId,
         uint256 amountToRedeem,
         SBStructs.Safe memory safe,
         SBStructs.Redemption memory redemption
     ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
+        require(ownerOf(_safeId) == msg.sender, "Only the NFT owner can redeem");
         uint256 amountInCollateral = amountToRedeem / _getCollateralValue(safe);
         safe.depositedAmount -= amountInCollateral;
         bool found = false;
@@ -424,7 +444,7 @@ abstract contract StableBase is IStableBase {
             // TODO: SEE WHAT TO DO WITH THE SAFE
         }
         redemption.redeemedAmount += amountToRedeem;
-        safes[safeId] = safe;
+        safes[_safeId] = safe;
         return (safe, redemption);
     }
 }
