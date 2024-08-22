@@ -37,7 +37,9 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
 
     Math.Rate public referenceShieldingRate = Math.Rate(0, 0);
 
-    constructor() ERC721("NFTSafe", "NFTS") {}
+    constructor(address _sbdToken) ERC721("NFTSafe", "NFTS") {
+        sbdToken = SBDToken(_sbdToken);
+    }
 
     function updateTargetShieldingRate(
         uint256 _safeId,

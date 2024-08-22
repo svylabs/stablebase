@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import "./Structures.sol";
 import "./Utilities.sol";
@@ -14,7 +15,8 @@ import "./ReservePool.sol";
 import "./StableBase.sol";
 
 contract StableBaseCDP is StableBase {
-    constructor(address _sbdToken) {
+    constructor(address owner, address _sbdToken) StableBase(_sbdToken) Ownable(owner) {
+        // Initialize the contract
         whitelistedTokens[address(0)] = SBStructs.WhitelistedToken({
             priceOracle: address(new MockPriceOracle()),
             collateralRatio: 110
@@ -41,7 +43,7 @@ contract StableBaseCDP is StableBase {
      * @param _safeId The ID of the Safe to create
      */
      
-    function openSafe(uint256 _safeId, address _token, uint256 _amount) external {
+    function openSafe(uint256 _safeId, address _token, uint256 _amount) external payable {
         require(_amount > 0, "Amount must be greater than 0");
         require(_token != address(0), "Invalid token address");
 
@@ -68,7 +70,7 @@ contract StableBaseCDP is StableBase {
      */
     function closeSafe(uint256 _safeId) external onlyOwner {
         SBStructs.Safe storage safe = safes[_safeId];
-        require(msg.sender == safe.owner(), "Unauthorized");
+        require(msg.sender == safe.owner, "Unauthorized");
         require(safe.borrowedAmount == 0, "Cannot close Safe with borrowed amount");
 
         // Withdraw ETH or ERC20 token using SBUtils library (Transfer collateral back to the owner)
@@ -255,10 +257,11 @@ contract StableBaseCDP is StableBase {
         safe.depositedAmount -= _amount;
     }
 
-    function renewProtection(address _safe, uint256 _shieldingRate) public {
-        // Only the owner can update the shielding rate
+    function renewProtection(uint256 _safeId, address _safe, uint256 _shieldingRate) public {
+        // Only the owner can update the shielding 
+        SBStructs.Safe storage safe = safes[_safeId];
         require(
-            msg.sender == owner,
+            msg.sender == safe.owner,
             "Only the owner can update the shielding rate"
         );
         // Update the shielding rate for the safe
