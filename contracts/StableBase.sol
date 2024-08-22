@@ -48,7 +48,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         bytes calldata borrowParams
     ) internal {
         SBStructs.Safe storage safe = safes[_safeId];
-        require(msg.sender == safe.owner, "Only the safe owner can update");
+        require(ownerOf(_safeId) == msg.sender, "Only the NFT owner can update");
         uint256 _targetShieldingRate = SBUtils.getRateAtPosition(
             compressedRate,
             1
@@ -135,7 +135,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         bytes calldata borrowParams
     ) internal {
         SBStructs.Safe storage currentSafe = safes[_safeId];
-    require(msg.sender == currentSafe.owner, "Only the safe owner can borrow");
+        require(ownerOf(_safeId) == msg.sender, "Only the NFT owner can borrow");
         uint256 _shieldingRate = SBUtils.getRateAtPosition(compressedRate, 0);
         uint256 _shieldingFee = (amount * _shieldingRate) /
             BASIS_POINTS_DIVISOR;
@@ -421,7 +421,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         SBStructs.Safe memory safe,
         SBStructs.Redemption memory redemption
     ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
-        require(msg.sender == safe.owner, "Only the safe owner can redeem");
+        require(ownerOf(_safeId) == msg.sender, "Only the NFT owner can redeem");
         uint256 amountInCollateral = amountToRedeem / _getCollateralValue(safe);
         safe.depositedAmount -= amountInCollateral;
         bool found = false;
