@@ -6,6 +6,7 @@ const utils = require("./utils");
 
 describe("StableBaseCDP", function () {
   let stableBaseCDP, sbdToken, mockToken, owner, user, priceOracle, mockOracle;
+  const safeId = 1;
 
   beforeEach(async function () {
     [owner, user] = await ethers.getSigners();
@@ -22,7 +23,8 @@ describe("StableBaseCDP", function () {
     await stableBaseCDP.waitForDeployment();
 
     // Set the minter to StableBaseCDP contract
-    await sbdToken.setMinter(stableBaseCDP.target);
+    // await sbdToken.setMinter(stableBaseCDP.target);
+    await sbdToken.setMinter(await stableBaseCDP.getAddress());
 
     // Deploy a mock ERC20 token
     const MockToken = await ethers.getContractFactory("SBDToken");
