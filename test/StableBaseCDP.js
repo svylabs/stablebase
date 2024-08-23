@@ -3,6 +3,7 @@ const { ethers } = require("hardhat");
 
 describe("StableBaseCDP", function () {
   let stableBaseCDP, sbdToken, mockToken, owner, addr1;
+  const safeId = 1;
 
   beforeEach(async function () {
     [owner, addr1] = await ethers.getSigners();
@@ -38,7 +39,6 @@ describe("StableBaseCDP", function () {
     const tokenAddress = await mockToken.getAddress();
     console.log("Mock Token Address:", tokenAddress);
     const amount = ethers.parseEther('1.0');
-    const safeId = 1;
 
     // Ensure the StableBaseCDP is approved to spend the mock token
     await mockToken.connect(owner).approve(await stableBaseCDP.getAddress(), amount);
@@ -54,7 +54,6 @@ describe("StableBaseCDP", function () {
   it('only owner can perform operations on Safe', async () => {
     const tokenAddress = await mockToken.getAddress();
     const amount = ethers.parseEther('1.0');
-    const safeId = 1;
   
     // Ensure the StableBaseCDP is approved to spend the mock token
     await mockToken.connect(owner).approve(await stableBaseCDP.getAddress(), amount);
@@ -68,7 +67,6 @@ describe("StableBaseCDP", function () {
   it('safe can be transferred through standard transfer calls for a NFT', async () => {
     const tokenAddress = await mockToken.getAddress();
     const amount = ethers.parseEther('1.0');
-    const safeId = 1;
   
     // Ensure the StableBaseCDP is approved to spend the mock token
     await mockToken.connect(owner).approve(await stableBaseCDP.getAddress(), amount);
@@ -85,7 +83,6 @@ describe("StableBaseCDP", function () {
   it('new owner can perform operations on the Safe', async () => {
     const tokenAddress = await mockToken.getAddress();
     const amount = ethers.parseEther('1.0');
-    const safeId = 1;
   
     // Ensure the StableBaseCDP is approved to spend the mock token
     await mockToken.connect(owner).approve(await stableBaseCDP.getAddress(), amount);
@@ -103,9 +100,6 @@ describe("StableBaseCDP", function () {
       console.error('Error:', error);
       console.log('Safe state:', await stableBaseCDP.safes(safeId));
       console.log('Owner:', await stableBaseCDP.ownerOf(safeId));
-      // console.log('Collateral value:', (await stableBaseCDP.getCollateralValue(safeId)).toString());
-      // console.log('Borrowed amount:', (await stableBaseCDP.getBorrowedAmount(safeId)).toString());
-      // console.log('Liquidation ratio:', (await stableBaseCDP.getLiquidationRatio()).toString());
       throw error;
     }
   });
@@ -113,7 +107,6 @@ describe("StableBaseCDP", function () {
   it('old owner is not able to perform any operation', async () => {
     const tokenAddress = await mockToken.getAddress();
     const amount = ethers.parseEther('1.0');
-    const safeId = 1;
   
     // Ensure the StableBaseCDP is approved to spend the mock token
     await mockToken.connect(owner).approve(await stableBaseCDP.getAddress(), amount);
