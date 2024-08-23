@@ -80,8 +80,8 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         uint256 amount,
         bytes calldata borrowParams
     ) internal {
-        SBStructs.Safe storage currentSafe = safes[_safeId];
-    require(msg.sender == currentSafe.owner, "Only the safe owner can borrow");
+        // SBStructs.Safe storage currentSafe = safes[_safeId];
+    // require(msg.sender == currentSafe.owner, "Only the safe owner can borrow");
         // Calculate origination fee
         uint256 _reserveRatio = SBUtils.getRateAtPosition(compressedRate, 0);
         uint256 _reservePoolDeposit = (amount * _reserveRatio) /
@@ -134,7 +134,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         uint256 amount,
         bytes calldata borrowParams
     ) internal {
-        SBStructs.Safe storage currentSafe = safes[_safeId];
+        // SBStructs.Safe storage currentSafe = safes[_safeId];
         require(ownerOf(_safeId) == msg.sender, "Only the NFT owner can borrow");
         uint256 _shieldingRate = SBUtils.getRateAtPosition(compressedRate, 0);
         uint256 _shieldingFee = (amount * _shieldingRate) /

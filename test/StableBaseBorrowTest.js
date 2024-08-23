@@ -17,7 +17,8 @@ describe("StableBaseCDP", function () {
 
     // Deploy StableBaseCDP with the price oracle address
     const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
-    stableBaseCDP = await StableBaseCDPFactory.deploy(sbdToken.target);
+    // stableBaseCDP = await StableBaseCDPFactory.deploy(sbdToken.target);
+    stableBaseCDP = await StableBaseCDPFactory.deploy(owner.address, await sbdToken.getAddress());
     await stableBaseCDP.waitForDeployment();
 
     // Set the minter to StableBaseCDP contract

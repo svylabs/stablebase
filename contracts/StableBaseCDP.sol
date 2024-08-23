@@ -15,7 +15,10 @@ import "./ReservePool.sol";
 import "./StableBase.sol";
 
 contract StableBaseCDP is StableBase {
-    constructor(address owner, address _sbdToken) StableBase(_sbdToken) Ownable(owner) {
+    constructor(
+        address owner,
+        address _sbdToken
+    ) StableBase(_sbdToken) Ownable(owner) {
         // Initialize the contract
         whitelistedTokens[address(0)] = SBStructs.WhitelistedToken({
             priceOracle: address(new MockPriceOracle()),
@@ -42,13 +45,29 @@ contract StableBaseCDP is StableBase {
      * @param _amount Amount of tokens or ETH to deposit as collateral
      * @param _safeId The ID of the Safe to create
      */
-     
-    function openSafe(uint256 _safeId, address _token, uint256 _amount) external payable {
+
+    function openSafe(
+        uint256 _safeId,
+        address _token,
+        uint256 _amount
+    ) external payable {
         require(_amount > 0, "Amount must be greater than 0");
-        require(_token != address(0), "Invalid token address");
+
+        if (_token == address(0)) {
+            // Handle ETH deposit
+            require(msg.value == _amount, "Incorrect ETH amount sent");
+            (bool success, ) = address(this).call{value: _amount}("");
+            require(success, "ETH deposit failed");
+        } else {
+            // Handle ERC20 token deposit
+            IERC20 token = IERC20(_token);
+            require(
+                token.transferFrom(msg.sender, address(this), _amount),
+                "Token transfer failed"
+            );
+        }
 
         SBStructs.Safe memory safe = SBStructs.Safe({
-            owner: msg.sender,
             token: _token,
             depositedAmount: _amount,
             borrowedAmount: 0,
@@ -58,8 +77,6 @@ contract StableBaseCDP is StableBase {
         safes[_safeId] = safe;
 
         _mint(msg.sender, _safeId); // mint the NFT Safe to the owner
-
-        SBUtils.depositEthOrToken(_token, address(this), _amount);
     }
 
     /**
@@ -71,10 +88,17 @@ contract StableBaseCDP is StableBase {
     function closeSafe(uint256 _safeId) external onlyOwner {
         SBStructs.Safe storage safe = safes[_safeId];
         require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
-        require(safe.borrowedAmount == 0, "Cannot close Safe with borrowed amount");
+        require(
+            safe.borrowedAmount == 0,
+            "Cannot close Safe with borrowed amount"
+        );
 
         // Withdraw ETH or ERC20 token using SBUtils library (Transfer collateral back to the owner)
-        SBUtils.withdrawEthOrToken(safe.token, msg.sender, safe.depositedAmount);
+        SBUtils.withdrawEthOrToken(
+            safe.token,
+            msg.sender,
+            safe.depositedAmount
+        );
 
         // Remove the Safe from the mapping
         delete safes[_safeId];
@@ -257,17 +281,27 @@ contract StableBaseCDP is StableBase {
         safe.depositedAmount -= _amount;
     }
 
-    function renewProtection(uint256 _safeId, address _safe, uint256 _shieldingRate) public {
-        // Only the owner can update the shielding 
+    function renewProtection(
+        uint256 _safeId,
+        address _safe,
+        uint256 _shieldingRate
+    ) public {
+        // Only the owner can update the shielding
         SBStructs.Safe storage safe = safes[_safeId];
-        require(_isApprovedOrOwner(msg.sender, _safeId), "Only the owner can update the shielding rate");
+        require(
+            _isApprovedOrOwner(msg.sender, _safeId),
+            "Only the owner can update the shielding rate"
+        );
         // Update the shielding rate for the safe
         shieldingRates[_safe] = _shieldingRate;
     }
 
     event SafeShielded(uint256 safeId, address owner, uint256 shieldingUntil);
 
-    function extendProtectionUntil(uint256 _safeId, uint256 _shieldingUntil) public {
+    function extendProtectionUntil(
+        uint256 _safeId,
+        uint256 _shieldingUntil
+    ) public {
         SBStructs.Safe storage safe = safes[_safeId];
         require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
         safe.shieldedUntil = _shieldingUntil;
@@ -356,15 +390,24 @@ contract StableBaseCDP is StableBase {
         // TODO: cleanup the safe from reservePool, ShieldedSafes, and targetShieldedRates, reservePool etc..
 
         // Transfer the collateral to the liquidator
-        SBUtils.withdrawEthOrToken(safe.token, msg.sender, safe.depositedAmount);
+        SBUtils.withdrawEthOrToken(
+            safe.token,
+            msg.sender,
+            safe.depositedAmount
+        );
         // TODO: Add liquidation fee
 
         // Remove the Safe from the mapping
         delete safes[_safeId];
     }
 
-    function _isApprovedOrOwner(address _spender, uint256 _tokenId) internal view returns (bool) {
+    function _isApprovedOrOwner(
+        address _spender,
+        uint256 _tokenId
+    ) internal view returns (bool) {
         address owner = ownerOf(_tokenId);
-        return (msg.sender == owner || getApproved(_tokenId) == _spender || isApprovedForAll(owner, _spender));
+        return (msg.sender == owner ||
+            getApproved(_tokenId) == _spender ||
+            isApprovedForAll(owner, _spender));
     }
 }
