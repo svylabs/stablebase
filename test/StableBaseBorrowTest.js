@@ -55,10 +55,11 @@ describe("StableBaseCDP", function () {
     const borrowAmount = (depositAmount * price) / BigInt(2); // Borrow nearly half
     console.log("Borrow amount: ", borrowAmount);
 
-    const {contractSnapshotBeforeBorrow, contractSnapshotAfterBorrow} = await utils.borrow({ stableBaseCDP, sbdToken, mockToken }, user, safeId, borrowAmount, { reserveRatio: 5, targetShieldingRate: 8 });
+    const {contractSnapshotBeforeBorrow, contractSnapshotAfterBorrow, tx} = await utils.borrow({ stableBaseCDP, sbdToken, mockToken }, user, safeId, borrowAmount, { reserveRatio: 5, targetShieldingRate: 8 });
     
     console.log("Before borrow", contractSnapshotBeforeBorrow);
     console.log("After Borrow", contractSnapshotAfterBorrow);
+    console.log("Transaction", tx);
     // Checks needed
     // 1. Check if the borrowed amount is correct
     expect(contractSnapshotAfterBorrow.safe.borrowedAmount).to.equal(borrowAmount);
@@ -104,10 +105,11 @@ describe("StableBaseCDP", function () {
     const borrowAmount = (depositAmount * price) / BigInt(2); // Borrow nearly half
     console.log("Borrow amount: ", borrowAmount);
 
-    const {contractSnapshotBeforeBorrow, contractSnapshotAfterBorrow} = await utils.borrow({ stableBaseCDP, sbdToken, mockToken }, user, safeId, borrowAmount, { shieldingRate: 0 });
+    const {contractSnapshotBeforeBorrow, contractSnapshotAfterBorrow, tx} = await utils.borrow({ stableBaseCDP, sbdToken, mockToken }, user, safeId, borrowAmount, { shieldingRate: 0 });
     
     console.log("Before borrow", contractSnapshotBeforeBorrow);
     console.log("After Borrow", contractSnapshotAfterBorrow);
+    console.log("Transaction", tx);
     // Checks needed
     // 1. Check if the borrowed amount is correct
     expect(contractSnapshotAfterBorrow.safe.borrowedAmount).to.equal(borrowAmount);

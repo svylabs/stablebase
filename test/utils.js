@@ -92,9 +92,10 @@ async function borrow(contracts, user, safeId, borrowAmount, borrowParams) {
         collateralAddress = contracts.mockToken.address;
     }
     console.log(_borrowParams);
-    await contracts.stableBaseCDP.connect(user).borrowWithParams(collateralAddress, borrowAmount, _borrowParams);
+    const tx = await contracts.stableBaseCDP.connect(user).borrowWithParams(collateralAddress, borrowAmount, _borrowParams);
+    const result = await tx.wait();
     const contractSnapshotAfterBorrow = await takeContractSnapshots(contracts.stableBaseCDP, contracts.sbdToken, contracts.mockToken, safeId, { address: user.address, collateral: true });
-    return { contractSnapshotBeforeBorrow, contractSnapshotAfterBorrow };
+    return { contractSnapshotBeforeBorrow, contractSnapshotAfterBorrow, tx: {gasUsed: result.gasUsed} };
 }
 
 module.exports = { takeODLLSnapshot, takeContractSnapshots, borrow };
