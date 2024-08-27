@@ -41,6 +41,15 @@ abstract contract StableBase is IStableBase, ERC721 {
         sbdToken = SBDToken(_sbdToken);
     }
 
+    /**
+     * @dev Updates the target shielding rate for a specific safe
+     * @param _safeId The ID of the safe to update
+     * @param compressedRate A compressed representation of the new target shielding rate
+     * @param _reservePool The reserve pool contract
+     * @param borrowParams Additional parameters for the borrowing process
+     * This function updates the target shielding rate for a safe, adjusts the ordered list of target shielding rates,
+     * and updates the reference shielding rate for the entire system.
+     */
     function updateTargetShieldingRate(
         uint256 _safeId,
         uint256 compressedRate,
@@ -76,6 +85,17 @@ abstract contract StableBase is IStableBase, ERC721 {
         );
     }
 
+    /**
+     * @dev Handles the borrowing process for safes using reserve ratio
+     * @param _safeId The ID of the safe
+     * @param safe The safe data structure
+     * @param compressedRate A compressed representation of the reserve ratio and target shielding rate
+     * @param amount The amount to borrow
+     * @param borrowParams Additional parameters for the borrowing process
+     * @return The updated safe data structure
+     * This function calculates the reserve pool deposit, mints SBD tokens, updates the ordered list of reserve ratios,
+     * and calls updateTargetShieldingRate to adjust the target shielding rate.
+     */
     function handleBorrowReserveRatioSafes(
         uint256 _safeId,
         SBStructs.Safe memory safe,
@@ -114,6 +134,14 @@ abstract contract StableBase is IStableBase, ERC721 {
         return safe;
     }
 
+    /**
+     * @dev Calculates the shielding time based on the shielding rate
+     * @param _shieldingRate The shielding rate to use for calculation
+     * @param startTime The starting timestamp
+     * @return The calculated shielding time
+     * This function determines the duration of shielding based on the current reference shielding rate
+     * and the provided shielding rate.
+     */
     function _getShieldingTime(
         uint256 _shieldingRate,
         uint256 startTime
@@ -131,6 +159,17 @@ abstract contract StableBase is IStableBase, ERC721 {
         return startTime + Math.toSeconds(_shieldingHours);
     }
 
+    /**
+     * @dev Handles the borrowing process for shielded safes
+     * @param _safeId The ID of the safe
+     * @param safe The safe data structure
+     * @param compressedRate A compressed representation of the shielding rate
+     * @param amount The amount to borrow
+     * @param borrowParams Additional parameters for the borrowing process
+     * @return The updated safe data structure
+     * This function calculates the shielding fee, updates the safe's shielded until timestamp,
+     * adjusts the ordered list of shielded safes, and mints SBD tokens to the borrower.
+     */
     function handleBorrowShieldedSafes(
         uint256 _safeId,
         SBStructs.Safe memory safe,
@@ -180,6 +219,13 @@ abstract contract StableBase is IStableBase, ERC721 {
      * 3. Redeem safes based on reserve ratio
      */
 
+    /**
+     * @dev Redeems expired safes
+     * @param redemption The current redemption data structure
+     * @return The updated redemption data structure
+     * This function iterates through the shielded safes list, redeeming those that have expired
+     * until the requested redemption amount is met or there are no more expired safes.
+     */
     function _redeemExpiredSafes(
         SBStructs.Redemption memory redemption
     ) internal returns (SBStructs.Redemption memory) {
@@ -219,6 +265,12 @@ abstract contract StableBase is IStableBase, ERC721 {
         return redemption;
     }
 
+    /**
+     * @dev Calculates the difference between two nodes' values
+     * @param headNode The head node of the list
+     * @param tailNode The tail node of the list
+     * @return The absolute difference between the two nodes' values
+     */
     function _diffBetween(
         IDoublyLinkedList.Node memory headNode,
         IDoublyLinkedList.Node memory tailNode
@@ -226,6 +278,12 @@ abstract contract StableBase is IStableBase, ERC721 {
         return headNode.value - tailNode.value;
     }
 
+    /**
+     * @dev Calculates the difference between a node's value and the reference shielding rate
+     * @param node The node to compare
+     * @param _refShieldingRate The reference shielding rate
+     * @return The absolute difference between the node's value and the reference rate
+     */
     function _diffBetween(
         IDoublyLinkedList.Node memory node,
         Math.Rate memory _refShieldingRate
@@ -238,6 +296,15 @@ abstract contract StableBase is IStableBase, ERC721 {
         }
     }
 
+    /**
+     * @dev Determines whether to redeem based on target shielding rate
+     * @param head The head of the target shielding rate list
+     * @param tail The tail of the target shielding rate list
+     * @param targetShieldingRateList The list of target shielding rates
+     * @return A value indicating which node to redeem (0: none, 1: head, 2: tail)
+     * This function compares the head and tail nodes of the target shielding rate list
+     * to determine which, if any, should be redeemed based on their difference from the reference rate.
+     */
     function shouldRedeemByTargetShieldingRate(
         uint256 head,
         uint256 tail,
@@ -270,6 +337,16 @@ abstract contract StableBase is IStableBase, ERC721 {
         }
     }
 
+    /**
+     * @dev Redeems safes based on target shielding rate
+     * @param redemption The current redemption data structure
+     * @param _redemptionParams Additional parameters for the redemption process
+     * @param reserveRatioList The list of reserve ratios
+     * @param targetShieldingRateList The list of target shielding rates
+     * @return The updated redemption data structure
+     * This function iterates through the target shielding rate list, redeeming safes
+     * based on their deviation from the reference shielding rate.
+     */
     function _redeemSafesByTargetShieldingRate(
         SBStructs.Redemption memory redemption,
         bytes calldata _redemptionParams,
@@ -322,6 +399,13 @@ abstract contract StableBase is IStableBase, ERC721 {
         return redemption;
     }
 
+    /**
+     * @dev Removes a safe from the reserve ratio list and adjusts the reference rate
+     * @param _safeId The ID of the safe to remove
+     * @param reserveRatioList The list of reserve ratios
+     * This function removes a safe's stake from the reserve pool, updates the reference shielding rate,
+     * and removes the safe from the reserve ratio list.
+     */
     function removeFromReserveRatioListAndAdjustReferenceRate(
         uint256 _safeId,
         IDoublyLinkedList reserveRatioList
@@ -341,6 +425,16 @@ abstract contract StableBase is IStableBase, ERC721 {
         reserveRatioList.remove(_safeId);
     }
 
+    /**
+     * @dev Redeems a specific node (safe) from the lists
+     * @param _safeId The ID of the safe to redeem
+     * @param redemption The current redemption data structure
+     * @param reserveRatioList The list of reserve ratios
+     * @param targetShieldingRateList The list of target shielding rates
+     * @param spotForUpdate The spot in the list for updating the safe's position
+     * @return The updated safe and redemption data structures
+     * This function handles the redemption of a specific safe, updating the necessary lists and data structures.
+     */
     function _redeemNode(
         uint256 _safeId,
         SBStructs.Redemption memory redemption,
@@ -374,6 +468,16 @@ abstract contract StableBase is IStableBase, ERC721 {
         return redeemSafe(_safeId, amountToRedeem, safe, redemption);
     }
 
+    /**
+     * @dev Redeems safes based on reserve ratio
+     * @param redemption The current redemption data structure
+     * @param redemptionParams Additional parameters for the redemption process
+     * @param reserveRatioList The list of reserve ratios
+     * @param targetShieldingRateList The list of target shielding rates
+     * @return The updated redemption data structure
+     * This function iterates through the reserve ratio list, redeeming safes
+     * starting from the highest reserve ratio until the redemption amount is met.
+     */
     function _redeemSafesByReserveRatio(
         SBStructs.Redemption memory redemption,
         bytes calldata redemptionParams,
@@ -402,13 +506,24 @@ abstract contract StableBase is IStableBase, ERC721 {
         return redemption;
     }
 
+    /**
+     * @dev Placeholder function for redeeming non-expired safes
+     * @param redemption The current redemption data structure
+     * @return The updated redemption data structure
+     * This function is a placeholder for implementing the redemption of non-expired safes.
+     */
     function _redeemSafesNonExpired(
         SBStructs.Redemption memory redemption
     ) internal returns (SBStructs.Redemption memory) {
         return redemption;
     }
 
-    // Utility function to get collateral value
+    /**
+     * @dev Calculates the collateral value of a safe
+     * @param safe The safe data structure
+     * @return The calculated collateral value
+     * This function uses the price oracle to determine the current value of the collateral in a safe.
+     */
     function _getCollateralValue(
         SBStructs.Safe memory safe
     ) internal view returns (uint256) {
@@ -419,6 +534,11 @@ abstract contract StableBase is IStableBase, ERC721 {
         return price * safe.depositedAmount;
     }
 
+    /**
+     * @dev Transfers redeemed tokens to the user
+     * @param redemption The redemption data structure containing the tokens to transfer
+     * This function iterates through the list of redeemed tokens and transfers them to the user.
+     */
     function _redeemToUser(SBStructs.Redemption memory redemption) internal {
         for (uint256 i = 0; i < redemption.tokensList.length; i++) {
             SBStructs.RedemptionToken memory token = redemption.tokensList[i];
@@ -426,6 +546,16 @@ abstract contract StableBase is IStableBase, ERC721 {
         }
     }
 
+    /**
+     * @dev Redeems a specific amount from a safe
+     * @param _safeId The ID of the safe to redeem from
+     * @param amountToRedeem The amount to redeem
+     * @param safe The safe data structure
+     * @param redemption The current redemption data structure
+     * @return The updated safe and redemption data structures
+     * This function handles the redemption process for a specific safe, updating the safe's data
+     * and the redemption information.
+     */
     function redeemSafe(
         uint256 _safeId,
         uint256 amountToRedeem,

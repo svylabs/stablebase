@@ -35,14 +35,14 @@ contract StableBaseCDP is StableBase {
     }
 
     /**
-     * @dev Opens a new Safe for the borrower and tracks the collateral deposited, etc.
-     * Send any amount of ERC20 tokens or ETH
+     * @dev Opens a new Safe for the borrower and tracks the collateral deposited.
+     * This function allows users to deposit either ERC20 tokens or ETH as collateral.
+     * It creates a new Safe, mints an NFT representing the Safe ownership, and stores the Safe details.
      *
-     * @param _token Address of the ERC20 token, use address(0) for ETH
+     * @param _safeId The unique identifier for the new Safe
+     * @param _token Address of the ERC20 token to deposit, or address(0) for ETH
      * @param _amount Amount of tokens or ETH to deposit as collateral
-     * @param _safeId The ID of the Safe to create
      */
-
     function openSafe(
         uint256 _safeId,
         address _token,
@@ -65,10 +65,12 @@ contract StableBaseCDP is StableBase {
     }
 
     /**
-     * @dev Closes a Safe and returns the collateral to the owner.
-     * Check if the borrowedAmount is 0, if there is any SB token borrowed, close should not work.
-     * Return back the collateral
-     * @param _safeId The ID of the Safe to close
+     * @dev Closes an existing Safe and returns the collateral to the owner.
+     * This function can only be called if there's no outstanding borrowed amount.
+     * It transfers the collateral back to the owner, deletes the Safe from storage,
+     * and burns the associated NFT.
+     *
+     * @param _safeId The unique identifier of the Safe to close
      */
     function closeSafe(uint256 _safeId) external {
         SBStructs.Safe storage safe = safes[_safeId];
@@ -92,9 +94,16 @@ contract StableBaseCDP is StableBase {
     }
 
     /**
-     * Borrow stablecoins from the protocol
+     * @dev Allows users to borrow stablecoins from the protocol using their Safe as collateral.
+     * This function supports different borrowing modes and parameters, including shielding rates
+     * and reserve ratios. It checks collateral value, calculates maximum borrowable amount,
+     * and updates the Safe's borrowed amount and rates.
      *
-     * _borrowParams:
+     * @param _safeId The unique identifier of the Safe to borrow against
+     * @param _amount The amount of stablecoins to borrow
+     * @param _borrowParams Encoded parameters for the borrowing process, including borrowing mode and rates
+     *
+     * * _borrowParams:
      * minimum: 36 bytes, maximum 68 bytes
      * bytes 0-3:
      *     bit: 0,1 borrowMode: 00 - shieldingRate, 01 - reserveRatio
@@ -160,7 +169,14 @@ contract StableBaseCDP is StableBase {
         safes[_safeId] = safe;
     }
 
-    // Repay function
+    /**
+     * @dev Allows users to repay borrowed stablecoins and reduce their debt.
+     * This function burns the repaid amount of SBD tokens, updates the Safe's borrowed amount,
+     * and handles the origination fee. If the borrowed amount becomes zero, it resets related values.
+     *
+     * @param _safeId The unique identifier of the Safe to repay
+     * @param _amount The amount of stablecoins to repay
+     */
     function repay(uint256 _safeId, uint256 _amount) external {
         SBStructs.Safe storage safe = safes[_safeId];
         require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
@@ -191,7 +207,14 @@ contract StableBaseCDP is StableBase {
         }
     }
 
-    // Withdraw collateral function
+    /**
+     * @dev Enables users to withdraw a portion of their deposited collateral from a Safe.
+     * This function checks if the withdrawal maintains the required collateral ratio,
+     * transfers the withdrawn amount to the user, and updates the Safe's deposited amount.
+     *
+     * @param _safeId The unique identifier of the Safe to withdraw from
+     * @param _amount The amount of collateral to withdraw
+     */
     function withdrawCollateral(uint256 _safeId, uint256 _amount) external {
         SBStructs.Safe storage safe = safes[_safeId];
         require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
@@ -229,6 +252,14 @@ contract StableBaseCDP is StableBase {
         safe.depositedAmount -= _amount;
     }
 
+    /**
+     * @dev Updates the shielding rate for a specific Safe.
+     * This function can only be called by the Safe owner or an approved address.
+     *
+     * @param _safeId The unique identifier of the Safe to update
+     * @param _safe The address of the Safe (seems redundant with _safeId, might need refactoring)
+     * @param _shieldingRate The new shielding rate to set for the Safe
+     */
     function renewProtection(
         uint256 _safeId,
         address _safe,
@@ -246,6 +277,13 @@ contract StableBaseCDP is StableBase {
 
     event SafeShielded(uint256 safeId, address owner, uint256 shieldingUntil);
 
+    /**
+     * @dev Extends the protection period for a Safe until a specified timestamp.
+     * This function updates the Safe's shielded until time and adds it to the shielded Safes list.
+     *
+     * @param _safeId The unique identifier of the Safe to extend protection for
+     * @param _shieldingUntil The timestamp until which the Safe should be shielded
+     */
     function extendProtectionUntil(
         uint256 _safeId,
         uint256 _shieldingUntil
@@ -257,8 +295,14 @@ contract StableBaseCDP is StableBase {
         emit SafeShielded(_safeId, msg.sender, _shieldingUntil);
     }
 
-    // Function to redeem SBD tokens for the underlying collateral
-
+    /**
+     * @dev Allows users to redeem SBD tokens for the underlying collateral.
+     * This function processes redemption requests by first redeeming from expired Safes,
+     * then from Safes based on target shielding rates and reserve ratios.
+     *
+     * @param _amount The amount of SBD tokens to redeem
+     * @param redemptionParams Additional parameters for the redemption process
+     */
     function redeem(uint256 _amount, bytes calldata redemptionParams) external {
         require(_amount > 0, "Amount must be greater than 0");
         SBStructs.RedemptionToken[10] memory tokensList;
@@ -298,6 +342,14 @@ contract StableBaseCDP is StableBase {
         return;
     }
 
+    /**
+     * @dev Renews a Safe's protection by updating its shielding period and position in the shielded Safes list.
+     * This function requires the payment of a fee and can only be called by the Safe owner or an approved address.
+     *
+     * @param _safeId The unique identifier of the Safe to renew
+     * @param feeRate The rate used to calculate the renewal fee
+     * @param renewParams Additional parameters for the renewal process
+     */
     function renewSafe(
         uint256 _safeId,
         uint256 feeRate,
@@ -314,6 +366,13 @@ contract StableBaseCDP is StableBase {
         // Distribute the fee
     }
 
+    /**
+     * @dev Liquidates a Safe if its collateral ratio falls below the liquidation threshold.
+     * This function burns the borrowed amount, transfers the collateral to the liquidator,
+     * and removes the Safe from the system.
+     *
+     * @param _safeId The unique identifier of the Safe to liquidate
+     */
     function liquidate(uint256 _safeId) external {
         SBStructs.Safe storage safe = safes[_safeId];
         require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
@@ -349,6 +408,13 @@ contract StableBaseCDP is StableBase {
         delete safes[_safeId];
     }
 
+    /**
+     * @dev Internal function to check if an address is the owner or approved for a specific Safe.
+     *
+     * @param _spender The address to check for ownership or approval
+     * @param _tokenId The unique identifier of the Safe (NFT) to check against
+     * @return bool True if the _spender is the owner or approved, false otherwise
+     */
     function _isApprovedOrOwner(
         address _spender,
         uint256 _tokenId
