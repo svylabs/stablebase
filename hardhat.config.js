@@ -1,4 +1,3 @@
-
 /** @type import('hardhat/config').HardhatUserConfig */
 require("@nomicfoundation/hardhat-toolbox");
 require("@nomiclabs/hardhat-solhint");
@@ -11,7 +10,15 @@ module.exports = {
         enabled: true,
         runs: 200,
       },
-      viaIR: true
+      viaIR: true,
     },
-  }
+  },
+  networks: {
+    localhost: {
+      url: "http://127.0.0.1:8545",  // URL of the local Ethereum node
+      accounts: {
+        mnemonic: "test test test test test test test test test test test junk",  // Default Hardhat mnemonic
+      },
+    },
+  },
 };
