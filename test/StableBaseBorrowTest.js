@@ -6,6 +6,7 @@ const utils = require("./utils");
 
 describe("StableBaseCDP", function () {
   let stableBaseCDP, sbdToken, mockToken, owner, user, priceOracle, mockOracle;
+  const safeId = 1;
 
   beforeEach(async function () {
     [owner, user] = await ethers.getSigners();
@@ -18,11 +19,12 @@ describe("StableBaseCDP", function () {
     // Deploy StableBaseCDP with the price oracle address
     const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
     // stableBaseCDP = await StableBaseCDPFactory.deploy(sbdToken.target);
-    stableBaseCDP = await StableBaseCDPFactory.deploy(owner.address, await sbdToken.getAddress());
+    stableBaseCDP = await StableBaseCDPFactory.deploy(await sbdToken.getAddress());
     await stableBaseCDP.waitForDeployment();
 
     // Set the minter to StableBaseCDP contract
-    await sbdToken.setMinter(stableBaseCDP.target);
+    // await sbdToken.setMinter(stableBaseCDP.target);
+    await sbdToken.setMinter(await stableBaseCDP.getAddress());
 
     // Deploy a mock ERC20 token
     const MockToken = await ethers.getContractFactory("SBDToken");
@@ -39,12 +41,15 @@ describe("StableBaseCDP", function () {
   it("Borrow with reserve ratio enabled", async function(){
     const depositAmount = ethers.parseEther("1");
     console.log(await stableBaseCDP.orderedReserveRatios());
+    console.log("hello");
+    const safeId = ethers.toBigInt(ethers.solidityPackedKeccak256(["address", "address"], [user.address, ethers.ZeroAddress]));
+    console.log("Safe ID: ", safeId);
 
     // Open a safe with ETH
     //await stableBaseCDP.connect(user).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
-    await stableBaseCDP.connect(user).openSafe(ethers.ZeroAddress, depositAmount,  { value: depositAmount });
+    await stableBaseCDP.connect(user).openSafe(safeId, ethers.ZeroAddress, depositAmount,  { value: depositAmount });
+    console.log("Safe opened");
 
-    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [user.address, ethers.ZeroAddress]);
     
     // first 4 bytes, rates
     // next 4-35 bytes: nearestSpot
@@ -89,11 +94,11 @@ describe("StableBaseCDP", function () {
     const depositAmount = ethers.parseEther("1");
     console.log(await stableBaseCDP.orderedReserveRatios());
 
+    const safeId = ethers.toBigInt(ethers.solidityPackedKeccak256(["address", "address"], [user.address, ethers.ZeroAddress]));
+
     // Open a safe with ETH
     //await stableBaseCDP.connect(user).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
-    await stableBaseCDP.connect(user).openSafe(ethers.ZeroAddress, depositAmount,  { value: depositAmount });
-
-    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [user.address, ethers.ZeroAddress]);
+    await stableBaseCDP.connect(user).openSafe(safeId, ethers.ZeroAddress, depositAmount,  { value: depositAmount });
     
     // first 4 bytes, rates
     // next 4-35 bytes: nearestSpot

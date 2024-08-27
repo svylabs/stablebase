@@ -10,7 +10,7 @@ import "./interfaces/IReservePool.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract StableBase is IStableBase, ERC721, Ownable {
+abstract contract StableBase is IStableBase, ERC721 {
     uint256 internal originationFeeRateBasisPoints = 0; // start with 0% origination fee
     uint256 internal liquidationRatio = 110; // 110% liquidation ratio
     uint256 internal constant BASIS_POINTS_DIVISOR = 10000;
@@ -48,7 +48,10 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         bytes calldata borrowParams
     ) internal {
         SBStructs.Safe storage safe = safes[_safeId];
-        require(ownerOf(_safeId) == msg.sender, "Only the NFT owner can update");
+        require(
+            ownerOf(_safeId) == msg.sender,
+            "Only the NFT owner can update"
+        );
         uint256 _targetShieldingRate = SBUtils.getRateAtPosition(
             compressedRate,
             1
@@ -79,9 +82,9 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         uint256 compressedRate,
         uint256 amount,
         bytes calldata borrowParams
-    ) internal {
+    ) internal returns (SBStructs.Safe memory) {
         // SBStructs.Safe storage currentSafe = safes[_safeId];
-    // require(msg.sender == currentSafe.owner, "Only the safe owner can borrow");
+        // require(msg.sender == currentSafe.owner, "Only the safe owner can borrow");
         // Calculate origination fee
         uint256 _reserveRatio = SBUtils.getRateAtPosition(compressedRate, 0);
         uint256 _reservePoolDeposit = (amount * _reserveRatio) /
@@ -108,6 +111,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
             _reservePool,
             borrowParams
         );
+        return safe;
     }
 
     function _getShieldingTime(
@@ -133,9 +137,12 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         uint256 compressedRate,
         uint256 amount,
         bytes calldata borrowParams
-    ) internal {
+    ) internal returns (SBStructs.Safe memory) {
         // SBStructs.Safe storage currentSafe = safes[_safeId];
-        require(ownerOf(_safeId) == msg.sender, "Only the NFT owner can borrow");
+        require(
+            ownerOf(_safeId) == msg.sender,
+            "Only the NFT owner can borrow"
+        );
         uint256 _shieldingRate = SBUtils.getRateAtPosition(compressedRate, 0);
         uint256 _shieldingFee = (amount * _shieldingRate) /
             BASIS_POINTS_DIVISOR;
@@ -153,6 +160,8 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amountToBorrow);
         // TODO: mint fee
+
+        return safe;
     }
 
     // function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal override {
@@ -319,7 +328,9 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
     ) internal {
         // remove stake from reserve pool
         // TODO: Returns the stake back to the user address
-        (, uint256 currentStake) = IReservePool(reservePool).removeStake(_safeId);
+        (, uint256 currentStake) = IReservePool(reservePool).removeStake(
+            _safeId
+        );
         IDoublyLinkedList.Node memory node = reserveRatioList.remove(_safeId);
         Math.Rate memory _target = referenceShieldingRate;
         referenceShieldingRate = Math.subtract(
@@ -421,7 +432,10 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         SBStructs.Safe memory safe,
         SBStructs.Redemption memory redemption
     ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
-        require(ownerOf(_safeId) == msg.sender, "Only the NFT owner can redeem");
+        require(
+            ownerOf(_safeId) == msg.sender,
+            "Only the NFT owner can redeem"
+        );
         uint256 amountInCollateral = amountToRedeem / _getCollateralValue(safe);
         safe.depositedAmount -= amountInCollateral;
         bool found = false;

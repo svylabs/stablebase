@@ -5,12 +5,18 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Structures.sol";
 
 library SBUtils {
-    
-    function getSafeId(address _borrower, address _token) internal pure returns (bytes32) {
+    function getSafeId(
+        address _borrower,
+        address _token
+    ) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(_borrower, _token));
     }
 
-    function depositEthOrToken(address _token, address _to, uint256 _amount) internal {
+    function depositEthOrToken(
+        address _token,
+        address _to,
+        uint256 _amount
+    ) internal {
         if (_token == address(0)) {
             // Ethereum
             require(msg.value == _amount, "Invalid deposit amount");
@@ -23,7 +29,11 @@ library SBUtils {
         }
     }
 
-    function withdrawEthOrToken(address _token, address _to, uint256 _amount) internal {
+    function withdrawEthOrToken(
+        address _token,
+        address _to,
+        uint256 _amount
+    ) internal {
         if (_token == address(0)) {
             // Ethereum
             payable(_to).transfer(_amount);
@@ -36,7 +46,9 @@ library SBUtils {
         }
     }
 
-    function getBorrowMode(uint32 mode) internal pure returns (SBStructs.BorrowMode) {
+    function getBorrowMode(
+        uint32 mode
+    ) internal pure returns (SBStructs.BorrowMode) {
         uint32 _mode = mode & 0x00000003;
         if (_mode == 0) {
             return SBStructs.BorrowMode.MINT_WITH_PROTECTION;
@@ -51,10 +63,13 @@ library SBUtils {
 
     /**
      * @dev Get the rate at a specific position in the compressed rate
-     * 
+     *
      * Each rate block is 2 bytes long, with first two bits representing the rate type, and the next 14 bits representing the rate value.
      */
-    function getRateAtPosition(uint256 _compressedRate, uint256 _position) internal pure returns (uint256) {
+    function getRateAtPosition(
+        uint256 _compressedRate,
+        uint256 _position
+    ) internal pure returns (uint256) {
         if (_position == 0) {
             return (_compressedRate & 0xffff) >> 2;
         } else if (_position == 1) {
@@ -63,5 +78,4 @@ library SBUtils {
             revert("Invalid position");
         }
     }
-
 }
