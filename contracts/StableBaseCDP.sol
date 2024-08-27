@@ -15,10 +15,7 @@ import "./ReservePool.sol";
 import "./StableBase.sol";
 
 contract StableBaseCDP is StableBase {
-    constructor(
-        address owner,
-        address _sbdToken
-    ) StableBase(_sbdToken) Ownable(owner) {
+    constructor(address _sbdToken) StableBase(_sbdToken) {
         // Initialize the contract
         whitelistedTokens[address(0)] = SBStructs.WhitelistedToken({
             priceOracle: address(new MockPriceOracle()),
@@ -53,19 +50,7 @@ contract StableBaseCDP is StableBase {
     ) external payable {
         require(_amount > 0, "Amount must be greater than 0");
 
-        if (_token == address(0)) {
-            // Handle ETH deposit
-            require(msg.value == _amount, "Incorrect ETH amount sent");
-            (bool success, ) = address(this).call{value: _amount}("");
-            require(success, "ETH deposit failed");
-        } else {
-            // Handle ERC20 token deposit
-            IERC20 token = IERC20(_token);
-            require(
-                token.transferFrom(msg.sender, address(this), _amount),
-                "Token transfer failed"
-            );
-        }
+        SBUtils.depositEthOrToken(_token, address(this), _amount);
 
         SBStructs.Safe memory safe = SBStructs.Safe({
             token: _token,
@@ -85,7 +70,7 @@ contract StableBaseCDP is StableBase {
      * Return back the collateral
      * @param _safeId The ID of the Safe to close
      */
-    function closeSafe(uint256 _safeId) external onlyOwner {
+    function closeSafe(uint256 _safeId) external {
         SBStructs.Safe storage safe = safes[_safeId];
         require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
         require(
@@ -125,7 +110,7 @@ contract StableBaseCDP is StableBase {
         uint256 _amount,
         bytes calldata _borrowParams
     ) external {
-        SBStructs.Safe storage safe = safes[_safeId];
+        SBStructs.Safe memory safe = safes[_safeId];
         require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
         require(safe.depositedAmount > 0, "Safe does not exist");
         bytes4 _rateByte = bytes4(_borrowParams[0:4]);
@@ -154,7 +139,7 @@ contract StableBaseCDP is StableBase {
         );
 
         if (_borrowMode == SBStructs.BorrowMode.MINT_WITH_MANUAL_STABILITY) {
-            handleBorrowReserveRatioSafes(
+            safe = handleBorrowReserveRatioSafes(
                 _safeId,
                 safe,
                 _compressedRate,
@@ -162,7 +147,7 @@ contract StableBaseCDP is StableBase {
                 _borrowParams
             );
         } else if (_borrowMode == SBStructs.BorrowMode.MINT_WITH_PROTECTION) {
-            handleBorrowShieldedSafes(
+            safe = handleBorrowShieldedSafes(
                 _safeId,
                 safe,
                 _compressedRate,
@@ -173,43 +158,6 @@ contract StableBaseCDP is StableBase {
             // TODO: Implement borrow from pool
         }
         safes[_safeId] = safe;
-    }
-
-    // borrow function
-    function borrow(uint256 _safeId, uint256 _amount) external {
-        SBStructs.Safe storage safe = safes[_safeId];
-        require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
-        require(safe.depositedAmount > 0, "Safe does not exist");
-
-        IPriceOracle priceOracle = IPriceOracle(
-            whitelistedTokens[safe.token].priceOracle
-        );
-
-        // Fetch the price of the collateral from the oracle
-        uint256 price = priceOracle.getPrice();
-
-        // Calculate the maximum borrowable amount
-        uint256 maxBorrowAmount = (safe.depositedAmount * price * 100) /
-            liquidationRatio;
-
-        // Check if the requested amount is within the maximum borrowable limit
-        require(
-            safe.borrowedAmount + _amount <= maxBorrowAmount,
-            "Borrow amount exceeds the maximum allowed"
-        );
-
-        // Calculate origination fee
-        uint256 originationFee = (_amount * originationFeeRateBasisPoints) /
-            BASIS_POINTS_DIVISOR;
-
-        // Update the Safe's borrowed amount and origination fee paid
-        safe.borrowedAmount += _amount;
-        //safe.originationFeePaid += originationFee;
-
-        // Mint SBD tokens to the borrower
-        sbdToken.mint(msg.sender, _amount - originationFee);
-        // TODO: Mint origination fee to the fee holder
-        //sbdToken.mint(feeHolder, originationFee);
     }
 
     // Repay function
