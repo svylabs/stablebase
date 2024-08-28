@@ -265,6 +265,7 @@ contract StableBaseCDP is StableBase {
 
     function redeem(uint256 _amount, bytes calldata redemptionParams) external {
         require(_amount > 0, "Amount must be greater than 0");
+        sbdToken.burnFrom(msg.sender, _amount);
         SBStructs.RedemptionToken[10] memory tokensList;
         SBStructs.Redemption memory redemption = SBStructs.Redemption({
             requestedAmount: _amount,
