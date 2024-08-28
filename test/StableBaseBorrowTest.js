@@ -7,6 +7,7 @@ const utils = require("./utils");
 describe("StableBaseCDP", function () {
   let stableBaseCDP, sbdToken, mockToken, owner, user, priceOracle, mockOracle;
   const safeId = 1;
+  const price = BigInt(1000); // Price of the token
 
   beforeEach(async function () {
     [owner, user] = await ethers.getSigners();
@@ -56,7 +57,6 @@ describe("StableBaseCDP", function () {
     // next 36-67 byte: nearestSpot(optional)
     //const liquidationRatio = BigInt(110); // Ensure consistency with contract
     //const maxBorrowAmount = (depositAmount * price * BigInt(100)) / BigInt(liquidationRatio); // BigInt calculation
-    const price = BigInt(1000); // Price of the token
     // Adjust the borrow amount to be within the limit
     const borrowAmount = (depositAmount * price) / BigInt(2); // Borrow nearly half
     console.log("Borrow amount: ", borrowAmount);
