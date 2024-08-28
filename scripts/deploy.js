@@ -1,23 +1,15 @@
 async function main() {
-    const Gravity = await ethers.getContractFactory("Gravity");
-    const gravity = await Gravity.deploy();
-    await gravity.deployed();
-
-    //     // Compile the contract
-    //   await hre.run('compile');
-
-    //   // Get the contract factory
-    //   const Gravity = await hre.ethers.getContractFactory("Gravity");
-
-    //   // Deploy the contract
-    //   const gravity = await Gravity.deploy();
-
-    console.log("Gravity deployed to:", gravity.address);
-}
-
-main()
+    const StableBase = await ethers.getContractFactory("StableBaseCDP");
+    const stableBase = await StableBase.deploy();
+    await stableBase.deployed();
+  
+    console.log("StableBaseCDP deployed to:", stableBase.address);
+  }
+  
+  main()
     .then(() => process.exit(0))
     .catch((error) => {
-        console.error(error);
-        process.exit(1);
+      console.error(error);
+      process.exit(1);
     });
+  
