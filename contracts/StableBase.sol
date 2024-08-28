@@ -280,23 +280,23 @@ abstract contract StableBase is IStableBase, ERC721 {
         IDoublyLinkedList reserveRatioList,
         IDoublyLinkedList targetShieldingRateList
     ) internal returns (SBStructs.Redemption memory) {
-        uint256 head = targetShieldingRateList.getHead();
-        uint256 tail = targetShieldingRateList.getTail();
         SBStructs.Safe memory safe;
         uint256 processedSpots = redemption.processedSpots;
         // Target within 1% = 100 points, 100% = 10000 points
         while (redemption.redeemedAmount < redemption.requestedAmount) {
+            uint256 head = targetShieldingRateList.getHead();
+            uint256 tail = targetShieldingRateList.getTail();
+            uint256 redeemTarget = shouldRedeemByTargetShieldingRate(
+                head,
+                tail,
+                targetShieldingRateList
+            );
             uint256 spotForUpdate = uint256(
                 bytes32(
                     _redemptionParams[processedSpots * 32:processedSpots *
                         32 +
                         32]
                 )
-            );
-            uint256 redeemTarget = shouldRedeemByTargetShieldingRate(
-                head,
-                tail,
-                targetShieldingRateList
             );
             // 0 = cannot redeem, 1 = redeem head, 2 = redeem tail
             if (redeemTarget == 1) {
@@ -328,21 +328,24 @@ abstract contract StableBase is IStableBase, ERC721 {
 
     function removeFromReserveRatioListAndAdjustReferenceRate(
         uint256 _safeId,
-        IDoublyLinkedList reserveRatioList
+        IDoublyLinkedList reserveRatioList,
+        IDoublyLinkedList targetShieldingRateList
     ) internal {
         // remove stake from reserve pool
         // TODO: Returns the stake back to the user address
         (, uint256 currentStake) = IReservePool(reservePool).removeStake(
             _safeId
         );
-        IDoublyLinkedList.Node memory node = reserveRatioList.remove(_safeId);
+        reserveRatioList.remove(_safeId);
+        IDoublyLinkedList.Node
+            memory shieldingRateNode = targetShieldingRateList.remove(_safeId);
         Math.Rate memory _target = referenceShieldingRate;
         referenceShieldingRate = Math.subtract(
             _target,
-            node.value,
+            shieldingRateNode.value,
             currentStake
         );
-        reserveRatioList.remove(_safeId);
+        //reserveRatioList.remove(_safeId);
     }
 
     function _redeemNode(
@@ -361,10 +364,10 @@ abstract contract StableBase is IStableBase, ERC721 {
         }
         if (amountToRedeem == safe.borrowedAmount) {
             // If the safe was fully redeemed, remove it from both the lists
-            targetShieldingRateList.remove(_safeId);
             removeFromReserveRatioListAndAdjustReferenceRate(
                 _safeId,
-                reserveRatioList
+                reserveRatioList,
+                targetShieldingRateList
             );
         } else {
             IReservePool _reservePool = IReservePool(reservePool);

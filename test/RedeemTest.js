@@ -232,4 +232,88 @@ describe("StableBaseCDP", function () {
     expect(snapshotsAfterRedeem.safe1.reserveRatioList.value.value).to.equal(reserveRatioFromReservePoolStake);
   });
 
+  it("Redeem multiple safes test - non expired safes - redeem based on target shielding rates and then by reserve ratio", async function() {
+    const safe1Params = {
+        depositAmount: 2,
+        reserveRatio: 5,
+        targetShieldingRate: 8,
+        borrowAmount: 50 // 50%
+    };
+    const safe2Params = {
+        depositAmount: 2,
+        reserveRatio: 5,
+        targetShieldingRate: 1,
+        borrowAmount: 75 // 50%
+    };
+    const system = {price: 1000, contracts: {stableBaseCDP, sbdToken, mockToken}};
+    const safe1 = await utils.setupUserSafe(borrower1, safe1Params, system);
+    const safe2 = await utils.setupUserSafe(borrower2, safe2Params, system);
+    //console.log(safe1, safe2);
+    const snapshotsBeforeRedeem = {};
+    let redeemAmount1 = ethers.parseEther("1200"); // 
+    let redeemAmount2 = ethers.parseEther("500"); // 
+    await sbdToken.connect(borrower2).transfer(redeemer.address, redeemAmount1);
+    await sbdToken.connect(borrower1).transfer(redeemer.address, redeemAmount2);
+    const redeemAmount = redeemAmount1 + redeemAmount2;
+    snapshotsBeforeRedeem.safe1 = await utils.takeContractSnapshots(stableBaseCDP, sbdToken, mockToken, safe1.safeId, { address: borrower1.address });
+    snapshotsBeforeRedeem.safe2 = await utils.takeContractSnapshots(stableBaseCDP, sbdToken, mockToken, safe2.safeId, { address: borrower2.address });
+    snapshotsBeforeRedeem.redeemer = await utils.takeContractSnapshots(stableBaseCDP, sbdToken, mockToken, 0, { address: redeemer.address });
+    console.log("SNAPSHOT before redeem:", snapshotsBeforeRedeem);
+    redeemAmount1 = snapshotsBeforeRedeem.safe1.safe.borrowedAmount;
+    redeemAmount2 = redeemAmount - redeemAmount1;
+    
+    // send the redeem amount to the redeemer
+    //await sbdToken.connect(redeemer).approve(stableBaseCDP.target, redeemAmount);
+    console.log("Redeem amount", redeemAmount.toString());
+    const redeemParams = "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    const result = await stableBaseCDP.connect(redeemer).redeem(redeemAmount, redeemParams);
+    const redeemTx = await result.wait();
+    const snapshotsAfterRedeem = {};
+    snapshotsAfterRedeem.safe1 = await utils.takeContractSnapshots(stableBaseCDP, sbdToken, mockToken, safe1.safeId, { address: borrower1.address });
+    snapshotsAfterRedeem.safe2 = await utils.takeContractSnapshots(stableBaseCDP, sbdToken, mockToken, safe2.safeId, { address: borrower2.address });
+    snapshotsAfterRedeem.redeemer = await utils.takeContractSnapshots(stableBaseCDP, sbdToken, mockToken, 0, { address: redeemer.address });
+    console.log("SNAPSHOT for redeemer before / after redeem:", snapshotsBeforeRedeem.redeemer, snapshotsAfterRedeem.redeemer);
+    console.log("SNAPSHOT for safe1 before / after redeem:", snapshotsBeforeRedeem.safe1, snapshotsAfterRedeem.safe1);
+    console.log("SNAPSHOT for safe2 before / after redeem:", snapshotsBeforeRedeem.safe2, snapshotsAfterRedeem.safe2);
+
+    // Checks:
+    // 1. Redeem amount should have been deducted from the redeemer's balance for SBD tokens
+    expect(snapshotsAfterRedeem.redeemer.user.sbd).to.equal(0);
+    
+    // 2. Collateral should have been transferred to the redeemer's address
+    const gasUsed = redeemTx.gasUsed;
+    const gasPrice = redeemTx.gasPrice;
+    const ethSpent = gasUsed * (gasPrice);
+    console.log(ethSpent);
+    const collateralAmount = redeemAmount / BigInt(system.price);
+    const collateralAmount1 = redeemAmount1 / BigInt(system.price);
+    const collateralAmount2 = redeemAmount2 / BigInt(system.price);
+    console.log(collateralAmount);
+    
+    expect(snapshotsAfterRedeem.redeemer.user.eth).to.equal(snapshotsBeforeRedeem.redeemer.user.eth + collateralAmount - ethSpent);
+
+    // 3. Safe1's collateral should have been reduced by an amount equivalent to redeem amount
+    expect(snapshotsAfterRedeem.safe1.safe.depositedAmount).to.equal(snapshotsBeforeRedeem.safe1.safe.depositedAmount - collateralAmount1);
+    // 4. Safe1's borrowed amount should have been reduced by the redeem amount
+    expect(snapshotsAfterRedeem.safe1.safe.borrowedAmount).to.equal(snapshotsBeforeRedeem.safe1.safe.borrowedAmount - redeemAmount1);
+    // 5. Should have been removed from the target shielding rate list
+    expect(snapshotsAfterRedeem.safe1.targetShieldingRateList.value.value).to.equal(0);
+    // 6. Should have been removed from reserve ratio list
+    expect(snapshotsAfterRedeem.safe1.reserveRatioList.value.value).to.equal(0);
+
+
+    // 7. Safe2's collateral should have been reduced by an amount equivalent to redeem amount
+    expect(snapshotsAfterRedeem.safe2.safe.depositedAmount).to.equal(snapshotsBeforeRedeem.safe2.safe.depositedAmount - collateralAmount2);
+    // 8. Safe2's borrowed amount should have been reduced by the redeem amount
+    expect(snapshotsAfterRedeem.safe2.safe.borrowedAmount).to.equal(snapshotsBeforeRedeem.safe2.safe.borrowedAmount - redeemAmount2);
+    expect(snapshotsAfterRedeem.safe2.targetShieldingRateList.value.value).to.equal(100);
+    // 9. Should have been removed from reserve ratio list
+    const reserveRatioFromReservePoolStake = (snapshotsAfterRedeem.safe2.reservePool.stake * BigInt(10000) / snapshotsAfterRedeem.safe2.safe.borrowedAmount);
+    expect(snapshotsAfterRedeem.safe2.reserveRatioList.value.value).to.equal(reserveRatioFromReservePoolStake);
+
+    // Reference rate should have updated
+    expect((snapshotsAfterRedeem.safe2.referenceShieldingRate.weightedSum  * BigInt(100)) / snapshotsAfterRedeem.safe2.referenceShieldingRate.totalWeight).to.equal(snapshotsAfterRedeem.safe2.targetShieldingRateList.value.value * BigInt(100));
+    
+  });
+
 });
