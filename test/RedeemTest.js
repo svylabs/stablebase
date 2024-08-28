@@ -425,7 +425,7 @@ describe("StableBaseCDP", function () {
     const safe1Params = {
         depositAmount: 2,
         reserveRatio: 5,
-        targetShieldingRate: 4,
+        targetShieldingRate: 4.5,
         borrowAmount: 50 // 50%
     };
     const safe2Params = {
@@ -498,7 +498,7 @@ describe("StableBaseCDP", function () {
     // 4. Safe1's borrowed amount should have been reduced by the redeem amount
     expect(snapshotsAfterRedeem.safe1.safe.borrowedAmount).to.equal(snapshotsBeforeRedeem.safe1.safe.borrowedAmount - redeemAmount1);
     // 5. Should have been removed from the target shielding rate list
-    expect(snapshotsAfterRedeem.safe1.targetShieldingRateList.value.value).to.equal(400);
+    expect(snapshotsAfterRedeem.safe1.targetShieldingRateList.value.value).to.equal(450);
     // 6. Should have been removed from reserve ratio list
     const reserveRatioFromReservePoolStake = (snapshotsAfterRedeem.safe1.reservePool.stake * BigInt(10000) / snapshotsAfterRedeem.safe1.safe.borrowedAmount);
     expect(snapshotsAfterRedeem.safe1.reserveRatioList.value.value).to.equal(reserveRatioFromReservePoolStake);
