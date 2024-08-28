@@ -57,6 +57,7 @@ async function takeContractSnapshots(stableBaseCDP, sbdToken, collateralToken, s
     // 9. Expired Safe list
     const shieldedSafesAddress = await stableBaseCDP.shieldedSafes();
     snapshot.shieldedSafes = await takeODLLSnapshot(shieldedSafesAddress, safeId);
+    snapshot.safeId = safeId;
 
     return snapshot;
 }

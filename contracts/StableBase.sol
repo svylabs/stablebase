@@ -223,7 +223,11 @@ abstract contract StableBase is IStableBase, ERC721 {
         IDoublyLinkedList.Node memory headNode,
         IDoublyLinkedList.Node memory tailNode
     ) internal pure returns (uint256) {
-        return headNode.value - tailNode.value;
+        if (headNode.value > tailNode.value) {
+            return headNode.value - tailNode.value;
+        } else {
+            return tailNode.value - headNode.value;
+        }
     }
 
     function _diffBetween(
@@ -249,7 +253,7 @@ abstract contract StableBase is IStableBase, ERC721 {
         IDoublyLinkedList.Node memory tailNode = targetShieldingRateList.get(
             tail
         );
-        if (_diffBetween(headNode, tailNode) > 100) {
+        if (_diffBetween(headNode, tailNode) < 100) {
             // Cannot redeem anymore
             return 0;
         }
@@ -289,7 +293,6 @@ abstract contract StableBase is IStableBase, ERC721 {
                         32]
                 )
             );
-            processedSpots++;
             uint256 redeemTarget = shouldRedeemByTargetShieldingRate(
                 head,
                 tail,
@@ -317,6 +320,7 @@ abstract contract StableBase is IStableBase, ERC721 {
             } else {
                 break;
             }
+            processedSpots++;
         }
         redemption.processedSpots = processedSpots;
         return redemption;
