@@ -383,13 +383,14 @@ abstract contract StableBase is IStableBase, ERC721 {
         uint256 processedSpots = redemption.processedSpots;
         // Target within 1% = 100 points, 100% = 10000 points
         while (redemption.redeemedAmount < redemption.requestedAmount) {
-            uint256 spotForUpdate = uint256(
+            /*uint256 spotForUpdate = uint256(
                 bytes32(
                     redemptionParams[processedSpots * 32:processedSpots *
                         32 +
                         32]
                 )
-            );
+            );*/
+            uint256 spotForUpdate = 0;
             uint256 head = reserveRatioList.getHead();
             (, redemption) = _redeemNode(
                 head,
@@ -398,7 +399,9 @@ abstract contract StableBase is IStableBase, ERC721 {
                 targetShieldingRateList,
                 spotForUpdate
             );
+            processedSpots++;
         }
+        redemption.processedSpots = processedSpots;
         return redemption;
     }
 
@@ -409,14 +412,13 @@ abstract contract StableBase is IStableBase, ERC721 {
     }
 
     // Utility function to get collateral value
-    function _getCollateralValue(
+    function _getCollateralPrice(
         SBStructs.Safe memory safe
     ) internal view returns (uint256) {
         IPriceOracle priceOracle = IPriceOracle(
             whitelistedTokens[safe.token].priceOracle
         );
-        uint256 price = priceOracle.getPrice();
-        return price * safe.depositedAmount;
+        return priceOracle.getPrice();
     }
 
     function _redeemToUser(SBStructs.Redemption memory redemption) internal {
@@ -432,11 +434,8 @@ abstract contract StableBase is IStableBase, ERC721 {
         SBStructs.Safe memory safe,
         SBStructs.Redemption memory redemption
     ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
-        require(
-            ownerOf(_safeId) == msg.sender,
-            "Only the NFT owner can redeem"
-        );
-        uint256 amountInCollateral = amountToRedeem / _getCollateralValue(safe);
+        //uint256 amountInCollateral = amountToRedeem /
+        uint256 amountInCollateral = amountToRedeem / _getCollateralPrice(safe);
         safe.depositedAmount -= amountInCollateral;
         bool found = false;
         for (uint256 i = 0; i < redemption.tokensCount; i++) {

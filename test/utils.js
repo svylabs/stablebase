@@ -70,7 +70,7 @@ async function setupUserSafe(user, safeParams, system) {
     await system.contracts.stableBaseCDP.connect(user).openSafe(safeId, tokenAddress, depositAmount, { value: depositAmount });
     const result = await borrow(system.contracts, user, safeId, borrowAmount, safeParams);
     return result;
-  }
+}
 
 async function borrow(contracts, user, safeId, borrowAmount, borrowParams) {
     const contractSnapshotBeforeBorrow = await takeContractSnapshots(contracts.stableBaseCDP, contracts.sbdToken, contracts.mockToken, safeId, { address: user.address, collateral: true });

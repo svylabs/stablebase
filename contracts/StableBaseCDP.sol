@@ -319,15 +319,16 @@ contract StableBaseCDP is StableBase {
     }
 
     function liquidate(uint256 _safeId) external {
-        SBStructs.Safe storage safe = safes[_safeId];
-        require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
+        SBStructs.Safe memory safe = safes[_safeId];
+        //require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
         require(safe.depositedAmount > 0, "Safe does not exist");
         require(
             safe.borrowedAmount > 0,
             "Cannot liquidate a Safe with no borrowed amount"
         );
 
-        uint256 collateralValue = _getCollateralValue(safe);
+        uint256 collateralPrice = _getCollateralPrice(safe);
+        uint256 collateralValue = safe.depositedAmount * collateralPrice;
         uint256 collateralRatio = (collateralValue * 10000) /
             safe.borrowedAmount;
         // Check if the collateral is sufficient for liquidation
