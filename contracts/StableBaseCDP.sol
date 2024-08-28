@@ -62,6 +62,7 @@ contract StableBaseCDP is StableBase {
         safes[_safeId] = safe;
 
         _mint(msg.sender, _safeId); // mint the NFT Safe to the owner
+        emit OpenSafe(_safeId, msg.sender, _token, _amount);
     }
 
     /**
@@ -89,6 +90,7 @@ contract StableBaseCDP is StableBase {
         delete safes[_safeId];
 
         _burn(_safeId); // burn the NFT Safe
+        emit CloseSafe(_safeId);
     }
 
     /**
@@ -105,7 +107,7 @@ contract StableBaseCDP is StableBase {
      * bytes 36-67: If exists, is always the nearest spot in the orderedTargetShieldedRatesList
      *
      */
-    function borrowWithParams(
+    function borrow(
         uint256 _safeId,
         uint256 _amount,
         bytes calldata _borrowParams
@@ -119,7 +121,6 @@ contract StableBaseCDP is StableBase {
         SBStructs.BorrowMode _borrowMode = SBUtils.getBorrowMode(
             _compressedRate
         );
-        //uint256 _nearestSpot = abi.decode(_borrowParams[4:32], (uint256));
 
         IPriceOracle priceOracle = IPriceOracle(
             whitelistedTokens[safe.token].priceOracle
@@ -158,6 +159,9 @@ contract StableBaseCDP is StableBase {
             // TODO: Implement borrow from pool
         }
         safes[_safeId] = safe;
+
+        // Emit the Borrow event
+        emit Borrow(_safeId, _amount);
     }
 
     // Repay function

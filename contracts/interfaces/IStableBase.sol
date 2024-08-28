@@ -1,9 +1,22 @@
 interface IStableBase {
-    function openSafe(uint256 _safeId, address _token, uint256 _amount) external payable;
+    event OpenSafe(
+        uint256 indexed safeId,
+        address indexed owner,
+        address indexed token,
+        uint256 amount
+    );
+    event Borrow(uint256 indexed safeId, uint256 amount);
+    event CloseSafe(uint256 indexed safeId);
+
+    function openSafe(
+        uint256 _safeId,
+        address _token,
+        uint256 _amount
+    ) external payable;
 
     function closeSafe(uint256 _safeId) external;
 
-    function borrowWithParams(
+    function borrow(
         uint256 _safeId,
         uint256 amount,
         bytes calldata borrowParams
