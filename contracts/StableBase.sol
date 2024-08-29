@@ -390,14 +390,14 @@ abstract contract StableBase is IStableBase, ERC721 {
         uint256 processedSpots = redemption.processedSpots;
         // Target within 1% = 100 points, 100% = 10000 points
         while (redemption.redeemedAmount < redemption.requestedAmount) {
-            /*uint256 spotForUpdate = uint256(
+            uint256 spotForUpdate = uint256(
                 bytes32(
                     redemptionParams[processedSpots * 32:processedSpots *
                         32 +
                         32]
                 )
-            );*/
-            uint256 spotForUpdate = 0;
+            );
+            //uint256 spotForUpdate = 0;
             uint256 head = reserveRatioList.getHead();
             (, redemption) = _redeemNode(
                 head,

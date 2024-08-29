@@ -311,7 +311,7 @@ contract StableBaseCDP is StableBase {
         //TODO:  Check if the required fee is paid
         SBStructs.Safe storage safe = safes[_safeId];
         require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
-        safe.shieldedUntil = _getShieldingTime(feeRate, safe.shieldedUntil);
+        safe.shieldedUntil = _getShieldingTime(feeRate, block.timestamp);
         safes[_safeId] = safe;
         uint256 nearestSpot = abi.decode(renewParams[0:32], (uint256));
         // Update the spot in the shieldedSafes list
