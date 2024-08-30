@@ -37,6 +37,17 @@ services:
     volumes:
       - ./data/ipfs:/data/ipfs
 
+  postgres:
+    image: postgres:11
+    networks:
+      - eth-network
+    environment:
+      POSTGRES_USER: graph-node
+      POSTGRES_PASSWORD: letmein
+      POSTGRES_DB: graph-node
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+
   graph-node:
     image: graphprotocol/graph-node:latest
     depends_on:
@@ -59,17 +70,6 @@ services:
       postgres_db: graph-node
       NODE_ENV: 'development'
       GRAPH_LOG: info
-
-  postgres:
-    image: postgres:11
-    networks:
-      - eth-network
-    environment:
-      POSTGRES_USER: graph-node
-      POSTGRES_PASSWORD: letmein
-      POSTGRES_DB: graph-node
-    volumes:
-      - ./data/postgres:/var/lib/postgresql/data
 
 networks:
   eth-network:

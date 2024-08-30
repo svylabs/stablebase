@@ -20,6 +20,7 @@
     "@types/chai": "^4.3.18",
     "@types/mocha": "^10.0.7",
     "chai": "^4.5.0",
+    "dotenv": "^16.4.5",
     "ethers": "^6.13.2",
     "hardhat": "^2.22.9",
     "hardhat-gas-reporter": "^2.2.1",
@@ -32,6 +33,7 @@
   },
   "dependencies": {
     "@chainlink/contracts": "^1.2.0",
+    "@graphprotocol/graph-ts": "^0.35.1",
     "@openzeppelin/contracts": "^5.0.2",
     "@typechain/hardhat": "^9.1.0",
     "bignumber.js": "^9.1.2"
