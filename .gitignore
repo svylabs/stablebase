@@ -2,3 +2,4 @@ timestamps
 node_modules/
 artifacts/
 cache/
+eth-graph-node-setup/data/
