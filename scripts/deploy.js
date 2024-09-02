@@ -1,9 +1,9 @@
 async function main() {
     const StableBase = await ethers.getContractFactory("StableBaseCDP");
     const stableBase = await StableBase.deploy();
-    await stableBase.deployed();
+    await stableBase.waitForDeployment();
   
-    console.log("StableBaseCDP deployed to:", stableBase.address);
+    console.log("StableBaseCDP deployed to:", stableBase.target);
   }
   
   main()
