@@ -1,6 +1,6 @@
                            StableBase: A novel stablecoin protocol with enhanced borrowing experience
                                     Sridhar G<sg@svylabs.com>, Gopalakrishnan G<gopal.g@gov.in>
-                        (SVY Labs,Netherlands), (PGPPM-IIM Bangalore, Civil Servant, Government of India)
+                        (SVY Labs), (PGPPM-IIM Bangalore, Civil Servant, Government of India)
 
 # Abstract
 
@@ -8,9 +8,9 @@ One of the important functions of reserve bank in traditional finance is price s
 
 # Introduction
 
-Most existing stablecoin issuing protocols(eg: MakerDAO, CurveUSD) use interest rate as a mechanism to incentivse and disincentivise borrowing. Liquity Protocol is currently the only protocol that offers interest free loans, but it suffers from capital efficiency and also fails to adapt to different market conditions, especially seen during high interest rate period, further the incentive structure to pay fee revenue to token holders as opposed to liquidity providers has had negative impact on the protocol as can be seen from the reduced circulation of the stablecoin. To improve on this, Liquity Protocol proposed launching v2 of their protocol with user defined interest rate(February 2024)[1] after our team had proposed user defined origination fee back in December 2023[2]. However, interest rates and yield are not the only determining factors when it comes to improving the demand for stablecoins. The borrowing costs have to make sense for a range of user profiles. This cannot be achieved only through adaptible interest rates.
+The stablecoin industry, now approaching its seventh year, has witnessed significant innovation since the launch of MakerDAO's SAI, and later DAI, which pioneered the Collateralized Debt Position (CDP) mechanism. Following MakerDAO, several stablecoins have entered the market, with notable examples like Curve USD and Liquity USD, particularly within the CDP protocol space. Traditionally, these protocols rely on interest rates, where borrowers incur payments similar to those in conventional finance. However, Liquity v1 was a notable exception, eliminating interest rates in favor of a one-time origination fee. Despite this innovation, Liquity v1 faced challenges in maintaining robust market adaptability, largely due to a weaker incentive structure. To address these shortcomings, Liquity is now developing a v2 model featuring user-defined interest rates, aligning market conditions with protocol stability by directing interest payments to stablecoin holders through Stability Pool.
 
-Interest free loans by Liquity protocol were a step in the right direction, but it was an incomplete protocol that failed to adapt to market conditions. In this paper, we discuss a new protocol with 0% interest rate, and how we have evolved our original proposal of user defined origination fee into two new policy tools for CDP stablecoins- namely, user-set shielding rate and user-set reserve ratio(borrowing from reserve ratio in TradFi). Using these two tools, we also come up with robust stability mechanics and predictable redemptions for the StableBase protocol, at the same time the users enjoy maximum flexibility and predictability with their loans.
+StableBase takes a fundamentally different approach to the concept of interest rates. While traditional models can be likened to postpaid systems, where users pay interest over time, StableBase introduces a prepaid model. In this system, users prepay for collateral protection over a specified period, with rates determined by key actors known as **Rate Governors**. These governors play a crucial role in maintaining system stability by setting the prepaid **Shielding Rates** and **Reserve Ratio**. This paper explores how these stability parameters are defined by Rate Governors, how they interact to sustain the stability of StableBase, and how this model offers predictable borrowing terms for users. Additionally, we discuss how StableBase adapts to varying market conditions, while providing yield opportunities for stablecoin holders, positioning it as a robust alternative to existing stablecoin protocols.
 
 # Collateral Debt Position
 
@@ -43,7 +43,7 @@ The protocol supports the following two liquidation modes.
 
 ### Protocol Liquidation
 
-If the collateral value falls below 108%, a protocol liquidation can be triggered. The protocol would distribute the collateral of a CDP to existing borrowers.
+If the collateral value falls below 110%, a protocol liquidation can be triggered. The protocol would distribute the debt and collateral of the liquidated CDP to the borrower with the next lowest collateral ratio.
 
 ### Third Party Liquidation
 
