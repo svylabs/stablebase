@@ -1,4 +1,5 @@
-# StableBase: A Novel Stablecoin Protocol with Enhanced Borrowing Experience
+                        StableBase: A Novel Stablecoin Protocol with Enhanced Borrowing Experience
+                           (Sridhar<sg@svylabs.com>, Gopalakrishnan<gopalakrishnan.g@gov.in>)
 
 ## Abstract
 
