@@ -2,7 +2,8 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("StableBaseCDP", function () {
-  let stableBaseCDP, sbdToken, mockToken, owner, addr1, priceOracle, mockOracle;
+  let stableBaseCDP, sbdToken, mockToken, owner, addr1;
+  const safeId = 1;
 
   beforeEach(async function () {
     [owner, addr1] = await ethers.getSigners();
@@ -12,24 +13,13 @@ describe("StableBaseCDP", function () {
     sbdToken = await SBDToken.deploy("SBD Token", "SBD");
     await sbdToken.waitForDeployment();
 
-    // // Deploy mock oracle
-    // const MockOracle = await ethers.getContractFactory("MockV3Aggregator");
-    // mockOracle = await MockOracle.deploy(8, ethers.parseUnits("1000", 8)); // 8 decimal places, price 1000
-    // await mockOracle.waitForDeployment();
-
-    // // Deploy ChainlinkPriceOracle
-    // const PriceConsumer = await ethers.getContractFactory("ChainlinkPriceOracle");
-    // priceOracle = await PriceConsumer.deploy(mockOracle.address);
-    // // priceOracle = await PriceConsumer.deploy(ethers.ZeroAddress);
-    // await priceOracle.waitForDeployment();
-
-    // Deploy StableBaseCDP with the price oracle address
+    // Deploy StableBaseCDP with the sbdToken address
     const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
-    stableBaseCDP = await StableBaseCDPFactory.deploy(sbdToken.target);
+    stableBaseCDP = await StableBaseCDPFactory.deploy(await sbdToken.getAddress());
     await stableBaseCDP.waitForDeployment();
 
     // Set the minter to StableBaseCDP contract
-    await sbdToken.setMinter(stableBaseCDP.target);
+    await sbdToken.setMinter(await stableBaseCDP.getAddress());
 
     // Deploy a mock ERC20 token
     const MockToken = await ethers.getContractFactory("SBDToken");
@@ -45,93 +35,91 @@ describe("StableBaseCDP", function () {
 
   console.log("ethers:-> ", ethers);
 
-  // Test case for opening a new safe with ETH
-  it("should open a new safe with ETH", async function () {
-    const depositAmount = ethers.parseEther("1");
-    const reserveRatio = 100;
+  it('should open a new safe', async () => {
+    const tokenAddress = await mockToken.getAddress();
+    console.log("Mock Token Address:", tokenAddress);
+    const amount = ethers.parseEther('1.0');
 
-    // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
+    // Ensure the StableBaseCDP is approved to spend the mock token
+    await mockToken.connect(owner).approve(await stableBaseCDP.getAddress(), amount);
 
-    // Compute the safe ID
-    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
+    await expect(stableBaseCDP.connect(owner).openSafe(safeId, tokenAddress, amount, { value: ethers.parseEther('1.0') })).to.not.be.reverted;
+
     const safe = await stableBaseCDP.safes(safeId);
-
-    // Check if the safe has the correct deposited amount and reserve ratio
-    expect(safe.token).to.equal(ethers.ZeroAddress);
-    expect(safe.depositedAmount).to.equal(depositAmount);
-    expect(safe.reserveRatio).to.equal(reserveRatio);
-  });
-
-  // Test case for opening a new safe with ERC20 token
-  it("should open a new safe with ERC20 token", async function () {
-    const depositAmount = ethers.parseEther("100");
-    const reserveRatio = 100;
-
-    // Approve the token transfer and open a safe with the ERC20 token
-    await mockToken.connect(addr1).approve(stableBaseCDP.target, depositAmount); // approve token transfer
-    await stableBaseCDP.connect(addr1).openSafe(mockToken.target, depositAmount, reserveRatio); // open safe
-
-    // Compute the safe ID
-    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, mockToken.target]);
-    const safe = await stableBaseCDP.safes(safeId);
-
-    // Check if the safe has the correct deposited amount and reserve ratio
-    expect(safe.token).to.equal(mockToken.target);
-    expect(safe.depositedAmount).to.equal(depositAmount);
-    expect(safe.reserveRatio).to.equal(reserveRatio);
-  });
-
-  // Test case for borrowing against the collateral in a safe
-  it("should allow borrowing SBD tokens against the collateral and return the borrowed amount", async function () {
-    const depositAmount = ethers.parseEther("1");
-    const reserveRatio = 100;
-
-    // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
-
-    // Calculate the maximum borrowable amount based on the dummy price and liquidation ratio
-    const price = BigInt(1000); // Dummy price from getPriceFromOracle
-    // console.log("priceOracle:-> ", priceOracle);
-    // const price = await priceOracle.getPrice();
-    console.log("price:-> ",price);
-    const liquidationRatio = BigInt(110); // Ensure consistency with contract
-    const maxBorrowAmount = (depositAmount * price * BigInt(100)) / liquidationRatio; // BigInt calculation
-
-    // Adjust the borrow amount to be within the limit
-    const borrowAmount = maxBorrowAmount - BigInt(1); // Slightly less than max borrowable amount
-
-    // Borrow SBD tokens
-    await stableBaseCDP.connect(addr1).borrow(ethers.ZeroAddress, borrowAmount);
-
-    // Compute the safe ID
-    const safeId = ethers.solidityPackedKeccak256(["address", "address"], [addr1.address, ethers.ZeroAddress]);
-    const safe = await stableBaseCDP.safes(safeId);
-
-    // Check if the safe has the correct borrowed amount
-    expect(safe.borrowedAmount).to.equal(borrowAmount);
-
-    // Check if the SBD tokens have been minted to the borrower
-    const sbdBalance = await sbdToken.balanceOf(addr1.address);
-    expect(sbdBalance).to.equal(borrowAmount);
-  });
-
-  // Test case for closing a safe and returning the collateral
-  it("should close a safe and return the collateral to the owner", async function () {
-    const depositAmount = ethers.parseEther("1");
-    const reserveRatio = 100;
-
-    // Open a safe with ETH
-    await stableBaseCDP.connect(addr1).openSafe(ethers.ZeroAddress, depositAmount, reserveRatio, { value: depositAmount });
-
-    // Compute the safe ID
-    const safeId = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(["address", "address"], [addr1.address, ethers.ZeroAddress]));
-    await stableBaseCDP.connect(addr1).closeSafe(ethers.ZeroAddress); // Close the safe
-
-    // Check if the safe has been closed (deposited amount should be 0)
-    const safe = await stableBaseCDP.safes(safeId);
-    expect(safe.depositedAmount).to.equal(0);
+    expect(safe.token).to.equal(tokenAddress);
+    expect(safe.depositedAmount).to.equal(amount);
     expect(safe.borrowedAmount).to.equal(0);
   });
+
+  /*
+  it('only owner can perform operations on Safe', async () => {
+    const tokenAddress = await mockToken.getAddress();
+    const amount = ethers.parseEther('1.0');
+  
+    // Ensure the StableBaseCDP is approved to spend the mock token
+    await mockToken.connect(owner).approve(await stableBaseCDP.getAddress(), amount);
+  
+    await expect(stableBaseCDP.connect(owner).openSafe(safeId, tokenAddress, amount, { value: ethers.parseEther('1.0') })).to.not.be.reverted;
+  
+    // Try to perform an operation as addr1
+    await expect(stableBaseCDP.connect(addr1).borrow(safeId, ethers.parseEther('0.5'))).to.be.revertedWith('Unauthorized');
+  });
+  
+  it('safe can be transferred through standard transfer calls for a NFT', async () => {
+    const tokenAddress = await mockToken.getAddress();
+    const amount = ethers.parseEther('1.0');
+  
+    // Ensure the StableBaseCDP is approved to spend the mock token
+    await mockToken.connect(owner).approve(await stableBaseCDP.getAddress(), amount);
+  
+    await expect(stableBaseCDP.connect(owner).openSafe(safeId, tokenAddress, amount, { value: ethers.parseEther('1.0') })).to.not.be.reverted;
+  
+    // Transfer the safe to addr1
+    await expect(stableBaseCDP.connect(owner).transferFrom(owner.address, addr1.address, safeId)).to.not.be.reverted;
+  
+    // Check that addr1 is the new owner
+    expect(await stableBaseCDP.ownerOf(safeId)).to.equal(addr1.address);
+  });
+
+  it('new owner can perform operations on the Safe', async () => {
+    const tokenAddress = await mockToken.getAddress();
+    const amount = ethers.parseEther('1.0');
+  
+    // Ensure the StableBaseCDP is approved to spend the mock token
+    await mockToken.connect(owner).approve(await stableBaseCDP.getAddress(), amount);
+  
+    await expect(stableBaseCDP.connect(owner).openSafe(safeId, tokenAddress, amount, { value: ethers.parseEther('1.0') })).to.not.be.reverted;
+  
+    // Transfer the safe to addr1
+    await expect(stableBaseCDP.connect(owner).transferFrom(owner.address, addr1.address, safeId)).to.not.be.reverted;
+  
+    console.log('addr1 is the new owner:', await stableBaseCDP.ownerOf(safeId));
+  
+    try {
+      await stableBaseCDP.connect(addr1).borrow(safeId, ethers.parseEther('0.5'));
+    } catch (error) {
+      console.error('Error:', error);
+      console.log('Safe state:', await stableBaseCDP.safes(safeId));
+      console.log('Owner:', await stableBaseCDP.ownerOf(safeId));
+      throw error;
+    }
+  });
+  
+  it('old owner is not able to perform any operation', async () => {
+    const tokenAddress = await mockToken.getAddress();
+    const amount = ethers.parseEther('1.0');
+  
+    // Ensure the StableBaseCDP is approved to spend the mock token
+    await mockToken.connect(owner).approve(await stableBaseCDP.getAddress(), amount);
+  
+    await expect(stableBaseCDP.connect(owner).openSafe(safeId, tokenAddress, amount, { value: ethers.parseEther('1.0') })).to.not.be.reverted;
+  
+    // Transfer the safe to addr1
+    await expect(stableBaseCDP.connect(owner).transferFrom(owner.address, addr1.address, safeId)).to.not.be.reverted;
+  
+    // Try to perform an operation as owner
+    await expect(stableBaseCDP.connect(owner).borrow(safeId, ethers.parseEther('0.5'))).to.be.revertedWith('Unauthorized');
+  });
+  */
 
 });

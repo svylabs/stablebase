@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  geth:
+    image: ethereum/client-go:stable
+    networks:
+      - eth-network
+    ports:
+      - "8545:8545"
+      - "8546:8546"
+    volumes:
+      - ./data/geth:/root/.ethereum
+    command: >
+      --http
+      --http.addr "0.0.0.0"
+      --http.port 8545
+      --http.corsdomain "*"
+      --http.vhosts "*"
+      --http.api eth,net,web3,personal
+      --ws
+      --ws.addr "0.0.0.0"
+      --ws.port 8546
+      --ws.origins "*"
+      --ws.api eth,net,web3
+      --networkid 1337
+      --dev
+      --verbosity 3
+
+  ipfs:
+    image: ipfs/go-ipfs:v0.8.0
+    networks:
+      - eth-network
+    ports:
+      - "4001:4001"
+      - "5001:5001"
+      - "8080:8080"
+    volumes:
+      - ./data/ipfs:/data/ipfs
+
+  graph-node:
+    image: graphprotocol/graph-node:latest
+    depends_on:
+      - geth
+      - ipfs
+    networks:
+      - eth-network
+    ports:
+      - '8000:8000'
+      - '8001:8001'
+      - '8020:8020'
+      - '8030:8030'
+      - '8040:8040'
+    environment:
+      ethereum: 'mainnet:http://geth:8545'
+      ipfs: 'ipfs:5001'
+      postgres_host: postgres
+      postgres_user: graph-node
+      postgres_pass: letmein
+      postgres_db: graph-node
+      NODE_ENV: 'development'
+      GRAPH_LOG: info
+
+  postgres:
+    image: postgres:11
+    networks:
+      - eth-network
+    environment:
+      POSTGRES_USER: graph-node
+      POSTGRES_PASSWORD: letmein
+      POSTGRES_DB: graph-node
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+
+networks:
+  eth-network:
+    driver: bridge

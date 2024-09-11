@@ -1,95 +1,131 @@
-                                               StableBase: A Base layer Stablecoin protocol.
-                                                        Sridhar G<sg@svylabs.com>
+                        StableBase: A Novel Stablecoin Protocol with Enhanced Borrowing Experience
+                           (Sridhar<sg@svylabs.com>, Gopalakrishnan<gopalakrishnan.g@gov.in>)
 
-# Abstract
-Most stablecoin protocols in the market today are optimized for yield incentives for stablecoin and token holders, making stablecoin borrowing costs prohibitive for many real-world use cases and the interest rates by itself is not sustainable for a CDP protocol in the long run. In this whitepaper, we introduce StableBase, a base layer stablecoin protocol built in Solidity using Collateral Debt Position(CDP) mechanism. The protocol aims to provide a base layer stablecoin with 0% interest rate and user governed origination fees, allowing higher layer protocols to offer yield opportunities and enable utility of stablecoins across various consumer use cases. This paper outlines the underlying technology, stability mechanisms, issuance and redemption processes, along with unique features and governance structure. StableBase protocol issues a USD-pegged stablecoin named SBD, also known as StableBase Dollar.
+## Abstract
 
-# Introduction
-The mainstream adoption of cryptocurrencies as mediums of exchange has been hindered by their volatility, prompting the emergence of stablecoins to meet market demand. However, most stablecoins today, excluding fiat-backed ones, are unsuitable for real-world use cases due to high interest rates and origination fees. The yield mania has attracted users, mainly speculators, leveraging stablecoins for speculative purposes. To make decentralized stablecoins attractive in broader contexts, we propose a layered approach, with a base layer being open, low cost, and decentralized, while higher layers innovate on incentives, accessibility, and other parameters. This paper presents the design for such a base layer stablecoin protocol.
+In traditional finance, central banks maintain price stability through various monetary policy tools, such as interest rates, repo rates, and reserve ratios. These mechanisms control the supply of money, ensuring economic stability. In the cryptocurrency world, stablecoin protocols rely on similar principles, primarily using interest rates and collateral requirements to regulate money supply.
 
-# Technology
-StableBase is built using Solidity on the Ethereum blockchain, benefiting from its smart contract capabilities, security, and widespread adoption within the decentralized finance (DeFi) ecosystem. However, it is adaptable to any blockchain / smart contracting platform that has a reliable decentralized oracle. For our implementation on Ethereum, we use Chainlink as the oracle provider.
+In this paper, we introduce **StableBase**, a stablecoin protocol based on the **Collateralized Debt Position (CDP)** mechanism. StableBase innovates on price stability by incorporating two novel tools: a **pre-paid Shielding Rate** and a **user-defined Reserve Ratio**. These mechanisms work together to achieve price parity with the pegged currency while providing users with flexibility and predictability in their borrowing experience. We explore how these policy tools enhance the stability of the protocol across different market conditions and offer a more dynamic borrowing environment compared to existing stablecoin protocols.
 
-# Borrowing and Withdrawal
-StableBase utilizes a CDP mechanism, requiring users to overcollateralize their loans by at least 110%. Users create a Safe, where they deposit their collateral and the protocol issues SBD token. By opening a Safe with StableBase, the user borrows SBD coins at 0% interest rate, and pay an origination fee equivalent to the base rate, while also accepting the risks of Liquidation and Redemption, and actively contributing to the stability and governance of the protocol through CRR mechanism described below.
+---
 
-Withdrawal is facilitated through repayment of the borrowed SBD back to the protocol.
+## Introduction
 
-## Base Stability Rate or Base Rate
-Base Rate is initially set to 0%, and is dynamically updated based on average base rate set by users. For more details on this, check the governance.
+The stablecoin market has evolved rapidly since the launch of **MakerDAO's SAI**, and later **DAI**, which pioneered the use of Collateralized Debt Positions (CDPs). Various stablecoin protocols such as **Curve USD** and **Liquity USD** have since emerged, each innovating within the CDP space. Most of these protocols employ traditional interest rates where borrowers pay ongoing fees, but exceptions like **Liquity v1** introduced a one-time origination fee to remove interest payments. However, despite its innovation, Liquity v1 struggled with market adaptability due to a weaker incentive structure, prompting the development of Liquity v2, which introduces user-defined interest rates to better align market conditions with protocol stability.
 
-## Interest Rates
-Interest Rates are always set to 0%.
+StableBase offers a fundamentally different approach by shifting from the traditional postpaid interest system to a **prepaid model**, where users pay upfront to protect their collateral over a specific period. Central to this system are **Rate Governors**, key actors responsible for setting the Shielding Rates and Reserve Ratios that ensure system stability. This paper details how these parameters interact to maintain the stability of StableBase, while enhancing user predictability and flexibility, and discusses how the protocol adjusts to various market conditions while offering yield opportunities for stablecoin holders.
 
-# Stability Mechanism
-The stability of the stablecoin and protocol is ensured through three mechanisms: Liquidation, Redemption, and the Cash Reserve Ratio (CRR).
+---
 
-## Liquidation
-Liquidation occurs if the value of the collateral falls below 110% of the borrowed amount, ensuring stability. There are two liquidation modes:
+## Collateralized Debt Position (CDP) Mechanism
 
-### Automatic Liquidation
-When an automatic liquidation is triggered, the liquidated collateral is distributed among other CDP, and their debt is increased. The protocol also pays the user that triggered with a fee of base rate(maximum of 1%).
+CDPs are a widely used mechanism in stablecoin protocols. Users deposit collateral and can borrow stablecoins against it, provided the collateral sufficiently backs the debt. The collateral must remain above a predefined threshold (typically around 110%, though this varies depending on the asset's risk profile) to avoid liquidation. If the collateral value falls below this threshold, a liquidation event is triggered, allowing third parties to repay the loan and receive the underlying collateral at a discounted rate.
 
-### Third party Liquidations
-A third party, such as a user or a Liquidation Pool(out of scope for the protocol), can trigger liquidation by paying the debt, and the collateral minus the liquidation fee equal to base rate(maximum 1%) will be returned to the liquidator.
+Along with liquidation, some protocols, such as **Liquity Protocol**, allow **redemptions**, where users can redeem stablecoins for the equivalent value of the underlying collateral (e.g., 1 stablecoin = $1 of collateral). Liquidation and redemption mechanisms are critical for ensuring stablecoin price stability, and different protocols employ unique approaches to these functions. Many protocols also charge ongoing fees in the form of interest rates, distributing the collected fees to participants who stake stablecoins in savings pools.
 
-## Redemption
-Users can redeem stablecoins for the underlying collateral at a 1:1 ratio, with fees equal to base rate charged to the redeemer and distributed to other depositors in the Reserve Pool.
+---
 
-## Cash Reserve Ratio(CRR) and Reserve Pool
-In traditional finance (TradFi), the Cash Reserve Ratio (CRR) is a rate determined by central banks, specifying the percentage of cash deposits that banks are required to hold as reserves. In our protocol, we adopt a modified definition of the CRR.
+## StableBase Overview
 
-The CRR, defined as the percentage of borrowed stablecoin value held in the Reserve Pool, can be specified by users at the time of borrowing. This mechanism empowers the protocol to autonomously manage the coin supply in response to market conditions.
+StableBase introduces a novel twist to the CDP mechanism by incorporating **0% interest rates** and replacing traditional interest payments with two new policy tools: the **Shielding Rate** and the **Reserve Ratio**. These tools contribute to the protocol's price stability while offering users more flexible borrowing terms.
+
+### Policy Tools
+
+1. **Shielding Rate**: This is a prepaid fee that users pay to shield their CDP from redemption. The rate can vary between 0% and 100%, depending on the user’s preference, and redemption protection is activated on a **pro-rata basis** according to the paid shielding rate and the **target shielding rate** at the time the CDP is opened.
+
+2. **Reserve Ratio**: This is set by the user at the time of borrowing and determines the percentage of the borrowed stablecoin that must be locked in a reserve pool. The Reserve Ratio provides a way for users to participate in the stability of the protocol while earning potential rewards.
+
+To open a CDP, users must choose either the Shielding Rate or the Reserve Ratio. The interplay between these two parameters controls the circulation of stablecoins and directly impacts price stability. Redemptions and liquidations are triggered based on these rates, ensuring that the protocol remains balanced.
+
+---
+
+## Liquidation Mechanisms
+
+StableBase supports two types of liquidation:
+
+1. **Protocol Liquidation**: If the collateral value of a position drops below 110%, the protocol automatically liquidates the CDP from Stability Pool. If no funds are available in stability pool, the debt and collateral of the liquidated position are redistributed to the borrower with the next lowest collateral ratio, ensuring an orderly liquidation process.
+
+2. **Third-Party Liquidation**: In this scenario, a third party, or an external user, can trigger a liquidation. The liquidator repays the debt and receives the underlying collateral at a discount, incentivizing users to help maintain the stability of the system.
 
 ### Redemption Mechanism
-The CRR selected by the user will also determine the order of redemption, if and when the redemption happens. The lowest CRR Safes are the first to be redeemed. During redemption, a fee equivalent to base rate of the value redeemed will be charged to the redeemer.
 
-# Unique Features
-StableBase offers several unique features:
+Redemption ensures that 1 stablecoin can always be exchanged for $1 of the underlying collateral. The protocol prioritizes CDPs for redemption based on the following hierarchy:
 
-1. 0% interest rate
-2. Introduction of user governed origination fee.
-3. Introduction of a mandatory User-defined Cash Reserve Ratio.
-4. Introduction of redemption from Safes with the lowest CRR.
-5. A base layer protocol with 0% interest rate, enabling higher layer innovation in yield and rates.
-6. Yield for CRR depositors(Reserve Pool).
+1. **Expired Shielded CDPs**: Redemptions begin with any expired shielded positions.
+2. **Target Shielding Rate**: If no expired positions exist, the CDP farthest from the target shielding rate is redeemed.
+3. **Reserve Ratio**: If necessary, the CDP with the lowest reserve ratio is next in line for redemption.
+4. **Non-Expired Shielded CDPs**: Finally, the protocol redeems non-expired shielded CDPs if no other options are available.
 
-# Use Cases
-StableBase Dollar (SBD) serves as a reliable medium of exchange for various real-world transactions, including cross-border payments, remittances, e-commerce, and DeFi activities. It also enables layer 1 borrowing protocols to facilitate higher yield for stablecoin holders, or offer lower cost in supply chain and trade finance, enable efficient and high yielding peer-to-peer lending protocol, thanks to its 0% interest rate.
+Users who prepay the full shielding rate enjoy protection from redemption for one year. Partial payments provide pro-rata protection based on the paid amount. Users can renew this protection by paying an additional Shielding Rate at the end of their protection period.
 
-# Stability Assurance
-The redemption and liquidation mechanisms maintain the stability of StableBase (SBD), ensuring its value remains close to 1 USD, while Cash Reserve Ratio helps shrink and expand the supply of stablecoin further aiding in stabilising the peg.
+---
 
-# Governance
-Governance of StableBase is determined by users' stake in the Reserve Pool. The governance actions include: 
+## Stability Pool and Reserve Pool
 
-1. Addition of new collateral types.
-2. Setting base rate.
+StableBase introduces two pools to enhance system stability:
 
-## Addition of new collateral types
-Any user can submit a proposal to add a new collateral type. The proposal consists of TokenAddress, CollateralizationRatio, EffectiveDate. Voting runs onchain for 28 days and users who have a stake in the reserve pool can vote. At the end of the voting period, Total votes will be tallied and the proposal will be made effective if > 67% of the voters voted 'yes' for the proposal. Users cannot withdraw from reserve pool until after the voting, and new users(< 30 days) in the reserve pool will not be considered for voting.
+1. **Reserve Pool**: Users who set a Reserve Ratio contribute to this pool, which locks a percentage of their borrowed stablecoins. In return, they earn fees generated from the protocol at a higher rate compared to the Stability Pool.
 
-## Dynamic Updation of Base Rate
+2. **Stability Pool**: Stablecoin holders can park their stablecoins in the Stability Pool, earning fees from borrowing activities, liquidations, and redemptions.
 
-The base rate is initially set to 0%. Any user can dynamically change the base rate and the protocol calculates a stake weighted average of the base rate set by stakes in reserve pool and that becomes the effective
+### Fee Distribution
 
-1. Origination fee rate, when a new Safe is opened. 
-2. Redemption fee rate(minimum: 0.5%, maximum: 1%), when a Safe is redeemed.
-3. Liquidation fee rate(minimum: 0.5%, maximum: 1%), when a Safe is liquidated.
+Fees collected from Shielding Rates are distributed as follows:
 
-Updating the base rate also has consequences for the Safes. Imagine, a user paid no-origination fee when they first opened their Safes, and they want to update the base rate to 0.5%, the protocol would only accept that rate if the user has also paid the newly calculated origination fee. This mechanism would ensure that the users do not set an arbitrarily higher base rate.
+- **Reserve Pool**: Receives 2x the rewards compared to the Stability Pool.
+- **Stability Pool**: Earns a share of fees from Shielding Rates, redemptions, and liquidations.
+- **Liquidators**: Earn liquidation fees when they trigger a liquidation.
 
-# Tokenomics
-As a purely decentralized stablecoin, StableBase (SBD) does not offer any additional tokens apart from the stablecoin itself.
+---
 
-# Risks
-While the unique features present exciting opportunities, there are associated risks. The complexity of the CRR mechanism and redemption process may challenge users, and robust risk management protocols are essential to mitigate potential manipulation.
+## Price Oracle
 
-## User Experience 
-The complexity of the CRR mechanism and the redemption process may present challenges for users, especially those unfamiliar with DeFi/TradFi concepts. Ensuring a smooth and intuitive user experience will be essential for adoption.
+Like other CDP-based protocols, StableBase relies on an external price oracle to track the value of collateral assets. The protocol plans to integrate **Chainlink** as its primary oracle for real-time price data.
 
-## Risk Management
-While the CRR mechanism adds flexibility, it also introduces potential risks, such as manipulation. Thus, robust risk management protocols and monitoring mechanisms will be crucial to mitigate these risks by those that open a Safe with stablebase, thus the protocol mainly caters to the sophisticated players in the ecosystem, while higher layers of the protocol would allow for usage by regular users who want predictable rates.
+---
 
-# Conclusion
-StableBase represents a significant remodelling of existing CDP based protocols, with better stability mechanism through the introduction of a user-defined Cash Reserve Ratio and crowd governed Origination fees, along with a better incentive structure through the introduction of yield bearing reserve pool, and by providing a reliable medium of exchange with low rates, StableBase aims to accelerate the adoption of digital currencies in the global economy.
+## Unique Features of StableBase
+
+StableBase introduces several innovations that differentiate it from existing stablecoin protocols:
+
+1. **0% interest rates**, eliminating ongoing borrowing fees.
+2. A user-defined **Reserve Ratio** that allows dynamic control of the stablecoin supply.
+3. A prepaid **Shielding Rate** that offers flexible borrowing terms and redemption protection.
+4. Redemption protection, providing a better user experience for borrowers.
+5. Yield opportunities for **Reserve Pool** and **Stability Pool** depositors.
+6. An adaptable framework suitable for both advanced users and everyday borrowers.
+
+---
+
+## User Profiles
+
+StableBase caters to different user profiles based on risk tolerance and borrowing needs:
+
+1. **Borrowers using the Shielding Rate**:
+
+   - **Risk**: Low (protected from redemptions).
+   - **Reward**: Predictable loan terms.
+   - **Target Users**: Everyday borrowers seeking predictable, low-risk loans.
+
+2. **Borrowers using the Reserve Ratio**:
+
+   - **Risk**: High (must manage risk actively).
+   - **Reward**: Fee revenue from the protocol and borrowing at 0% rates.
+   - **Target Users**: Advanced users such as hedge funds, institutions, and traders seeking to generate yield.
+
+3. **Stablecoin Holders**:
+   - **Risk**: Low (only risk is stablecoin de-pegging).
+   - **Reward**: Fee revenue through the Stability Pool.
+   - **Target Users**: Individuals holding stablecoins for transactions or savings.
+
+---
+
+## Available Collateral
+
+As a base layer stablecoin protocol without governance, StableBase protocol will only support native currencies like **ETH** as collateral, with the understanding that introducing additional collateral types require governance or an external mechanism due to the centralized nature of the token operation.
+
+---
+
+## Conclusion
+
+StableBase offers a reimagined approach to stablecoin protocols by combining **0% interest rates** with innovative tools like the **Reserve Ratio** and **Shielding Rate**. These mechanisms provide users with flexibility, predictability, and a better borrowing experience while enhancing protocol stability. With its novel stability mechanics and yield-generating opportunities, StableBase positions itself as a robust alternative to existing stablecoin protocols, catering to both advanced traders and everyday users.
