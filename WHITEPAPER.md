@@ -6,6 +6,18 @@
 
 One of the important functions of reserve bank in traditional finance is price stability. This is achieved through multiple policy tools, the primary one being controlling interest rates. There are other lesser known policy tools- like Repo rate, Reserve Ratio, etc. These tools aid in contracting and expanding the supply of money in the economy. In the cryptocurrency world, the primary tool used to control money supply for stablecoin protocols are the interest rate and the collateral requirements(which is usually fixed for a given collateral). In this paper, we introduce StableBase, a novel stablecoin protocol based on CDP mechanism, that achieves price stability during different market conditions through two new policy tools, namely pre-paid **Shielding rate**, and user-set **Reserve Ratio** and how they play together to achieve price parity with the pegged currency and in the process enhancing the borrowing experience by offering flexibility and predictability for users.
 
+# Abstract
+
+One of the important functions of reserve bank in traditional finance is price stability. This is achieved through multiple policy tools, the primary one being controlling interest rates. There are other lesser known policy tools- like Repo rate, Reserve Ratio, etc. These tools aid in contracting and expanding the supply of money in the economy. In the cryptocurrency world, the primary tool used to control money supply for stablecoin protocols are the interest rate and the collateral requirements(which is usually fixed for a given collateral). In this paper, we introduce StableBase, a novel stablecoin protocol based on CDP mechanism, that achieves price stability during different market conditions through two new policy tools, namely pre-paid **Shielding rate**, and user-set **Reserve Ratio** and how they play together to achieve price parity with the pegged currency and in the process enhancing the borrowing experience by offering flexibility and predictability for users.
+
+# Abstract
+
+One of the important functions of reserve bank in traditional finance is price stability. This is achieved through multiple policy tools, the primary one being controlling interest rates. There are other lesser known policy tools- like Repo rate, Reserve Ratio, etc. These tools aid in contracting and expanding the supply of money in the economy. In the cryptocurrency world, the primary tool used to control money supply for stablecoin protocols are the interest rate and the collateral requirements(which is usually fixed for a given collateral). In this paper, we introduce StableBase, a novel stablecoin protocol based on CDP mechanism, that achieves price stability during different market conditions through two new policy tools, namely pre-paid **Shielding rate**, and user-set **Reserve Ratio** and how they play together to achieve price parity with the pegged currency and in the process enhancing the borrowing experience by offering flexibility and predictability for users.
+
+# Abstract
+
+One of the important functions of reserve bank in traditional finance is price stability. This is achieved through multiple policy tools, the primary one being controlling interest rates. There are other lesser known policy tools- like Repo rate, Reserve Ratio, etc. These tools aid in contracting and expanding the supply of money in the economy. In the cryptocurrency world, the primary tool used to control money supply for stablecoin protocols are the interest rate and the collateral requirements(which is usually fixed for a given collateral). In this paper, we introduce StableBase, a novel stablecoin protocol based on CDP mechanism, that achieves price stability during different market conditions through two new policy tools, namely pre-paid **Shielding rate**, and user-set **Reserve Ratio** and how they play together to achieve price parity with the pegged currency and in the process enhancing the borrowing experience by offering flexibility and predictability for users.
+
 # Introduction
 
 The stablecoin industry, now approaching its seventh year, has witnessed significant innovation since the launch of MakerDAO's SAI, and later DAI, which pioneered the Collateralized Debt Position (CDP) mechanism. Following MakerDAO, several stablecoins have entered the market, with notable examples like Curve USD and Liquity USD, particularly within the CDP protocol space. Traditionally, these protocols rely on interest rates, where borrowers incur payments similar to those in conventional finance. However, Liquity v1 was a notable exception, eliminating interest rates in favor of a one-time origination fee. Despite this innovation, Liquity v1 faced challenges in maintaining robust market adaptability, largely due to a weaker incentive structure. To address these shortcomings, Liquity is now developing a v2 model featuring user-defined interest rates, aligning market conditions with protocol stability by directing interest payments to stablecoin holders through Stability Pool.
@@ -54,10 +66,9 @@ A third-party, for example: a Stability Pool or third-party user can trigger liq
 Redemption is another mechanism to ensure the stability of the protocol that can be triggered by users at any time. Users can reedem 1 stablecoin for the equivalent of 1 USD worth of underlying collateral. The protocol decides on the priority for redeeming open CDPs. This is where the _shielding rate_ and _Reserve Ratio_ set by users become important, as these directly affect the value of the stablecoin if they are too low or high.
 
 1. **Expired Shielded CDPs**: Check if there are any expired Shielded CDPs, redeem these first.
-2. **Reserve Ratio** - The protocol targets reserve ratios set by the users to be closer, within a range of 1%. If the difference is more, the CDP that is at a greater distance from the reference stake weighted reserve ratio will be the first to get redeemed, until the difference is again close to 1%.
-3. **Target Shielding Rate** - The protocol targets Shielding Rate to be within a range of 1%. If the difference is more, the CDP that is at a greater distance from the reference stake weighted target shielding rate will be the one to get redeemed, if redemption cannot happen through (1, 2). The target shielding rate is only set by reserve pool depositors.
-4. **Reserve Ratio** - If redemption cannot happen through both (1, 2, 3), lowest reserve ratio CDPs would be redeemed again, even if the difference is within 1%.
-5. **Target Shielding Rate** - If redemptions cannot happen through (1, 2, 3, 4), CDPs that set the lowest target shielding rate would be redeemed again.
+2. **Target Shielding Rate** - The protocol targets Shielding Rate to be within a range of 1%. If the difference is more, the CDP that is at a greater distance from the reference stake weighted target shielding rate will be the one to get redeemed, if redemption cannot happen through (1, 2). The target shielding rate is only set by reserve pool depositors.
+3. **Reserve Ratio** - If redemption cannot happen through (1, 2), lowest reserve ratio CDPs would be redeemed.
+4. **Non-Expired Shielded CDPs**: If redemption cannot happen through (1, 2, 3), protocol will redeem even the non-expired Shielded CDPs.
 
 ### Shielded CDPs
 
@@ -67,32 +78,28 @@ A user, at the time of opening the CDP can pay **Shielding Rate** equal to **Tar
 
 The protocol has an option to renew protection by paying a shielding rate again.
 
-## Liquidity Pool
+## Stability Pool
 
-In addition to reserve pool, there will be a Liquidity Pool where any SBD holder can park their stablecoin savings in return for accrued fees from the protocol. The funds from Liquidity Pool will be used for the following
-
-1. Enable borrowing of Stablecoins without minting at preset terms.
-2. Enable Liquidations of bad debt.
+In addition to reserve pool, there will be a Stability Pool where any SBD holder can park their stablecoin savings in return for accrued fees from the protocol.
 
 The stakers in the pool gain benefit from
 
 1. Accrued fees from borrowing.
-2. Liquidation gains.
+2. Liquidation proceeds.
 3. Liquidation and Redemption fees paid.
 
 ## Fee Collection and Distribution
 
 All the fees that are collected from users paying shielding rate at the time of opening the CDP or renewing redemption protection is paid to
 
-1. Reserve pool depositors in proportion to their stake.
-2. Savings Pool depositors in proportion to their stake.
+1. Reserve pool depositors in proportion to their stake at 2x the rate compared to Stability Pool.
+2. Stability Pool depositors in proportion to their stake.
 
 The fee is distributed in the following manner:
 
-1. Fees paid by Redemption Protected CDPs will be distributed to Reserve Pool.
-2. All fee paid by borrowings from Liquidity Pool goes to the Liquidity pool stakers.
-3. All redemption fee goes to Liquidity Pool stakers.
-4. Liquidation fee goes to the user that triggered Liquidation.
+1. Fees paid by Redemption Protected CDPs will be distributed to Reserve Pool and Stability Pool.
+2. All redemption fee goes to Liquidity Pool stakers.
+3. Liquidation fee goes to the user that triggered Liquidation.
 
 ## Price Oracle
 
@@ -103,11 +110,11 @@ StableBase also needs price oracle to get the latest price of the collateral ass
 To summarize, StableBase offers several unique features:
 
 1. 0% interest rate
-2. Introduction of user-set reserve ratio as a way to contract and expand money supply.
-3. Introduction of pre-paid shielding rate to allow for flexible borrowing terms.
+2. Introduction of user-set reserve ratio as a way to contract and expand money supply. These people also act as rate governors.
+3. Introduction of pre-paid shielding rate (set by rate governors) to allow for flexible borrowing terms.
 4. Introduction of redemption protection for better UX for regular users.
-5. Yield for Reserve Pool and Savings Pool depositors.
-6. Experimental stability mechanics that caters to both advanced(traders, hedge funds, market makers, institutions, etc.) and regular borrowers(salaried).
+5. Yield for Reserve Pool and Stability Pool depositors.
+6. Experimental stability mechanics that caters to both advanced(traders, hedge funds, market makers, institutions, etc.) and normal borrowers.
 
 # User Profiles
 
@@ -119,13 +126,13 @@ There are three kinds of user profiles with StableBase.
    - _Skill Level_: Low
    - _Target User Profile_: (Normal salaried crypto users that wants to borrow and repay at set intervals, those looking for predictable loan terms).
 2. **Borrower that doesn't pay shielding rate, but takes part in stability through reserve ratio**
-   - _Risk Level_: High Risk(those that deviate from reference reserve ratio significantly), Moderate Risk(Lowest Reserve Ratio).
+   - _Risk Level_: High Risk(for example: those that deviate from reference target shielding rate significantly, lowest reserve ratio).
    - _Reward_: Share of Fee revenue, 0% shielding rate
    - _Skill Level_: Advanced, needs to monitor reserve ratio and adjust periodically to avoid redemptions, set shielding rate to maximize fee revenue for given market conditions.
    - _Target User Profile_: (Institutions, Hedge funds, Market makers, those looking to generate yield on their assets)
 3. **Holder: Acquired stablecoins through trade**
    - _Risk Level_: Low(Only risk is that the stablecoin goes off peg).
-   - _Reward_: Share of Fee revenue through Savings Pool.
+   - _Reward_: Share of Fee revenue through Stability Pool.
    - _Skill Level_: Low
    - _Target User Profile_: (Anyone that wants to use stablecoin for transactions / hold it)
 
