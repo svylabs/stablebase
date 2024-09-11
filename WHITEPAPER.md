@@ -3,7 +3,7 @@
 
 ## Abstract
 
-In traditional finance, central banks maintain price stability through various monetary policy tools, such as interest rates, repo rates, and reserve ratios. These mechanisms control the supply of money, ensuring economic stability. In the cryptocurrency world, stablecoin protocols rely on similar principles, primarily using interest rates and collateral requirements to regulate money supply. However, these tools often lack flexibility and adaptability in changing market conditions.
+In traditional finance, central banks maintain price stability through various monetary policy tools, such as interest rates, repo rates, and reserve ratios. These mechanisms control the supply of money, ensuring economic stability. In the cryptocurrency world, stablecoin protocols rely on similar principles, primarily using interest rates and collateral requirements to regulate money supply.
 
 In this paper, we introduce **StableBase**, a stablecoin protocol based on the **Collateralized Debt Position (CDP)** mechanism. StableBase innovates on price stability by incorporating two novel tools: a **pre-paid Shielding Rate** and a **user-defined Reserve Ratio**. These mechanisms work together to achieve price parity with the pegged currency while providing users with flexibility and predictability in their borrowing experience. We explore how these policy tools enhance the stability of the protocol across different market conditions and offer a more dynamic borrowing environment compared to existing stablecoin protocols.
 
@@ -110,7 +110,7 @@ StableBase caters to different user profiles based on risk tolerance and borrowi
 2. **Borrowers using the Reserve Ratio**:
 
    - **Risk**: High (must manage risk actively).
-   - **Reward**: Fee revenue from the protocol.
+   - **Reward**: Fee revenue from the protocol and borrowing at 0% rates.
    - **Target Users**: Advanced users such as hedge funds, institutions, and traders seeking to generate yield.
 
 3. **Stablecoin Holders**:
