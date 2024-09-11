@@ -57,8 +57,20 @@ async function takeContractSnapshots(stableBaseCDP, sbdToken, collateralToken, s
     // 9. Expired Safe list
     const shieldedSafesAddress = await stableBaseCDP.shieldedSafes();
     snapshot.shieldedSafes = await takeODLLSnapshot(shieldedSafesAddress, safeId);
+    snapshot.safeId = safeId;
 
     return snapshot;
+}
+
+async function setupUserSafe(user, safeParams, system) {
+    const depositAmount = ethers.parseEther(safeParams.depositAmount + "");
+    const tokenAddress = safeParams.collateralToken ? mockToken.address : ethers.ZeroAddress;
+    const safeId = ethers.toBigInt(ethers.solidityPackedKeccak256(["address", "address"], [user.address, tokenAddress]));
+    const borrowAmount = ((depositAmount * BigInt(system.price)) * BigInt(safeParams.borrowAmount || 50)) / BigInt(100);
+    //const result = await utils.openSafe({ stableBaseCDP, sbdToken, mockToken }, user, safeParams, { depositAmount, reserveRatio, targetShieldingRate, nearestSpotForReserveRatio, nearestSpotForTargetShieldingRate });
+    await system.contracts.stableBaseCDP.connect(user).openSafe(safeId, tokenAddress, depositAmount, { value: depositAmount });
+    const result = await borrow(system.contracts, user, safeId, borrowAmount, safeParams);
+    return result;
 }
 
 async function borrow(contracts, user, safeId, borrowAmount, borrowParams) {
@@ -94,7 +106,7 @@ async function borrow(contracts, user, safeId, borrowAmount, borrowParams) {
     console.log(_borrowParams);
     await contracts.stableBaseCDP.connect(user).borrow(safeId, borrowAmount, _borrowParams);
     const contractSnapshotAfterBorrow = await takeContractSnapshots(contracts.stableBaseCDP, contracts.sbdToken, contracts.mockToken, safeId, { address: user.address, collateral: true });
-    return { contractSnapshotBeforeBorrow, contractSnapshotAfterBorrow };
+    return { safeId, contractSnapshotBeforeBorrow, contractSnapshotAfterBorrow };
 }
 
-module.exports = { takeODLLSnapshot, takeContractSnapshots, borrow };
+module.exports = { takeODLLSnapshot, takeContractSnapshots, borrow, setupUserSafe };

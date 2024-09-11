@@ -265,6 +265,7 @@ contract StableBaseCDP is StableBase {
 
     function redeem(uint256 _amount, bytes calldata redemptionParams) external {
         require(_amount > 0, "Amount must be greater than 0");
+        sbdToken.burnFrom(msg.sender, _amount);
         SBStructs.RedemptionToken[10] memory tokensList;
         SBStructs.Redemption memory redemption = SBStructs.Redemption({
             requestedAmount: _amount,
@@ -310,7 +311,7 @@ contract StableBaseCDP is StableBase {
         //TODO:  Check if the required fee is paid
         SBStructs.Safe storage safe = safes[_safeId];
         require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
-        safe.shieldedUntil = _getShieldingTime(feeRate, safe.shieldedUntil);
+        safe.shieldedUntil = _getShieldingTime(feeRate, block.timestamp);
         safes[_safeId] = safe;
         uint256 nearestSpot = abi.decode(renewParams[0:32], (uint256));
         // Update the spot in the shieldedSafes list
@@ -319,15 +320,16 @@ contract StableBaseCDP is StableBase {
     }
 
     function liquidate(uint256 _safeId) external {
-        SBStructs.Safe storage safe = safes[_safeId];
-        require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
+        SBStructs.Safe memory safe = safes[_safeId];
+        //require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
         require(safe.depositedAmount > 0, "Safe does not exist");
         require(
             safe.borrowedAmount > 0,
             "Cannot liquidate a Safe with no borrowed amount"
         );
 
-        uint256 collateralValue = _getCollateralValue(safe);
+        uint256 collateralPrice = _getCollateralPrice(safe);
+        uint256 collateralValue = safe.depositedAmount * collateralPrice;
         uint256 collateralRatio = (collateralValue * 10000) /
             safe.borrowedAmount;
         // Check if the collateral is sufficient for liquidation

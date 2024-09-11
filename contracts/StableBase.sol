@@ -223,7 +223,11 @@ abstract contract StableBase is IStableBase, ERC721 {
         IDoublyLinkedList.Node memory headNode,
         IDoublyLinkedList.Node memory tailNode
     ) internal pure returns (uint256) {
-        return headNode.value - tailNode.value;
+        if (headNode.value > tailNode.value) {
+            return headNode.value - tailNode.value;
+        } else {
+            return tailNode.value - headNode.value;
+        }
     }
 
     function _diffBetween(
@@ -249,7 +253,7 @@ abstract contract StableBase is IStableBase, ERC721 {
         IDoublyLinkedList.Node memory tailNode = targetShieldingRateList.get(
             tail
         );
-        if (_diffBetween(headNode, tailNode) > 100) {
+        if (_diffBetween(headNode, tailNode) < 100) {
             // Cannot redeem anymore
             return 0;
         }
@@ -276,24 +280,23 @@ abstract contract StableBase is IStableBase, ERC721 {
         IDoublyLinkedList reserveRatioList,
         IDoublyLinkedList targetShieldingRateList
     ) internal returns (SBStructs.Redemption memory) {
-        uint256 head = targetShieldingRateList.getHead();
-        uint256 tail = targetShieldingRateList.getTail();
         SBStructs.Safe memory safe;
         uint256 processedSpots = redemption.processedSpots;
         // Target within 1% = 100 points, 100% = 10000 points
         while (redemption.redeemedAmount < redemption.requestedAmount) {
+            uint256 head = targetShieldingRateList.getHead();
+            uint256 tail = targetShieldingRateList.getTail();
+            uint256 redeemTarget = shouldRedeemByTargetShieldingRate(
+                head,
+                tail,
+                targetShieldingRateList
+            );
             uint256 spotForUpdate = uint256(
                 bytes32(
                     _redemptionParams[processedSpots * 32:processedSpots *
                         32 +
                         32]
                 )
-            );
-            processedSpots++;
-            uint256 redeemTarget = shouldRedeemByTargetShieldingRate(
-                head,
-                tail,
-                targetShieldingRateList
             );
             // 0 = cannot redeem, 1 = redeem head, 2 = redeem tail
             if (redeemTarget == 1) {
@@ -317,6 +320,7 @@ abstract contract StableBase is IStableBase, ERC721 {
             } else {
                 break;
             }
+            processedSpots++;
         }
         redemption.processedSpots = processedSpots;
         return redemption;
@@ -324,21 +328,24 @@ abstract contract StableBase is IStableBase, ERC721 {
 
     function removeFromReserveRatioListAndAdjustReferenceRate(
         uint256 _safeId,
-        IDoublyLinkedList reserveRatioList
+        IDoublyLinkedList reserveRatioList,
+        IDoublyLinkedList targetShieldingRateList
     ) internal {
         // remove stake from reserve pool
         // TODO: Returns the stake back to the user address
         (, uint256 currentStake) = IReservePool(reservePool).removeStake(
             _safeId
         );
-        IDoublyLinkedList.Node memory node = reserveRatioList.remove(_safeId);
+        reserveRatioList.remove(_safeId);
+        IDoublyLinkedList.Node
+            memory shieldingRateNode = targetShieldingRateList.remove(_safeId);
         Math.Rate memory _target = referenceShieldingRate;
         referenceShieldingRate = Math.subtract(
             _target,
-            node.value,
+            shieldingRateNode.value,
             currentStake
         );
-        reserveRatioList.remove(_safeId);
+        //reserveRatioList.remove(_safeId);
     }
 
     function _redeemNode(
@@ -357,10 +364,10 @@ abstract contract StableBase is IStableBase, ERC721 {
         }
         if (amountToRedeem == safe.borrowedAmount) {
             // If the safe was fully redeemed, remove it from both the lists
-            targetShieldingRateList.remove(_safeId);
             removeFromReserveRatioListAndAdjustReferenceRate(
                 _safeId,
-                reserveRatioList
+                reserveRatioList,
+                targetShieldingRateList
             );
         } else {
             IReservePool _reservePool = IReservePool(reservePool);
@@ -390,6 +397,7 @@ abstract contract StableBase is IStableBase, ERC721 {
                         32]
                 )
             );
+            //uint256 spotForUpdate = 0;
             uint256 head = reserveRatioList.getHead();
             (, redemption) = _redeemNode(
                 head,
@@ -398,7 +406,9 @@ abstract contract StableBase is IStableBase, ERC721 {
                 targetShieldingRateList,
                 spotForUpdate
             );
+            processedSpots++;
         }
+        redemption.processedSpots = processedSpots;
         return redemption;
     }
 
@@ -409,14 +419,13 @@ abstract contract StableBase is IStableBase, ERC721 {
     }
 
     // Utility function to get collateral value
-    function _getCollateralValue(
+    function _getCollateralPrice(
         SBStructs.Safe memory safe
     ) internal view returns (uint256) {
         IPriceOracle priceOracle = IPriceOracle(
             whitelistedTokens[safe.token].priceOracle
         );
-        uint256 price = priceOracle.getPrice();
-        return price * safe.depositedAmount;
+        return priceOracle.getPrice();
     }
 
     function _redeemToUser(SBStructs.Redemption memory redemption) internal {
@@ -432,11 +441,8 @@ abstract contract StableBase is IStableBase, ERC721 {
         SBStructs.Safe memory safe,
         SBStructs.Redemption memory redemption
     ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
-        require(
-            ownerOf(_safeId) == msg.sender,
-            "Only the NFT owner can redeem"
-        );
-        uint256 amountInCollateral = amountToRedeem / _getCollateralValue(safe);
+        //uint256 amountInCollateral = amountToRedeem /
+        uint256 amountInCollateral = amountToRedeem / _getCollateralPrice(safe);
         safe.depositedAmount -= amountInCollateral;
         bool found = false;
         for (uint256 i = 0; i < redemption.tokensCount; i++) {
