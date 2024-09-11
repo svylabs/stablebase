@@ -133,7 +133,7 @@ Users can choose how they want to use the protocol based on their risk tolerance
 
 # Available Collateral
 
-ETH, StakedETH(stETH) and WrappedBTC(WBTC) will be the only collateral supported by the protocol.
+ETH will be the only collateral supported by the protocol.
 
 # Tokenomics
 
