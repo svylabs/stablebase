@@ -90,7 +90,7 @@ StableBase introduces several innovations that differentiate it from existing st
 
 1. **0% interest rates**, eliminating ongoing borrowing fees.
 2. A user-defined **Reserve Ratio** that allows dynamic control of the stablecoin supply.
-3. A prepaid **Shielding Rate** that offers flexible borrowing terms and redemption protection.
+3. A prepaid **Shielding Rate** that offers predictable borrowing terms and redemption protection.
 4. Redemption protection, providing a better user experience for borrowers.
 5. Yield opportunities for **Reserve Pool** and **Stability Pool** depositors.
 6. An adaptable framework suitable for both advanced users and everyday borrowers.
