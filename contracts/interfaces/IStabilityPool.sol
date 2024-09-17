@@ -7,6 +7,12 @@ interface IStabilityPool {
         uint256 collateralRewardPerShare;
     }
 
+    struct UserStake {
+        uint256 amount;
+        uint256 scaledAmount;
+        uint256 snapshotTotalBorrowedSBD;
+    }
+
     function stake(uint256 _amount) external;
 
     function unstake(uint256 _amount) external;
@@ -29,4 +35,8 @@ interface IStabilityPool {
         external
         view
         returns (RewardSnapshot memory rewardSnapshot);
+
+    function getUserStake(
+        address _user
+    ) external view returns (UserStake memory);
 }

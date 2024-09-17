@@ -66,7 +66,7 @@ describe("StabilityPool", function () {
     it("Should emit Unstaked event when unstaking", async function () {
       await expect(stabilityPool.connect(user1).unstake(ethers.parseEther("50")))
         .to.emit(stabilityPool, "Unstaked")
-        .withArgs(user1.address, ethers.parseEther("50"));
+        .withArgs(user1.address, ethers.parseEther("50"), ethers.parseEther("50"));
     });
 
     it("Should not allow unstaking more than staked amount", async function () {

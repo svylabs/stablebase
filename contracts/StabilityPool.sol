@@ -13,7 +13,8 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
     IERC20 public immutable collateralToken;
 
     uint256 public totalStaked;
-    mapping(address => uint256) public userStakes;
+    uint256 public totalBorrowedSBD;
+    mapping(address => UserStake) public userStakes;
     mapping(address => RewardSnapshot) public userRewardSnapshots;
     RewardSnapshot public globalRewardSnapshot;
 
@@ -21,7 +22,11 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
 
     // Events
     event Staked(address indexed user, uint256 amount);
-    event Unstaked(address indexed user, uint256 amount);
+    event Unstaked(
+        address indexed user,
+        uint256 requestedAmount,
+        uint256 actualAmount
+    );
     event RewardPaid(
         address indexed user,
         uint256 sbdReward,
@@ -29,6 +34,7 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
     );
     event SBDRewardsAdded(uint256 amount);
     event CollateralRewardsAdded(uint256 amount);
+    event SBDBorrowed(uint256 amount);
 
     constructor(address _sbdToken, address _collateralToken) {
         sbdToken = IERC20(_sbdToken);
@@ -38,12 +44,12 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
     function stake(uint256 _amount) external override nonReentrant {
         require(_amount > 0, "Amount must be greater than 0");
 
-        // Calculate and transfer rewards based on current stake
         _updateAndTransferRewards(msg.sender);
 
-        // Now update the stake
         sbdToken.safeTransferFrom(msg.sender, address(this), _amount);
-        userStakes[msg.sender] += _amount;
+
+        userStakes[msg.sender].amount += _amount;
+        userStakes[msg.sender].snapshotTotalBorrowedSBD = totalBorrowedSBD;
         totalStaked += _amount;
 
         emit Staked(msg.sender, _amount);
@@ -51,17 +57,25 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
 
     function unstake(uint256 _amount) external override nonReentrant {
         require(_amount > 0, "Amount must be greater than 0");
-        require(userStakes[msg.sender] >= _amount, "Insufficient stake");
+        require(userStakes[msg.sender].amount >= _amount, "Insufficient stake");
 
-        // Calculate and transfer rewards based on current stake
         _updateAndTransferRewards(msg.sender);
 
-        // Now update the stake
-        userStakes[msg.sender] -= _amount;
-        totalStaked -= _amount;
-        sbdToken.safeTransfer(msg.sender, _amount);
+        uint256 availableToUnstake = _calculateAvailableToUnstake(
+            msg.sender,
+            _amount
+        );
+        require(availableToUnstake > 0, "No available SBD to unstake");
 
-        emit Unstaked(msg.sender, _amount);
+        userStakes[msg.sender].amount -= _amount;
+        totalStaked -= _amount;
+
+        sbdToken.safeTransfer(msg.sender, availableToUnstake);
+
+        // Update the snapshot after unstaking
+        userStakes[msg.sender].snapshotTotalBorrowedSBD = totalBorrowedSBD;
+
+        emit Unstaked(msg.sender, _amount, availableToUnstake);
     }
 
     function withdrawRewards() external override nonReentrant {
@@ -88,6 +102,41 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
         emit CollateralRewardsAdded(_amount);
     }
 
+    function borrowSBD(uint256 _amount) external {
+        require(msg.sender == address(0x0), "Only StableBaseCDP can borrow");
+        require(_amount > 0, "Amount must be greater than 0");
+        require(
+            _amount <= totalStaked - totalBorrowedSBD,
+            "Insufficient SBD in pool"
+        );
+
+        totalBorrowedSBD += _amount;
+        sbdToken.safeTransfer(msg.sender, _amount);
+
+        emit SBDBorrowed(_amount);
+    }
+
+    function _calculateAvailableToUnstake(
+        address _user,
+        uint256 _amount
+    ) internal view returns (uint256) {
+        UserStake memory stake = userStakes[_user];
+        uint256 borrowedSinceStake = totalBorrowedSBD -
+            stake.snapshotTotalBorrowedSBD;
+        if (borrowedSinceStake == 0) {
+            return _amount;
+        }
+        uint256 availableRatio = ((stake.amount - borrowedSinceStake) *
+            PRECISION) / stake.amount;
+        return (_amount * availableRatio) / PRECISION;
+    }
+
+    function getUserAvailableSBD(
+        address _user
+    ) external view returns (uint256) {
+        return _calculateAvailableToUnstake(_user, userStakes[_user].amount);
+    }
+
     function getTotalStaked() external view override returns (uint256) {
         return totalStaked;
     }
@@ -95,53 +144,28 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
     function getUserStakedAmount(
         address _user
     ) external view override returns (uint256) {
-        return userStakes[_user];
+        return userStakes[_user].amount;
     }
 
     function getUserRewardSnapshot(
         address _user
-    ) external view override returns (RewardSnapshot memory rewardSnapshot) {
+    ) external view override returns (RewardSnapshot memory) {
         return userRewardSnapshots[_user];
+    }
+
+    function getUserStake(
+        address _user
+    ) external view returns (UserStake memory) {
+        return userStakes[_user];
     }
 
     function getGlobalRewardSnapshot()
         external
         view
         override
-        returns (RewardSnapshot memory rewardSnapshot)
+        returns (RewardSnapshot memory)
     {
         return globalRewardSnapshot;
-    }
-
-    function updateRewards(address _user) internal {
-        if (userStakes[_user] > 0) {
-            uint256 sbdReward = calculateReward(
-                _user,
-                globalRewardSnapshot.sbdRewardPerShare,
-                userRewardSnapshots[_user].sbdRewardPerShare
-            );
-            uint256 collateralReward = calculateReward(
-                _user,
-                globalRewardSnapshot.collateralRewardPerShare,
-                userRewardSnapshots[_user].collateralRewardPerShare
-            );
-
-            if (sbdReward > 0 || collateralReward > 0) {
-                userRewardSnapshots[_user] = globalRewardSnapshot;
-            }
-        } else {
-            userRewardSnapshots[_user] = globalRewardSnapshot;
-        }
-    }
-
-    function calculateReward(
-        address _user,
-        uint256 _globalRewardPerShare,
-        uint256 _userRewardPerShare
-    ) internal view returns (uint256) {
-        return
-            (userStakes[_user] *
-                (_globalRewardPerShare - _userRewardPerShare)) / PRECISION;
     }
 
     function _updateAndTransferRewards(address _user) internal {
@@ -163,11 +187,20 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
             collateralToken.safeTransfer(_user, collateralReward);
         }
 
-        // Update the user's snapshot after transferring rewards
         userRewardSnapshots[_user] = globalRewardSnapshot;
 
         if (sbdReward > 0 || collateralReward > 0) {
             emit RewardPaid(_user, sbdReward, collateralReward);
         }
+    }
+
+    function calculateReward(
+        address _user,
+        uint256 _globalRewardPerShare,
+        uint256 _userRewardPerShare
+    ) internal view returns (uint256) {
+        return
+            (userStakes[_user].amount *
+                (_globalRewardPerShare - _userRewardPerShare)) / PRECISION;
     }
 }
