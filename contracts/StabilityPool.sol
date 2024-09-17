@@ -19,6 +19,17 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
 
     uint256 private constant PRECISION = 1e18;
 
+    // Events
+    event Staked(address indexed user, uint256 amount);
+    event Unstaked(address indexed user, uint256 amount);
+    event RewardPaid(
+        address indexed user,
+        uint256 sbdReward,
+        uint256 collateralReward
+    );
+    event SBDRewardsAdded(uint256 amount);
+    event CollateralRewardsAdded(uint256 amount);
+
     constructor(address _sbdToken, address _collateralToken) {
         sbdToken = IERC20(_sbdToken);
         collateralToken = IERC20(_collateralToken);
@@ -26,42 +37,35 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
 
     function stake(uint256 _amount) external override nonReentrant {
         require(_amount > 0, "Amount must be greater than 0");
-        updateRewards(msg.sender);
+
+        // Calculate and transfer rewards based on current stake
+        _updateAndTransferRewards(msg.sender);
+
+        // Now update the stake
         sbdToken.safeTransferFrom(msg.sender, address(this), _amount);
         userStakes[msg.sender] += _amount;
         totalStaked += _amount;
+
+        emit Staked(msg.sender, _amount);
     }
 
     function unstake(uint256 _amount) external override nonReentrant {
         require(_amount > 0, "Amount must be greater than 0");
         require(userStakes[msg.sender] >= _amount, "Insufficient stake");
-        updateRewards(msg.sender);
+
+        // Calculate and transfer rewards based on current stake
+        _updateAndTransferRewards(msg.sender);
+
+        // Now update the stake
         userStakes[msg.sender] -= _amount;
         totalStaked -= _amount;
         sbdToken.safeTransfer(msg.sender, _amount);
+
+        emit Unstaked(msg.sender, _amount);
     }
 
     function withdrawRewards() external override nonReentrant {
-        updateRewards(msg.sender);
-        uint256 sbdReward = calculateReward(
-            msg.sender,
-            globalRewardSnapshot.sbdRewardPerShare,
-            userRewardSnapshots[msg.sender].sbdRewardPerShare
-        );
-        uint256 collateralReward = calculateReward(
-            msg.sender,
-            globalRewardSnapshot.collateralRewardPerShare,
-            userRewardSnapshots[msg.sender].collateralRewardPerShare
-        );
-
-        if (sbdReward > 0) {
-            sbdToken.safeTransfer(msg.sender, sbdReward);
-        }
-        if (collateralReward > 0) {
-            collateralToken.safeTransfer(msg.sender, collateralReward);
-        }
-
-        userRewardSnapshots[msg.sender] = globalRewardSnapshot;
+        _updateAndTransferRewards(msg.sender);
     }
 
     function addRewards(uint256 _amount) external override {
@@ -71,6 +75,8 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
         globalRewardSnapshot.sbdRewardPerShare +=
             (_amount * PRECISION) /
             totalStaked;
+
+        emit SBDRewardsAdded(_amount);
     }
 
     function addCollateralRewards(uint256 _amount) external override {
@@ -80,6 +86,8 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
         globalRewardSnapshot.collateralRewardPerShare +=
             (_amount * PRECISION) /
             totalStaked;
+
+        emit CollateralRewardsAdded(_amount);
     }
 
     function getTotalStaked() external view override returns (uint256) {
@@ -136,5 +144,32 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
         return
             (userStakes[_user] *
                 (_globalRewardPerShare - _userRewardPerShare)) / PRECISION;
+    }
+
+    function _updateAndTransferRewards(address _user) internal {
+        uint256 sbdReward = calculateReward(
+            _user,
+            globalRewardSnapshot.sbdRewardPerShare,
+            userRewardSnapshots[_user].sbdRewardPerShare
+        );
+        uint256 collateralReward = calculateReward(
+            _user,
+            globalRewardSnapshot.collateralRewardPerShare,
+            userRewardSnapshots[_user].collateralRewardPerShare
+        );
+
+        if (sbdReward > 0) {
+            sbdToken.safeTransfer(_user, sbdReward);
+        }
+        if (collateralReward > 0) {
+            collateralToken.safeTransfer(_user, collateralReward);
+        }
+
+        // Update the user's snapshot after transferring rewards
+        userRewardSnapshots[_user] = globalRewardSnapshot;
+
+        if (sbdReward > 0 || collateralReward > 0) {
+            emit RewardPaid(_user, sbdReward, collateralReward);
+        }
     }
 }
