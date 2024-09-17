@@ -71,7 +71,6 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
     function addRewards(uint256 _amount) external override {
         require(_amount > 0, "Amount must be greater than 0");
         require(totalStaked > 0, "No stakes in the pool");
-        sbdToken.safeTransferFrom(msg.sender, address(this), _amount);
         globalRewardSnapshot.sbdRewardPerShare +=
             (_amount * PRECISION) /
             totalStaked;
@@ -82,7 +81,6 @@ contract StabilityPool is IStabilityPool, ReentrancyGuard {
     function addCollateralRewards(uint256 _amount) external override {
         require(_amount > 0, "Amount must be greater than 0");
         require(totalStaked > 0, "No stakes in the pool");
-        collateralToken.safeTransferFrom(msg.sender, address(this), _amount);
         globalRewardSnapshot.collateralRewardPerShare +=
             (_amount * PRECISION) /
             totalStaked;

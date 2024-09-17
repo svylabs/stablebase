@@ -23,6 +23,7 @@ describe("StabilityPool", function () {
     await stabilityPool.waitForDeployment();
 
     // Mint some tokens to users
+    await sbdToken.mint(owner.address, ethers.parseEther("1000"));
     await sbdToken.mint(user1.address, ethers.parseEther("1000"));
     await sbdToken.mint(user2.address, ethers.parseEther("1000"));
     await collateralToken.mint(owner.address, ethers.parseEther("1000"));
@@ -94,6 +95,10 @@ describe("StabilityPool", function () {
     it("Should distribute rewards correctly", async function () {
       await stabilityPool.connect(owner).addRewards(ethers.parseEther("30"));
       await stabilityPool.connect(owner).addCollateralRewards(ethers.parseEther("30"));
+
+      // Manually transfer rewards to the StabilityPool contract
+      await sbdToken.connect(owner).transfer(stabilityPool.target, ethers.parseEther("50"));
+      await collateralToken.connect(owner).transfer(stabilityPool.target, ethers.parseEther("50"));
 
       await expect(stabilityPool.connect(user1).withdrawRewards())
         .to.emit(stabilityPool, "RewardPaid")
