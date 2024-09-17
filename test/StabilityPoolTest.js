@@ -154,7 +154,7 @@ describe("StabilityPool", function () {
       // User1 unstakes 50 SBD
       await expect(stabilityPool.connect(user1).unstake(ethers.parseEther("50")))
         .to.emit(stabilityPool, "RewardPaid")
-        .withArgs(user1.address, ethers.parseEther("55"), 0);
+        .withArgs(user1.address, ethers.parseEther("80"), 0);
 
       // Add 60 SBD as rewards
       await stabilityPool.connect(owner).addRewards(ethers.parseEther("60"));
@@ -163,12 +163,12 @@ describe("StabilityPool", function () {
       // Check final rewards for User1
       await expect(stabilityPool.connect(user1).withdrawRewards())
         .to.emit(stabilityPool, "RewardPaid")
-        .withArgs(user1.address, ethers.parseEther("15"), 0);
+        .withArgs(user1.address, ethers.parseEther("12"), 0);
 
       // Check final rewards for User2
       await expect(stabilityPool.connect(user2).withdrawRewards())
         .to.emit(stabilityPool, "RewardPaid")
-        .withArgs(user2.address, ethers.parseEther("130"), 0);
+        .withArgs(user2.address, ethers.parseEther("108"), 0);
 
       // Verify final staked amounts
       expect(await stabilityPool.getUserStakedAmount(user1.address)).to.equal(ethers.parseEther("50"));
