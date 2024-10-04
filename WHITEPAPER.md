@@ -41,7 +41,9 @@ The protocol also tracks **target shielding rate** at each update of **Shielding
 
 The protocol calculates the weighted average shielding rate, using the following formula:
 
-$$\text{Target Shielding Rate} = \frac{\sum_{i=1}^{n} (\text{reserve\_pool\_stake}_i \times \text{shielding\_rate}_i)}{\sum_{i=1}^{n} \text{reserve\_pool\_stake}_i}$$
+```math
+\text{Target Shielding Rate} = \frac{\sum_{i=1}^{n} (\text{reserve\_pool\_stake}_i \times \text{shielding\_rate}_i)}{\sum_{i=1}^{n} \text{reserve\_pool\_stake}_i}
+```
 
 At the time of opening the CDP position, regular users who do not want to be rate governors pay a fee equivalent to target shielding rate, to claim redemption protection for 1 year, or they get pro-rata protection based on the fee paid.
 
