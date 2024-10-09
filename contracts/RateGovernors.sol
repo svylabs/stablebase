@@ -5,6 +5,7 @@ contract RateGovernors {
     // Total stake and debt of all Rate Governors
     uint256 public totalStake;
     uint256 public totalDebt;
+    uint256 public totalCollateral;
 
     // Global cumulative variables for liquidation distribution
     uint256 public cumulativeDebtPerDebtUnit;
@@ -69,7 +70,8 @@ contract RateGovernors {
     // Function to assign debt to a Rate Governor
     function assignDebt(
         uint256 _id,
-        uint256 _amount
+        uint256 _amount,
+        uint256 _collateralAmount
     ) external updateGovernorBalances(_id) {
         require(_amount > 0, "Debt amount must be greater than zero");
 
@@ -77,7 +79,9 @@ contract RateGovernors {
 
         // Update debt amounts
         governor.debtAmount += _amount;
+        governor.collateralAmount += _collateralAmount;
         totalDebt += _amount;
+        totalCollateral += _collateralAmount;
 
         emit AssignDebt(_id, _amount);
     }
@@ -85,7 +89,8 @@ contract RateGovernors {
     // Function to reduce debt of a Rate Governor
     function reduceDebt(
         uint256 _id,
-        uint256 _amount
+        uint256 _amount,
+        uint256 _collateralAmount
     ) external updateGovernorBalances(_id) {
         RateGovernor storage governor = rateGovernors[_id];
         require(_amount > 0, "Amount must be greater than zero");
@@ -93,9 +98,11 @@ contract RateGovernors {
 
         // Update debt amounts
         governor.debtAmount -= _amount;
+        governor.collateralAmount -= _collateralAmount;
         totalDebt -= _amount;
+        totalCollateral -= _collateralAmount;
 
-        //emit ReduceDebt(_id);
+        emit ReduceDebt(_id, _amount);
     }
 
     // Function to distribute liquidated collateral and debt to Rate Governors
@@ -111,7 +118,8 @@ contract RateGovernors {
         }
 
         // Update totalDebt to include the distributed debt
-        totalDebt += _debtAmount;
+        //totalDebt += _debtAmount;
+        //totalCollateral += _collateralAmount;
 
         emit Distribute(_debtAmount, _collateralAmount);
     }
@@ -147,9 +155,11 @@ contract RateGovernors {
         // Update user's debt amount
         governor.debtAmount += pendingDebtIncrease;
         // Removed the line that adds pendingDebtIncrease to totalDebt to prevent double-counting
+        totalDebt += pendingDebtIncrease;
 
         // Update user's collateral amount
         governor.collateralAmount += pendingCollateralIncrease;
+        totalCollateral += pendingCollateralIncrease;
 
         // Update user's last cumulative snapshots
         governor.lastCumulativeDebtPerDebtUnit = cumulativeDebtPerDebtUnit;
