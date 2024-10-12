@@ -51,9 +51,9 @@ library SBUtils {
     ) internal pure returns (SBStructs.BorrowMode) {
         uint32 _mode = mode & 0x00000003;
         if (_mode == 0) {
-            return SBStructs.BorrowMode.MINT_WITH_PROTECTION;
+            return SBStructs.BorrowMode.NORMAL_BORROWING;
         } else if (_mode == 1) {
-            return SBStructs.BorrowMode.MINT_WITH_MANUAL_STABILITY;
+            return SBStructs.BorrowMode.RATE_GOVERNOR;
         } else if (_mode == 2) {
             return SBStructs.BorrowMode.BORROW_FROM_POOL;
         } else {
