@@ -99,7 +99,7 @@ contract StableBaseCDP is StableBase {
      * _borrowParams:
      * minimum: 36 bytes, maximum 68 bytes
      * bytes 0-3:
-     *     bit: 0,1 borrowMode: 00 - shieldingRate, 01 - reserveRatio
+     *     bit: 0,1 borrowMode: 00 - regularUser, 01 - rateGovernor
      *     bits 2-15: rate (either shieldingRate or reserveRatio)
      *     bit 16,17: 1 if target shielding rate is set, 0 otherwise
      *     bits 18-31: target shielding rate
@@ -139,16 +139,16 @@ contract StableBaseCDP is StableBase {
             "Borrow amount exceeds the maximum allowed"
         );
 
-        if (_borrowMode == SBStructs.BorrowMode.MINT_WITH_MANUAL_STABILITY) {
-            safe = handleBorrowReserveRatioSafes(
+        if (_borrowMode == SBStructs.BorrowMode.RATE_GOVERNOR) {
+            safe = handleBorrowAsRateGovernor(
                 _safeId,
                 safe,
                 _compressedRate,
                 _amount,
                 _borrowParams
             );
-        } else if (_borrowMode == SBStructs.BorrowMode.MINT_WITH_PROTECTION) {
-            safe = handleBorrowShieldedSafes(
+        } else if (_borrowMode == SBStructs.BorrowMode.NORMAL_BORROWING) {
+            safe = handleBorrowAsNormalUser(
                 _safeId,
                 safe,
                 _compressedRate,
@@ -239,7 +239,7 @@ contract StableBaseCDP is StableBase {
         uint256 _shieldingRate
     ) public {
         // Only the owner can update the shielding
-        SBStructs.Safe storage safe = safes[_safeId];
+        //SBStructs.Safe memory safe = safes[_safeId];
         require(
             _isApprovedOrOwner(msg.sender, _safeId),
             "Only the owner can update the shielding rate"

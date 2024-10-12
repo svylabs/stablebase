@@ -76,7 +76,7 @@ abstract contract StableBase is IStableBase, ERC721 {
         );
     }
 
-    function handleBorrowReserveRatioSafes(
+    function handleBorrowAsRateGovernor(
         uint256 _safeId,
         SBStructs.Safe memory safe,
         uint256 compressedRate,
@@ -131,7 +131,7 @@ abstract contract StableBase is IStableBase, ERC721 {
         return startTime + Math.toSeconds(_shieldingHours);
     }
 
-    function handleBorrowShieldedSafes(
+    function handleBorrowAsNormalUser(
         uint256 _safeId,
         SBStructs.Safe memory safe,
         uint256 compressedRate,
