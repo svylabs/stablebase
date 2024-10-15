@@ -22,16 +22,7 @@ contract RateGovernors is IRateGovernors {
     mapping(uint256 => IRateGovernors.RateGovernor) public rateGovernors;
 
     IDoublyLinkedList public rateGovernorsByReserveRatio;
-
     IDoublyLinkedList public rateGovernorsByTargetShieldingRate;
-
-    // Events
-    event Stake(uint256 indexed id, uint256 amount);
-    event Unstake(uint256 indexed id, uint256 amount);
-    event AssignDebt(uint256 indexed id, uint256 amount);
-    event ReduceDebt(uint256 indexed id, uint256 amount);
-    event Distribute(uint256 debtAmount, uint256 collateralAmount);
-    event UpdateRateGovernor(uint256 indexed id);
 
     constructor() {
         rateGovernorsByReserveRatio = new OrderedDoublyLinkedList();
@@ -208,4 +199,12 @@ contract RateGovernors is IRateGovernors {
         unstake(id, amount);
         return (true, amount);
     }
+
+    // Events
+    event Stake(uint256 indexed id, uint256 amount);
+    event Unstake(uint256 indexed id, uint256 amount);
+    event AssignDebt(uint256 indexed id, uint256 amount);
+    event ReduceDebt(uint256 indexed id, uint256 amount);
+    event Distribute(uint256 debtAmount, uint256 collateralAmount);
+    event UpdateRateGovernor(uint256 indexed id);
 }
