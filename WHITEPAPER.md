@@ -37,6 +37,16 @@ StableBase introduces a novel twist to the CDP mechanism by incorporating **0% i
 
 To open a CDP, users must choose either the Shielding Rate or the Reserve Ratio. The interplay between these two parameters controls the circulation of stablecoins and directly impacts price stability. Redemptions and liquidations are triggered based on these rates, ensuring that the protocol remains balanced.
 
+The protocol also tracks **target shielding rate** at each update of **Shielding Rate** by the rate governors based on the stake in reserve pool. Rate Governors can also update the shielding rate only once per day.
+
+The protocol calculates the weighted average shielding rate, using the following formula:
+
+```math
+\text{Target Shielding Rate} = \frac{\sum_{i=1}^{n} (\text{reserve\_pool\_stake}_i \times \text{shielding\_rate}_i)}{\sum_{i=1}^{n} \text{reserve\_pool\_stake}_i}
+```
+
+At the time of opening the CDP position, regular users who do not want to be rate governors pay a fee equivalent to target shielding rate, to claim redemption protection for 1 year, or they get pro-rata protection based on the fee paid.
+
 ---
 
 ## Liquidation Mechanisms

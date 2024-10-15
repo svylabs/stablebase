@@ -73,17 +73,17 @@ describe("StableBaseCDP", function () {
     expect(contractSnapshotAfterBorrow.targetShieldingRateList.head).to.equal(safeId);
     expect(contractSnapshotAfterBorrow.targetShieldingRateList.tail).to.equal(safeId);
 
-    const reserveRatioFromReservePoolStake = (contractSnapshotAfterBorrow.reservePool.stake * BigInt(10000) / contractSnapshotAfterBorrow.safe.borrowedAmount);
+    const reserveRatioFromReservePoolStake = (contractSnapshotAfterBorrow.rateGovernors.stake * BigInt(10000) / contractSnapshotAfterBorrow.safe.borrowedAmount);
     // 4. Check if the reserve ratio is updated correctly
     expect(contractSnapshotAfterBorrow.reserveRatioList.value.value).to.equal(reserveRatioFromReservePoolStake);
     expect(contractSnapshotAfterBorrow.reserveRatioList.head).to.equal(safeId);
     expect(contractSnapshotAfterBorrow.reserveRatioList.tail).to.equal(safeId);
 
     // 5. Check if the tokens equivalent to reserve ratio is added to the reserve pool.
-    expect(contractSnapshotAfterBorrow.reservePool.balance).to.equal(contractSnapshotBeforeBorrow.reservePool.balance + (borrowAmount * BigInt(5) / BigInt(100)));
+    expect(contractSnapshotAfterBorrow.rateGovernors.balance).to.equal(contractSnapshotBeforeBorrow.rateGovernors.balance + (borrowAmount * BigInt(5) / BigInt(100)));
 
     // 6. Check if the tokens are minted to the borrower's address
-    expect(contractSnapshotAfterBorrow.user.sbd).to.equal(contractSnapshotBeforeBorrow.user.sbd + borrowAmount - contractSnapshotAfterBorrow.reservePool.stake);
+    expect(contractSnapshotAfterBorrow.user.sbd).to.equal(contractSnapshotBeforeBorrow.user.sbd + borrowAmount - contractSnapshotAfterBorrow.rateGovernors.stake);
     // 2. Check if the reference shielding rate is correct
     expect((contractSnapshotAfterBorrow.referenceShieldingRate.weightedSum  * BigInt(100)) / contractSnapshotAfterBorrow.referenceShieldingRate.totalWeight).to.equal(800 * 100);
     
@@ -120,10 +120,10 @@ describe("StableBaseCDP", function () {
     // 3. Check if the target shielding rate is added  to the list correctly
     //const reserveRatioFromReservePoolStake = (contractSnapshotAfterBorrow.reservePool.stake * BigInt(10000) / contractSnapshotAfterBorrow.safe.borrowedAmount);
     // 4. Check if the reserve ratio is updated correctly
-    expect(contractSnapshotAfterBorrow.reservePool.stake).to.equal(0);
+    expect(contractSnapshotAfterBorrow.rateGovernors.stake).to.equal(0);
     
     // 5. Check if the tokens equivalent to reserve ratio is added to the reserve pool.
-    expect(contractSnapshotAfterBorrow.reservePool.balance).to.equal(contractSnapshotBeforeBorrow.reservePool.balance);
+    expect(contractSnapshotAfterBorrow.rateGovernors.balance).to.equal(contractSnapshotBeforeBorrow.rateGovernors.balance);
 
     // As the safe currently doesn't set any fee
     // 6. Check if the tokens are minted to the borrower's address

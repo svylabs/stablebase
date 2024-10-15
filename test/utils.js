@@ -19,12 +19,12 @@ async function takeODLLSnapshot(address, id) {
 async function takeContractSnapshots(stableBaseCDP, sbdToken, collateralToken, safeId, userdetails) {
     const snapshot = {};
     // 1. Take a snapshot of the reserve pool (stake for safeId, totalTokensInPool)
-    const reservePoolAddress = await stableBaseCDP.reservePool();
-    const reservePool = await ethers.getContractAt("ReservePool", reservePoolAddress);
-    const reservePoolSnapshot = await reservePool.getStake(safeId);
-    snapshot.reservePool = {
-        balance: await sbdToken.balanceOf(reservePoolAddress),
-        stake: reservePoolSnapshot
+    const rateGovernorsAddress = await stableBaseCDP.rateGovernors();
+    const rateGovernors = await ethers.getContractAt("RateGovernors", rateGovernorsAddress);
+    const rateGovernorsSnapshot = await rateGovernors.getStake(safeId);
+    snapshot.rateGovernors = {
+        balance: await sbdToken.balanceOf(rateGovernorsAddress),
+        stake: rateGovernorsSnapshot,
     };
 
     // 2. Take a snapshot of the target shielding rate list (head, tail, SafeId)

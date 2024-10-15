@@ -228,7 +228,7 @@ describe("StableBaseCDP", function () {
     // 6. No impact on target shielding rate
     expect(snapshotsAfterRedeem.safe1.targetShieldingRateList.value.value).to.equal(snapshotsBeforeRedeem.safe1.targetShieldingRateList.value.value);
     // 7. Reserve ratio of safe1 should have been updated
-    const reserveRatioFromReservePoolStake = (snapshotsAfterRedeem.safe1.reservePool.stake * BigInt(10000) / snapshotsAfterRedeem.safe1.safe.borrowedAmount);
+    const reserveRatioFromReservePoolStake = (snapshotsAfterRedeem.safe1.rateGovernors.stake * BigInt(10000) / snapshotsAfterRedeem.safe1.safe.borrowedAmount);
     expect(snapshotsAfterRedeem.safe1.reserveRatioList.value.value).to.equal(reserveRatioFromReservePoolStake);
   });
 
@@ -308,7 +308,7 @@ describe("StableBaseCDP", function () {
     expect(snapshotsAfterRedeem.safe2.safe.borrowedAmount).to.equal(snapshotsBeforeRedeem.safe2.safe.borrowedAmount - redeemAmount2);
     expect(snapshotsAfterRedeem.safe2.targetShieldingRateList.value.value).to.equal(100);
     // 9. Should have been removed from reserve ratio list
-    const reserveRatioFromReservePoolStake = (snapshotsAfterRedeem.safe2.reservePool.stake * BigInt(10000) / snapshotsAfterRedeem.safe2.safe.borrowedAmount);
+    const reserveRatioFromReservePoolStake = (snapshotsAfterRedeem.safe2.rateGovernors.stake * BigInt(10000) / snapshotsAfterRedeem.safe2.safe.borrowedAmount);
     expect(snapshotsAfterRedeem.safe2.reserveRatioList.value.value).to.equal(reserveRatioFromReservePoolStake);
 
     // Reference rate should have updated
@@ -405,7 +405,7 @@ describe("StableBaseCDP", function () {
     expect(snapshotsAfterRedeem.safe2.safe.borrowedAmount).to.equal(snapshotsBeforeRedeem.safe2.safe.borrowedAmount - redeemAmount2);
     expect(snapshotsAfterRedeem.safe2.targetShieldingRateList.value.value).to.equal(100);
     // 9. Should have been removed from reserve ratio list
-    const reserveRatioFromReservePoolStake = (snapshotsAfterRedeem.safe2.reservePool.stake * BigInt(10000) / snapshotsAfterRedeem.safe2.safe.borrowedAmount);
+    const reserveRatioFromReservePoolStake = (snapshotsAfterRedeem.safe2.rateGovernors.stake * BigInt(10000) / snapshotsAfterRedeem.safe2.safe.borrowedAmount);
     expect(snapshotsAfterRedeem.safe2.reserveRatioList.value.value).to.equal(reserveRatioFromReservePoolStake);
 
 
@@ -500,7 +500,7 @@ describe("StableBaseCDP", function () {
     // 5. Should have been removed from the target shielding rate list
     expect(snapshotsAfterRedeem.safe1.targetShieldingRateList.value.value).to.equal(450);
     // 6. Should have been removed from reserve ratio list
-    const reserveRatioFromReservePoolStake = (snapshotsAfterRedeem.safe1.reservePool.stake * BigInt(10000) / snapshotsAfterRedeem.safe1.safe.borrowedAmount);
+    const reserveRatioFromReservePoolStake = (snapshotsAfterRedeem.safe1.rateGovernors.stake * BigInt(10000) / snapshotsAfterRedeem.safe1.safe.borrowedAmount);
     expect(snapshotsAfterRedeem.safe1.reserveRatioList.value.value).to.equal(reserveRatioFromReservePoolStake);
 
 
