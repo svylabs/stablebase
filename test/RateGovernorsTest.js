@@ -65,7 +65,7 @@ describe("RateGovernors Contract - Reserve Ratio < 100% Scenario", function () {
 
       // Verify intermediate stake and total stake
       let governor1 = await rateGovernors.rateGovernors(1);
-      expect(governor1.stakeAmount).to.equal(300);
+      expect(governor1.reserveAmount).to.equal(300);
       expect(await rateGovernors.totalStake()).to.equal(900); // 400 + 400 + 200
 
       // **Second Distribution**
@@ -103,7 +103,7 @@ describe("RateGovernors Contract - Reserve Ratio < 100% Scenario", function () {
 
       // Verify intermediate stake and total stake
       let governor2 = await rateGovernors.rateGovernors(2);
-      expect(governor2.stakeAmount).to.equal(400);
+      expect(governor2.reserveAmount).to.equal(400);
       expect(await rateGovernors.totalStake()).to.equal(900); // 400 + 300 + 200
 
       // **Third Distribution**

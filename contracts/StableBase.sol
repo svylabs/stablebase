@@ -7,6 +7,8 @@ import "./SBDToken.sol";
 import "./Utilities.sol";
 import "./interfaces/IStableBase.sol";
 import "./interfaces/IReservePool.sol";
+import "./interfaces/IRateGovernors.sol";
+import "./library/Rate.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -14,6 +16,7 @@ abstract contract StableBase is IStableBase, ERC721 {
     uint256 internal originationFeeRateBasisPoints = 0; // start with 0% origination fee
     uint256 internal liquidationRatio = 110; // 110% liquidation ratio
     uint256 internal constant BASIS_POINTS_DIVISOR = 10000;
+    using RateLib for Math.Rate;
 
     IDoublyLinkedList public shieldedSafes;
     IDoublyLinkedList public orderedReserveRatios;
@@ -33,7 +36,7 @@ abstract contract StableBase is IStableBase, ERC721 {
 
     mapping(address => uint256) public shieldingRates;
 
-    address public reservePool;
+    address public rateGovernors;
 
     Math.Rate public referenceShieldingRate = Math.Rate(0, 0);
 
@@ -44,7 +47,7 @@ abstract contract StableBase is IStableBase, ERC721 {
     function updateTargetShieldingRate(
         uint256 _safeId,
         uint256 compressedRate,
-        IReservePool _reservePool,
+        IRateGovernors _rateGovernors,
         bytes calldata borrowParams
     ) internal {
         SBStructs.Safe storage safe = safes[_safeId];
@@ -69,10 +72,9 @@ abstract contract StableBase is IStableBase, ERC721 {
         );
 
         Math.Rate memory _target = referenceShieldingRate;
-        referenceShieldingRate = Math.add(
-            _target,
+        referenceShieldingRate = _target.add(
             _targetShieldingRate,
-            _reservePool.getStake(_safeId)
+            _rateGovernors.getStake(_safeId)
         );
     }
 
@@ -87,9 +89,9 @@ abstract contract StableBase is IStableBase, ERC721 {
         // require(msg.sender == currentSafe.owner, "Only the safe owner can borrow");
         // Calculate origination fee
         uint256 _reserveRatio = SBUtils.getRateAtPosition(compressedRate, 0);
-        uint256 _reservePoolDeposit = (amount * _reserveRatio) /
+        uint256 _reserveStakeDeposit = (amount * _reserveRatio) /
             BASIS_POINTS_DIVISOR;
-        uint _amountToBorrow = amount - _reservePoolDeposit;
+        uint _amountToBorrow = amount - _reserveStakeDeposit;
         safe.borrowedAmount += amount;
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amountToBorrow);
@@ -98,17 +100,17 @@ abstract contract StableBase is IStableBase, ERC721 {
         );
         uint256 _nearestSpot = uint256(bytes32(borrowParams[4:32]));
         // TODO: Mint to reserve pool
-        sbdToken.mint(reservePool, _reservePoolDeposit);
-        IReservePool _reservePool = IReservePool(reservePool);
-        _reservePool.addStake(_safeId, _reservePoolDeposit);
-        uint _newReserveRatio = ((_reservePool.getStake(_safeId) *
+        sbdToken.mint(rateGovernors, _reserveStakeDeposit);
+        IRateGovernors _rateGovernors = IRateGovernors(rateGovernors);
+        _rateGovernors.addStake(_safeId, _reserveStakeDeposit);
+        uint _newReserveRatio = ((_rateGovernors.getStake(_safeId) *
             BASIS_POINTS_DIVISOR) / safe.borrowedAmount);
         _orderedReserveRatios.upsert(_safeId, _newReserveRatio, _nearestSpot);
 
         updateTargetShieldingRate(
             _safeId,
             compressedRate,
-            _reservePool,
+            _rateGovernors,
             borrowParams
         );
         return safe;
@@ -333,7 +335,7 @@ abstract contract StableBase is IStableBase, ERC721 {
     ) internal {
         // remove stake from reserve pool
         // TODO: Returns the stake back to the user address
-        (, uint256 currentStake) = IReservePool(reservePool).removeStake(
+        (, uint256 currentStake) = IRateGovernors(rateGovernors).removeStake(
             _safeId
         );
         reserveRatioList.remove(_safeId);
@@ -370,8 +372,8 @@ abstract contract StableBase is IStableBase, ERC721 {
                 targetShieldingRateList
             );
         } else {
-            IReservePool _reservePool = IReservePool(reservePool);
-            uint256 stake = _reservePool.getStake(_safeId);
+            IRateGovernors _rateGovernors = IRateGovernors(rateGovernors);
+            uint256 stake = _rateGovernors.getStake(_safeId);
             // Find an appropriate spot to insert the safe after updating the reserve ratio
             uint256 _newReserveRatio = (stake * BASIS_POINTS_DIVISOR) /
                 (safe.borrowedAmount - amountToRedeem);
@@ -415,6 +417,7 @@ abstract contract StableBase is IStableBase, ERC721 {
     function _redeemSafesNonExpired(
         SBStructs.Redemption memory redemption
     ) internal returns (SBStructs.Redemption memory) {
+        // In the worst case, we will have to redeem these safes too.
         return redemption;
     }
 

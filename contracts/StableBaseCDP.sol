@@ -12,6 +12,7 @@ import "./library/OrderedDoublyLinkedList.sol";
 import "./interfaces/IDoublyLinkedList.sol";
 import "./interfaces/IReservePool.sol";
 import "./ReservePool.sol";
+import "./RateGovernors.sol";
 import "./StableBase.sol";
 
 contract StableBaseCDP is StableBase {
@@ -31,7 +32,7 @@ contract StableBaseCDP is StableBase {
         orderedTargetShieldedRates = IDoublyLinkedList(
             address(new OrderedDoublyLinkedList())
         );
-        reservePool = address(new ReservePool());
+        rateGovernors = address(new RateGovernors());
     }
 
     /**
@@ -316,7 +317,7 @@ contract StableBaseCDP is StableBase {
         uint256 nearestSpot = abi.decode(renewParams[0:32], (uint256));
         // Update the spot in the shieldedSafes list
         shieldedSafes.upsert(uint(_safeId), safe.shieldedUntil, nearestSpot);
-        // Distribute the fee
+        // TODO: Distribute the fee
     }
 
     function liquidate(uint256 _safeId) external {
