@@ -63,22 +63,4 @@ library Math {
     function toSeconds(uint256 hours_) internal pure returns (uint256) {
         return hours_ * 3600;
     }
-
-    function getRate(
-        uint256 _rate,
-        SBStructs.StabilityType stabilityType
-    ) internal pure returns (uint256, uint256) {
-        uint256 value = (_rate >> (32 * uint(stabilityType))) & 0xff;
-        return (value >> 1, value & 1);
-    }
-
-    function setRate(
-        uint256 _rate,
-        uint256 _newRate,
-        SBStructs.StabilityType stabilityType
-    ) internal pure returns (uint256) {
-        uint256 mask = 0xff << (32 * uint(stabilityType));
-        uint256 enabledRate = (_newRate << 1) | 1;
-        return (_rate & ~mask) | (enabledRate << (32 * uint(stabilityType)));
-    }
 }
