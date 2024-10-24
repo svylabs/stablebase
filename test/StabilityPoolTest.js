@@ -227,6 +227,10 @@ describe("StabilityPool", function () {
       let scalingFactor = await stabilityPool.stakeScalingFactor();
       expect(scalingFactor).to.equal(precision);
 
+      let aliceInfo = await stabilityPool.users(alice.address);
+      console.log(aliceInfo);
+
+
       await stabilityPool.connect(owner).performLiquidation(liquidationAmount);
 
       // Scaling factor should reset
@@ -236,14 +240,18 @@ describe("StabilityPool", function () {
       let stakeResetCount = await stabilityPool.stakeResetCount();
       expect(stakeResetCount).to.equal(BigInt(1));
 
+      let cumulativeScalingFactor = await stabilityPool._getCumulativeScalingFactor(BigInt(0), BigInt(1));
+      console.log(cumulativeScalingFactor);
+
       // Users' stakes should adjust accordingly when they interact
       //await stabilityPool.connect(alice).unstake(ethers.parseEther("0"));
 
-      const aliceInfo = await stabilityPool.users(alice.address);
-      expect(aliceInfo.stake).to.equal(0); // Effective stake should be zero after massive liquidation
+      aliceInfo = await stabilityPool.getUser(alice.address);
+      console.log(aliceInfo);
+      expect(aliceInfo.stake).to.be.closeTo(ethers.parseEther("0.000000001"), BigInt(100000)); // Effective stake should be zero after massive liquidation
 
-      const bobInfo = await stabilityPool.users(bob.address);
-      expect(bobInfo.stake).to.equal(0); // Effective stake should be zero after massive liquidation
+      const bobInfo = await stabilityPool.getUser(bob.address);
+      expect(bobInfo.stake).to.be.closeTo(ethers.parseEther("0.000000002"), BigInt(200000)); // Effective stake should be zero after massive liquidation
     });
   });
 

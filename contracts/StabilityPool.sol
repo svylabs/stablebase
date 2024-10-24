@@ -178,7 +178,6 @@ contract StabilityPool {
 
         if (newScalingFactor <= minimumScalingFactor) {
             // Update cumulative product scaling factors before reset
-            // Calculate the cumulative scaling factor up to the reset point
             cumulativeProductScalingFactors[stakeResetCount + 1] =
                 (cumulativeProductScalingFactors[stakeResetCount] *
                     newScalingFactor) /
@@ -217,24 +216,27 @@ contract StabilityPool {
     function _getCumulativeScalingFactor(
         uint256 fromReset,
         uint256 toReset
-    ) internal view returns (uint256) {
+    ) public view returns (uint256) {
         require(toReset >= fromReset, "Invalid reset counts");
 
-        uint256 numerator = cumulativeProductScalingFactors[toReset];
-        uint256 denominator = cumulativeProductScalingFactors[fromReset];
+        if (fromReset == toReset) {
+            return precision;
+        } else {
+            uint256 numerator = cumulativeProductScalingFactors[toReset];
+            uint256 denominator = cumulativeProductScalingFactors[fromReset];
 
-        return (numerator * precision) / denominator;
+            return (numerator * precision) / denominator;
+        }
     }
 
-    // Internal function to update user's stake based on scaling factors
     function _updateUserStake(address _user) internal {
         UserInfo storage user = users[_user];
 
         uint256 cumulativeScalingFactor = precision;
 
         if (user.stakeResetCount == stakeResetCount) {
-            // No resets have occurred since the user's last interaction
             if (user.scalingFactor != 0) {
+                // No resets have occurred since the user's last interaction
                 cumulativeScalingFactor =
                     (stakeScalingFactor * precision) /
                     user.scalingFactor;
@@ -249,6 +251,7 @@ contract StabilityPool {
 
         // Adjust user's stake
         user.stake = (user.stake * cumulativeScalingFactor) / precision;
+
         // Update user's scaling factor and reset count
         user.scalingFactor = stakeScalingFactor;
         user.stakeResetCount = stakeResetCount;
@@ -269,7 +272,7 @@ contract StabilityPool {
 
     // Internal function to get user's effective stake
     function getUserEffectiveStake(
-        UserInfo storage user
+        UserInfo memory user
     ) internal view returns (uint256) {
         if (user.stake == 0) {
             return 0;
