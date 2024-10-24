@@ -150,41 +150,6 @@ describe("StabilityPool", function () {
       await stabilityPool.connect(bob).stake(bobStake);
     });
 
-    it("should perform liquidation and reduce stakes proportionally", async function () {
-      const totalEffectiveStake = await stabilityPool.getTotalEffectiveStake();
-      expect(totalEffectiveStake).to.equal(ethers.parseEther("3000"));
-
-      const liquidationAmount = ethers.parseEther("900"); // 30% of total stake
-      const collateralAmount = ethers.parseEther("9"); // Mock debt contract returns 1 collateral for 900 debt
-      const tx = await owner.sendTransaction({
-        to: debtContract.target,
-        value: collateralAmount, // amount in wei
-      });
-  
-      // Wait for the transaction to be mined
-      await tx.wait();
-
-
-      await expect(stabilityPool.connect(owner).performLiquidation(liquidationAmount))
-        .to.emit(stabilityPool, "LiquidationPerformed")
-        .withArgs(liquidationAmount, collateralAmount); // Mock debt contract returns same amount as collateral
-
-      // Check updated stakes
-      const aliceInfo = await stabilityPool.users(alice.address);
-      const bobInfo = await stabilityPool.users(bob.address);
-
-      // Since we use scaling factors, we need to calculate effective stakes
-      const aliceEffectiveStake = aliceInfo.stake;
-      const bobEffectiveStake = bobInfo.stake;
-
-      // Expected stakes after 30% reduction
-      const aliceExpectedStake = ethers.parseEther("700"); // 1000 - 30% = 700
-      const bobExpectedStake = ethers.parseEther("1400"); // 2000 - 30% = 1400
-
-      expect(aliceEffectiveStake).to.be.closeTo(aliceExpectedStake, ethers.parseEther("0.0001"));
-      expect(bobEffectiveStake).to.be.closeTo(bobExpectedStake, ethers.parseEther("0.0001"));
-    });
-
     it("should perform liquidation, reduce stakes and distribute collateral proportionally", async function () {
       const liquidationAmount = ethers.parseEther("900"); // 30% of total stake
 
@@ -215,10 +180,9 @@ describe("StabilityPool", function () {
         .to.emit(stabilityPool, "CollateralClaimed")
         .withArgs(bob.address, bobPendingCollateral);
 
-
         // Check updated stakes
-      const aliceInfo = await stabilityPool.users(alice.address);
-      const bobInfo = await stabilityPool.users(bob.address);
+      const aliceInfo = await stabilityPool.getUser(alice.address);
+      const bobInfo = await stabilityPool.getUser(bob.address);
 
       // Since we use scaling factors, we need to calculate effective stakes
       const aliceEffectiveStake = aliceInfo.stake;
@@ -228,8 +192,8 @@ describe("StabilityPool", function () {
       const aliceExpectedStake = ethers.parseEther("700"); // 1000 - 30% = 700
       const bobExpectedStake = ethers.parseEther("1400"); // 2000 - 30% = 1400
 
-      expect(aliceEffectiveStake).to.be.closeTo(aliceExpectedStake, ethers.parseEther("0.0001"));
       expect(bobEffectiveStake).to.be.closeTo(bobExpectedStake, ethers.parseEther("0.0001"));
+      expect(aliceEffectiveStake).to.be.closeTo(aliceExpectedStake, ethers.parseEther("0.0001"));
     });
 
   });
