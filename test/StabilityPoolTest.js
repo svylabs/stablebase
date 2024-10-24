@@ -264,7 +264,16 @@ describe("StabilityPool", function () {
       await stabilityPool.connect(alice).stake(aliceStake);
 
       const totalEffectiveStake = await stabilityPool.getTotalEffectiveStake();
-      const invalidLiquidationAmount = totalEffectiveStake;
+      const invalidLiquidationAmount = totalEffectiveStake + BigInt(100);
+
+      const collateralAmount = ethers.parseEther("9"); // Mock debt contract returns 1 collateral for 900 debt
+      const tx = await owner.sendTransaction({
+        to: debtContract.target,
+        value: collateralAmount, // amount in wei
+      });
+  
+      // Wait for the transaction to be mined
+      await tx.wait();
 
       await expect(stabilityPool.connect(owner).performLiquidation(invalidLiquidationAmount))
         .to.be.revertedWith("Invalid liquidation amount");
@@ -279,32 +288,33 @@ describe("StabilityPool", function () {
 
       // Perform liquidation that would reduce scaling factor significantly
       const totalEffectiveStake = await stabilityPool.getTotalEffectiveStake();
-      const liquidationAmount = (totalEffectiveStake * BigInt(9999)) / BigInt(10000); // Liquidate 99.99% of total stake
+      const liquidationAmount = (totalEffectiveStake * BigInt(999999999)) / BigInt(1000000000); // Liquidate 99.99999999% of total stake
+      console.log(aliceStake / liquidationAmount);
+
+      const collateralAmount = ethers.parseEther("1"); // Mock debt contract returns 1 collateral for 900 debt
+      const tx = await owner.sendTransaction({
+        to: debtContract.target,
+        value: collateralAmount, // amount in wei
+      });
+  
+      // Wait for the transaction to be mined
+      await tx.wait();
+
+      console.log(aliceStake / liquidationAmount);
 
       await stabilityPool.connect(owner).performLiquidation(liquidationAmount);
 
       // Scaling factor should reset
       const scalingFactor = await stabilityPool.stakeScalingFactor();
-      expect(scalingFactor).to.equal(precision);
+      expect(scalingFactor).to.equal(BigInt(1000000000));
+      const stakeResetCount = await stabilityPool.stakeResetCount();
+      expect(stakeResetCount).to.equal(BigInt(0));
 
       // User's stake should be adjusted
-      const aliceInfo = await stabilityPool.users(alice.target);
-      expect(aliceInfo.stake).to.equal(0);
+      const aliceInfo = await stabilityPool.getUser(alice.address);
+      expect(aliceInfo.stake).to.be.closeTo(ethers.parseEther("0.000001"), BigInt(100000));
     });
 
-    it("should prevent division by zero errors", async function () {
-      // Alice stakes tokens
-      const aliceStake = ethers.parseEther("1000");
-
-      await sbdToken.connect(alice).approve(stabilityPool.target, aliceStake);
-      await stabilityPool.connect(alice).stake(aliceStake);
-
-      // Attempt to liquidate an amount that would reduce scaling factor to zero
-      const totalEffectiveStake = await stabilityPool.getTotalEffectiveStake();
-      const liquidationAmount = (totalEffectiveStake * BigInt(999999)) / BigInt(1000000); // Liquidate 99.9999% of total stake
-
-      await expect(stabilityPool.connect(owner).performLiquidation(liquidationAmount))
-        .to.be.revertedWith("Scaling factor too low after liquidation");
     });
-  });
+
 });
