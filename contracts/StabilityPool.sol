@@ -209,6 +209,9 @@ contract StabilityPool {
             (collateralReceived * precision) /
             totalStakedRaw;
 
+        // TODO: Check if this is needed or not
+        //totalStakedRaw -= _amount;
+
         emit LiquidationPerformed(_amount, collateralReceived);
     }
 
