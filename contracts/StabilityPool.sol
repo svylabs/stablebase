@@ -19,7 +19,7 @@ contract StabilityPool {
 
     uint256 public stakeScalingFactor; // Current scaling factor
     uint256 public stakeResetCount; // Number of times scaling factor has been reset
-    uint256 public cumulativeProductScalingFactors; // Cumulative product of scaling factors at each reset
+    mapping(uint256 => uint256) public cumulativeProductScalingFactors; // Cumulative product of scaling factors at each reset
 
     uint256 public constant precision = 1e18; // Precision for fixed-point calculations
     uint256 public constant minimumScalingFactor = 1e6; // Minimum scaling factor before reset
@@ -52,6 +52,7 @@ contract StabilityPool {
         stakingToken = IERC20(_stakingToken);
         debtContract = IDebtContract(_debtContract);
         stakeScalingFactor = precision; // Initialize scaling factor to 1 (scaled by precision)
+        cumulativeProductScalingFactors[0] = precision; // Initialize cumulative product of scaling factors
         stakeResetCount = 0;
     }
 
@@ -153,6 +154,15 @@ contract StabilityPool {
     }
 
     // Perform liquidation using staked tokens
+    // S[i][0] = Initial stake of a user i
+    // T[0] = Initial total stake
+    // A[n] = Amount to be liquidated at 'n' th liquidation
+    // S[i][n] = S[i][n-1] * (1 - A[n] / T[n-1])
+    // T[n] = T[n-1] - A[n]
+    // S[i][n] = S[i][0] * (1 - A[1] / T[0]) * (1 - A[2] / T[1]) * ... * (1 - A[n] / T[n-1])
+    // Scaling factor = (1 - A[1] / T[0]) * ... * (1  - A[n] / T[n-1])
+
+    // Perform liquidation using staked tokens
     function performLiquidation(uint256 _amount) external {
         uint256 totalEffectiveStake = getTotalEffectiveStake();
         require(
@@ -160,25 +170,32 @@ contract StabilityPool {
             "Invalid liquidation amount"
         );
 
-        // S[i][0] = Initial stake of a user i
-        // T[0] = Initial total stake
-        // A[n] = Amount to be liquidated at 'n' th liquidation
-        // S[i][n] = S[i][n-1] * (1 - A[n] / T[n-1])
-        // T[n] = T[n-1] - A[n]
-        // S[i][n] = S[i][0] * (1 - A[1] / T[0]) * (1 - A[2] / T[1]) * ... * (1 - A[n] / T[n-1])
-        // Scaling factor = (1 - A[1] / T[0]) * ... * (1  - A[n] / T[n-1])
+        uint256 previousScalingFactor = stakeScalingFactor;
         uint256 scalingFactorReduction = (_amount * precision) /
             totalEffectiveStake;
         uint256 newScalingFactor = stakeScalingFactor -
             ((stakeScalingFactor * scalingFactorReduction) / precision);
 
-        // Check if scaling factor falls below minimum
-        if (newScalingFactor < minimumScalingFactor) {
-            // Reset scaling factor
-            stakeScalingFactor = precision;
+        if (newScalingFactor <= minimumScalingFactor) {
+            // Update cumulative product scaling factors before reset
+            // Calculate the cumulative scaling factor up to the reset point
+            cumulativeProductScalingFactors[stakeResetCount + 1] =
+                (cumulativeProductScalingFactors[stakeResetCount] *
+                    newScalingFactor) /
+                previousScalingFactor;
+
+            // Increment reset count and reset scaling factor
             stakeResetCount += 1;
+            stakeScalingFactor = precision;
+
             emit ScalingFactorReset(stakeScalingFactor);
         } else {
+            // Update cumulative product scaling factors
+            cumulativeProductScalingFactors[stakeResetCount] =
+                (cumulativeProductScalingFactors[stakeResetCount] *
+                    newScalingFactor) /
+                previousScalingFactor;
+
             // Update scaling factor
             stakeScalingFactor = newScalingFactor;
         }
@@ -196,23 +213,47 @@ contract StabilityPool {
         emit LiquidationPerformed(_amount, collateralReceived);
     }
 
+    // Internal function to get cumulative scaling factor between two reset counts
+    function _getCumulativeScalingFactor(
+        uint256 fromReset,
+        uint256 toReset
+    ) internal view returns (uint256) {
+        require(toReset >= fromReset, "Invalid reset counts");
+
+        uint256 numerator = cumulativeProductScalingFactors[toReset];
+        uint256 denominator = cumulativeProductScalingFactors[fromReset];
+
+        return (numerator * precision) / denominator;
+    }
+
     // Internal function to update user's stake based on scaling factors
     function _updateUserStake(address _user) internal {
         UserInfo storage user = users[_user];
-        uint256 effectiveScalingFactor = precision;
-        if (user.scalingFactor != 0) {
-            // No resets have occurred since the user's last interaction
-            effectiveScalingFactor =
-                (stakeScalingFactor * precision) /
-                user.scalingFactor;
+
+        if (user.stake > 0) {
+            uint256 cumulativeScalingFactor = precision;
+
+            if (user.stakeResetCount == stakeResetCount) {
+                // No resets have occurred since the user's last interaction
+                if (user.scalingFactor != 0) {
+                    cumulativeScalingFactor =
+                        (stakeScalingFactor * precision) /
+                        user.scalingFactor;
+                }
+            } else {
+                // Resets have occurred
+                cumulativeScalingFactor = _getCumulativeScalingFactor(
+                    user.stakeResetCount,
+                    stakeResetCount
+                );
+            }
+
+            // Adjust user's stake
+            user.stake = (user.stake * cumulativeScalingFactor) / precision;
+            // Update user's scaling factor and reset count
+            user.scalingFactor = stakeScalingFactor;
+            user.stakeResetCount = stakeResetCount;
         }
-
-        // Adjust user's stake
-        user.stake = (user.stake * effectiveScalingFactor) / precision;
-
-        // Update user's scaling factor and reset count
-        user.scalingFactor = stakeScalingFactor;
-        user.stakeResetCount = stakeResetCount;
     }
 
     // Internal function to update user rewards
@@ -228,19 +269,32 @@ contract StabilityPool {
         }
     }
 
+    // Internal function to get user's effective stake
     function getUserEffectiveStake(
         UserInfo storage user
     ) internal view returns (uint256) {
-        uint256 effectiveScalingFactor = precision;
         if (user.stake == 0) {
             return 0;
         }
-        if (user.scalingFactor != precision) {
-            effectiveScalingFactor =
-                (stakeScalingFactor * precision) /
-                user.scalingFactor;
+
+        uint256 cumulativeScalingFactor = 1e18;
+
+        if (user.stakeResetCount == stakeResetCount) {
+            // No resets have occurred since the user's last interaction
+            if (user.scalingFactor != 0) {
+                cumulativeScalingFactor =
+                    (stakeScalingFactor * precision) /
+                    user.scalingFactor;
+            }
+        } else {
+            // Resets have occurred
+            cumulativeScalingFactor = _getCumulativeScalingFactor(
+                user.stakeResetCount,
+                stakeResetCount
+            );
         }
-        return (user.stake * effectiveScalingFactor) / precision;
+
+        return (user.stake * cumulativeScalingFactor) / precision;
     }
 
     function userPendingReward(

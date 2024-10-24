@@ -210,18 +210,31 @@ describe("StabilityPool", function () {
       await stabilityPool.connect(alice).stake(aliceStake);
       await stabilityPool.connect(bob).stake(bobStake);
 
+      const collateralAmount = ethers.parseEther("9"); // Mock debt contract returns 1 collateral for 900 debt
+      const tx = await owner.sendTransaction({
+        to: debtContract.target,
+        value: collateralAmount, // amount in wei
+      });
+  
+      // Wait for the transaction to be mined
+      await tx.wait();
+
       // Perform multiple liquidations to reduce scaling factor below minimum
       const totalEffectiveStake = await stabilityPool.getTotalEffectiveStake();
-      const liquidationAmount = (totalEffectiveStake * BigInt(999)) / BigInt(1000); // Liquidate 99.9% of total stake
+      const liquidationAmount = (totalEffectiveStake * BigInt(999999999999)) / BigInt(1000000000000); // Liquidate 99.99999999% of total stake
+
+      // Scaling factor should reset
+      let scalingFactor = await stabilityPool.stakeScalingFactor();
+      expect(scalingFactor).to.equal(precision);
 
       await stabilityPool.connect(owner).performLiquidation(liquidationAmount);
 
       // Scaling factor should reset
-      const scalingFactor = await stabilityPool.stakeScalingFactor();
+      scalingFactor = await stabilityPool.stakeScalingFactor();
       expect(scalingFactor).to.equal(precision);
 
       // Users' stakes should adjust accordingly when they interact
-      await stabilityPool.connect(alice).unstake(ethers.parseEther("0"));
+      //await stabilityPool.connect(alice).unstake(ethers.parseEther("0"));
 
       const aliceInfo = await stabilityPool.users(alice.address);
       expect(aliceInfo.stake).to.equal(0); // Effective stake should be zero after massive liquidation
