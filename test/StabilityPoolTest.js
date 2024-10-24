@@ -233,6 +233,9 @@ describe("StabilityPool", function () {
       scalingFactor = await stabilityPool.stakeScalingFactor();
       expect(scalingFactor).to.equal(precision);
 
+      let stakeResetCount = await stabilityPool.stakeResetCount();
+      expect(stakeResetCount).to.equal(BigInt(1));
+
       // Users' stakes should adjust accordingly when they interact
       //await stabilityPool.connect(alice).unstake(ethers.parseEther("0"));
 

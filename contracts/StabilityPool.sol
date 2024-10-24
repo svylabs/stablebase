@@ -148,7 +148,7 @@ contract StabilityPool {
 
         stakingToken.transferFrom(msg.sender, address(this), _amount);
 
-        totalRewardPerToken += (_amount * precision) / totalEffectiveStake;
+        totalRewardPerToken += (_amount * precision) / totalStakedRaw;
 
         emit RewardAdded(_amount);
     }
@@ -208,7 +208,7 @@ contract StabilityPool {
         // Update total collateral per token
         totalCollateralPerToken +=
             (collateralReceived * precision) /
-            totalEffectiveStake;
+            totalStakedRaw;
 
         emit LiquidationPerformed(_amount, collateralReceived);
     }
@@ -230,30 +230,28 @@ contract StabilityPool {
     function _updateUserStake(address _user) internal {
         UserInfo storage user = users[_user];
 
-        if (user.stake > 0) {
-            uint256 cumulativeScalingFactor = precision;
+        uint256 cumulativeScalingFactor = precision;
 
-            if (user.stakeResetCount == stakeResetCount) {
-                // No resets have occurred since the user's last interaction
-                if (user.scalingFactor != 0) {
-                    cumulativeScalingFactor =
-                        (stakeScalingFactor * precision) /
-                        user.scalingFactor;
-                }
-            } else {
-                // Resets have occurred
-                cumulativeScalingFactor = _getCumulativeScalingFactor(
-                    user.stakeResetCount,
-                    stakeResetCount
-                );
+        if (user.stakeResetCount == stakeResetCount) {
+            // No resets have occurred since the user's last interaction
+            if (user.scalingFactor != 0) {
+                cumulativeScalingFactor =
+                    (stakeScalingFactor * precision) /
+                    user.scalingFactor;
             }
-
-            // Adjust user's stake
-            user.stake = (user.stake * cumulativeScalingFactor) / precision;
-            // Update user's scaling factor and reset count
-            user.scalingFactor = stakeScalingFactor;
-            user.stakeResetCount = stakeResetCount;
+        } else {
+            // Resets have occurred
+            cumulativeScalingFactor = _getCumulativeScalingFactor(
+                user.stakeResetCount,
+                stakeResetCount
+            );
         }
+
+        // Adjust user's stake
+        user.stake = (user.stake * cumulativeScalingFactor) / precision;
+        // Update user's scaling factor and reset count
+        user.scalingFactor = stakeScalingFactor;
+        user.stakeResetCount = stakeResetCount;
     }
 
     // Internal function to update user rewards
@@ -302,8 +300,7 @@ contract StabilityPool {
     ) internal view returns (uint256) {
         uint256 userEffectiveStake = getUserEffectiveStake(user);
         return
-            ((userEffectiveStake * totalRewardPerToken) / precision) -
-            user.rewardDebt;
+            ((user.stake * totalRewardPerToken) / precision) - user.rewardDebt;
     }
 
     function userPendingCollateral(
@@ -311,31 +308,28 @@ contract StabilityPool {
     ) internal view returns (uint256) {
         uint256 userEffectiveStake = getUserEffectiveStake(user);
         return
-            ((userEffectiveStake * totalCollateralPerToken) / precision) -
+            ((user.stake * totalCollateralPerToken) / precision) -
             user.collateralDebt;
     }
 
     function userPendingReward(address _user) public view returns (uint256) {
         UserInfo storage user = users[_user];
-        uint256 userEffectiveStake = getUserEffectiveStake(user);
-        return
-            ((userEffectiveStake * totalRewardPerToken) / precision) -
-            user.rewardDebt;
+        return userPendingReward(user);
     }
 
     function userPendingCollateral(
         address _user
     ) public view returns (uint256) {
         UserInfo storage user = users[_user];
-        uint256 userEffectiveStake = getUserEffectiveStake(user);
-        return
-            ((userEffectiveStake * totalCollateralPerToken) / precision) -
-            user.collateralDebt;
+        return userPendingCollateral(user);
     }
 
     // Get total effective stake after scaling
     function getTotalEffectiveStake() public view returns (uint256) {
-        return (totalStakedRaw * stakeScalingFactor) / precision;
+        uint256 cumulativeScalingFactor = cumulativeProductScalingFactors[
+            stakeResetCount
+        ];
+        return (totalStakedRaw * cumulativeScalingFactor) / precision;
     }
 
     function getUser(
