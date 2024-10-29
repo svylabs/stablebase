@@ -119,11 +119,12 @@ contract StabilityPool is IStabilityPool {
         if (sbrRewardDistributionStatus == SBRRewardDistribution.STARTED) {
             uint256 timeElapsed = block.timestamp -
                 lastSBRRewardDistributedTime;
-            if (block.timestamp >= sbrRewardDistributionEndTime) {
+            if (block.timestamp > sbrRewardDistributionEndTime) {
                 sbrRewardDistributionStatus = SBRRewardDistribution.ENDED;
                 timeElapsed =
                     sbrRewardDistributionEndTime -
-                    lastSBRRewardDistributedTime;
+                    lastSBRRewardDistributedTime +
+                    1;
             }
             uint256 sbrReward = timeElapsed * sbrDistributionRate;
             if (totalStakedRaw > 0) {

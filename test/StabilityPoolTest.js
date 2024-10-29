@@ -504,6 +504,8 @@ describe("StabilityPool", function () {
         expect(aliceInfo.stake).to.equal(userAStake);
         totalStakedFromContract = await stabilityPool.totalStakedRaw();
         expect(totalStakedFromContract).to.equal(totalStaked);
+
+        await time.increase(86400 * 100);
     
         // === Step 9: Bob unstakes ===
         await expect(stabilityPool.connect(bob).unstake(userBStake))
@@ -777,7 +779,7 @@ pool.liquidate(Uint.unscaled(500), Uint.unscaled(1))
           console.log(await sbrToken.balanceOf(user.address));
         }
         //await new Promise(resolve => setTimeout(resolve, 10000));
-        time.increase(86400 * 365 + 20);
+        await time.increase(86400 * 365 + 20);
     
         // === Step 17: Perform another liquidation ===
         const liquidateAmount2 = ethers.parseUnits("333", 18);
