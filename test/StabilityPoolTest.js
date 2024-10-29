@@ -13,7 +13,7 @@ describe("StabilityPool", function () {
     [owner, alice, bob, charlie, david, ...addrs] = await ethers.getSigners();
 
     const SBDToken = await ethers.getContractFactory("SBDToken");
-    sbdToken = await SBDToken.deploy("SBD Token", "SBD");
+    sbdToken = await SBDToken.deploy();
     await sbdToken.waitForDeployment();
 
     // Deploy mock tokens

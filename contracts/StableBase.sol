@@ -8,11 +8,10 @@ import "./interfaces/IDoublyLinkedList.sol";
 import "./SBDToken.sol";
 import "./Utilities.sol";
 import "./interfaces/IStableBase.sol";
-import "./interfaces/IReservePool.sol";
-import "./interfaces/IRateGovernors.sol";
 import "./library/Rate.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "./interfaces/IStabilityPool.sol";
+import "./interfaces/ISBRStaking.sol";
 
 abstract contract StableBase is IStableBase, ERC721 {
     uint256 internal originationFeeRateBasisPoints = 0; // start with 0% origination fee
@@ -34,14 +33,26 @@ abstract contract StableBase is IStableBase, ERC721 {
 
     SBStructs.Mode public mode = SBStructs.Mode.BOOTSTRAP;
 
-    mapping(address => SBStructs.WhitelistedToken) public whitelistedTokens;
-
     SBDToken public sbdToken;
 
-    address public feeDistributor;
+    IPriceOracle public priceOracle;
 
-    constructor(address _sbdToken) ERC721("NFTSafe", "NFTS") {
+    IStabilityPool public stabilityPool;
+
+    ISBRStaking public sbrTokenStaking;
+
+    uint256 public constant SBR_FEE_REWARD = 20;
+
+    constructor(
+        address _sbdToken,
+        address _priceOracle,
+        address _stabilityPool,
+        address _sbrTokenStaking
+    ) ERC721("StableBase Safe", "SBSafe") {
         sbdToken = SBDToken(_sbdToken);
+        priceOracle = IPriceOracle(_priceOracle);
+        stabilityPool = IStabilityPool(_stabilityPool);
+        sbrTokenStaking = ISBRStaking(_sbrTokenStaking);
     }
 
     function handleBorrow(
@@ -106,8 +117,8 @@ abstract contract StableBase is IStableBase, ERC721 {
 
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amountToBorrow);
-        // TODO: mint fee
-        sbdToken.mint(feeDistributor, _shieldingFee);
+
+        distributeFees(_shieldingFee, true);
 
         return safe;
     }
@@ -175,16 +186,6 @@ abstract contract StableBase is IStableBase, ERC721 {
         return redemption;
     }
 
-    // Utility function to get collateral value
-    function _getCollateralPrice(
-        SBStructs.Safe memory safe
-    ) internal view returns (uint256) {
-        IPriceOracle priceOracle = IPriceOracle(
-            whitelistedTokens[safe.token].priceOracle
-        );
-        return priceOracle.getPrice();
-    }
-
     function _redeemToUser(SBStructs.Redemption memory redemption) internal {
         for (uint256 i = 0; i < redemption.tokensList.length; i++) {
             SBStructs.RedemptionToken memory token = redemption.tokensList[i];
@@ -199,7 +200,7 @@ abstract contract StableBase is IStableBase, ERC721 {
         SBStructs.Redemption memory redemption
     ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
         //uint256 amountInCollateral = amountToRedeem /
-        uint256 amountInCollateral = amountToRedeem / _getCollateralPrice(safe);
+        uint256 amountInCollateral = amountToRedeem / priceOracle.getPrice();
         safe.depositedAmount -= amountInCollateral;
         bool found = false;
         for (uint256 i = 0; i < redemption.tokensCount; i++) {
@@ -223,5 +224,17 @@ abstract contract StableBase is IStableBase, ERC721 {
         redemption.redeemedAmount += amountToRedeem;
         safes[_safeId] = safe;
         return (safe, redemption);
+    }
+
+    function distributeFees(uint fee, bool mint) internal {
+        if (mint) {
+            sbdToken.mint(address(this), fee);
+        }
+        uint256 sbrStakersFee = (fee * SBR_FEE_REWARD) / 100;
+        uint256 stabilityPoolFee = fee - sbrStakersFee;
+        sbdToken.approve(address(stabilityPool), stabilityPoolFee);
+        stabilityPool.addReward(stabilityPoolFee);
+        sbdToken.approve(address(sbrTokenStaking), sbrStakersFee);
+        sbrTokenStaking.addReward(sbrStakersFee);
     }
 }

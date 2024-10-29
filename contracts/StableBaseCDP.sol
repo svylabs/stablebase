@@ -2,27 +2,21 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import "./Structures.sol";
 import "./Utilities.sol";
 import "./SBDToken.sol";
-import "./dependencies/price-oracle/MockPriceOracle.sol";
-import "./interfaces/IPriceOracle.sol";
 import "./library/OrderedDoublyLinkedList.sol";
 import "./interfaces/IDoublyLinkedList.sol";
-import "./interfaces/IReservePool.sol";
-import "./ReservePool.sol";
-import "./RateGovernors.sol";
 import "./StableBase.sol";
 
 contract StableBaseCDP is StableBase {
-    constructor(address _sbdToken) StableBase(_sbdToken) {
+    constructor(
+        address _sbdToken,
+        address _priceOracle,
+        address _stabilityPool,
+        address _sbrTokenStaking
+    ) StableBase(_sbdToken, _priceOracle, _stabilityPool, _sbrTokenStaking) {
         // Initialize the contract
-        whitelistedTokens[address(0)] = SBStructs.WhitelistedToken({
-            priceOracle: address(new MockPriceOracle()),
-            collateralRatio: 110
-        });
-        sbdToken = SBDToken(_sbdToken);
         safesOrderedForLiquidation = new OrderedDoublyLinkedList();
         safesOrderedForRedemption = new OrderedDoublyLinkedList();
     }
@@ -101,9 +95,6 @@ contract StableBaseCDP is StableBase {
         SBStructs.Safe memory safe = safes[_safeId];
         require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
         require(safe.depositedAmount > 0, "Safe does not exist");
-        IPriceOracle priceOracle = IPriceOracle(
-            whitelistedTokens[safe.token].priceOracle
-        );
 
         // Fetch the price of the collateral from the oracle
         uint256 price = priceOracle.getPrice();
@@ -148,7 +139,7 @@ contract StableBaseCDP is StableBase {
             amount <= _safe.borrowedAmount,
             "Repayment amount exceeds borrowed amount"
         );
-        sbdToken.burnFrom(msg.sender, amount);
+        sbdToken.burn(msg.sender, amount);
         _safe.borrowedAmount -= amount;
         uint256 _newRatio = ((_safe.borrowedAmount * PRECISION) /
             _safe.depositedAmount);
@@ -171,9 +162,6 @@ contract StableBaseCDP is StableBase {
 
         if (safe.borrowedAmount > 0) {
             // Calculate the price of the collateral
-            IPriceOracle priceOracle = IPriceOracle(
-                whitelistedTokens[safe.token].priceOracle
-            );
             uint256 price = priceOracle.getPrice();
 
             // Calculate the maximum withdrawal amount that maintains the liquidation ratio
@@ -207,7 +195,7 @@ contract StableBaseCDP is StableBase {
 
     function redeem(uint256 _amount, bytes calldata redemptionParams) external {
         require(_amount > 0, "Amount must be greater than 0");
-        sbdToken.burnFrom(msg.sender, _amount);
+        sbdToken.burn(msg.sender, _amount);
         SBStructs.RedemptionToken[10] memory tokensList;
         SBStructs.Redemption memory _redemption = SBStructs.Redemption({
             requestedAmount: _amount,
@@ -228,7 +216,7 @@ contract StableBaseCDP is StableBase {
         return;
     }
 
-    function topUpProtection(
+    function topup(
         uint256 safeId,
         uint256 feeRate,
         uint256 nearestSpotInRedemptionQueue
@@ -248,7 +236,7 @@ contract StableBaseCDP is StableBase {
             safe.paidFeePercentage,
             nearestSpotInRedemptionQueue
         );
-        // TODO: Distribute the fee
+        distributeFees(fee, false);
     }
 
     function liquidate(uint256 _safeId) external {
@@ -260,7 +248,7 @@ contract StableBaseCDP is StableBase {
             "Cannot liquidate a Safe with no borrowed amount"
         );
 
-        uint256 collateralPrice = _getCollateralPrice(safe);
+        uint256 collateralPrice = priceOracle.getPrice();
         uint256 collateralValue = safe.depositedAmount * collateralPrice;
         uint256 collateralRatio = (collateralValue * 10000) /
             safe.borrowedAmount;
@@ -271,7 +259,7 @@ contract StableBaseCDP is StableBase {
         );
 
         // Burn the borrowed amount from the user
-        sbdToken.burnFrom(msg.sender, safe.borrowedAmount);
+        sbdToken.burn(msg.sender, safe.borrowedAmount);
 
         // TODO: cleanup the safe from reservePool, ShieldedSafes, and targetShieldedRates, reservePool etc..
 
