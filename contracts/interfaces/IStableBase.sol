@@ -1,3 +1,5 @@
+pragma solidity ^0.8.20;
+
 interface IStableBase {
     event OpenSafe(
         uint256 indexed safeId,
@@ -18,18 +20,30 @@ interface IStableBase {
 
     function borrow(
         uint256 _safeId,
-        uint256 amount,
-        bytes calldata borrowParams
+        uint256 _amount,
+        uint256 _shieldingRate,
+        uint256 _nearestSpotInLiquidationQueue,
+        uint256 _nearestSpotInRedemptionQueue
     ) external;
 
-    function repay(uint256 _safeId, uint256 amount) external;
+    function repay(
+        uint256 safeId,
+        uint256 amount,
+        uint256 nearestSpotInLiquidationQueue
+    ) external;
 
-    function redeem(uint256 amount, bytes calldata redemptionParams) external;
+    function withdrawCollateral(
+        uint256 safeId,
+        uint256 amount,
+        uint256 nearestSpotInLiquidationQueue
+    ) external;
 
-    function renewSafe(
-        uint256 _safeId,
+    function redeem(uint256 _amount, bytes calldata redemptionParams) external;
+
+    function topUpProtection(
+        uint256 safeId,
         uint256 feeRate,
-        bytes calldata renewParams
+        uint256 nearestSpotInRedemptionQueue
     ) external;
 
     function liquidate(uint256 _safeId) external;

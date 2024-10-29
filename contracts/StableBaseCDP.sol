@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
@@ -23,16 +23,8 @@ contract StableBaseCDP is StableBase {
             collateralRatio: 110
         });
         sbdToken = SBDToken(_sbdToken);
-        shieldedSafes = IDoublyLinkedList(
-            address(new OrderedDoublyLinkedList())
-        );
-        orderedReserveRatios = IDoublyLinkedList(
-            address(new OrderedDoublyLinkedList())
-        );
-        orderedTargetShieldedRates = IDoublyLinkedList(
-            address(new OrderedDoublyLinkedList())
-        );
-        rateGovernors = address(new RateGovernors());
+        safesOrderedForLiquidation = new OrderedDoublyLinkedList();
+        safesOrderedForRedemption = new OrderedDoublyLinkedList();
     }
 
     /**
@@ -57,8 +49,9 @@ contract StableBaseCDP is StableBase {
             token: _token,
             depositedAmount: _amount,
             borrowedAmount: 0,
-            rates: 0,
-            shieldedUntil: 0
+            paidFeePercentage: 0,
+            totalFeePaid: 0,
+            discountedFee: 0
         });
         safes[_safeId] = safe;
 
@@ -97,32 +90,17 @@ contract StableBaseCDP is StableBase {
     /**
      * Borrow stablecoins from the protocol
      *
-     * _borrowParams:
-     * minimum: 36 bytes, maximum 68 bytes
-     * bytes 0-3:
-     *     bit: 0,1 borrowMode: 00 - regularUser, 01 - rateGovernor
-     *     bits 2-15: rate (either shieldingRate or reserveRatio)
-     *     bit 16,17: 1 if target shielding rate is set, 0 otherwise
-     *     bits 18-31: target shielding rate
-     * bytes 4-35: Nearest Spot in either shieldedSafes or orderedReserveRatiosList list
-     * bytes 36-67: If exists, is always the nearest spot in the orderedTargetShieldedRatesList
-     *
      */
     function borrow(
         uint256 _safeId,
         uint256 _amount,
-        bytes calldata _borrowParams
+        uint256 _shieldingRate,
+        uint256 _nearestSpotInLiquidationQueue,
+        uint256 _nearestSpotInRedemptionQueue
     ) external {
         SBStructs.Safe memory safe = safes[_safeId];
         require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
         require(safe.depositedAmount > 0, "Safe does not exist");
-        bytes4 _rateByte = bytes4(_borrowParams[0:4]);
-        uint32 _compressedRate = uint32(_rateByte);
-        safe.rates = _compressedRate;
-        SBStructs.BorrowMode _borrowMode = SBUtils.getBorrowMode(
-            _compressedRate
-        );
-
         IPriceOracle priceOracle = IPriceOracle(
             whitelistedTokens[safe.token].priceOracle
         );
@@ -140,25 +118,14 @@ contract StableBaseCDP is StableBase {
             "Borrow amount exceeds the maximum allowed"
         );
 
-        if (_borrowMode == SBStructs.BorrowMode.RATE_GOVERNOR) {
-            safe = handleBorrowAsRateGovernor(
-                _safeId,
-                safe,
-                _compressedRate,
-                _amount,
-                _borrowParams
-            );
-        } else if (_borrowMode == SBStructs.BorrowMode.NORMAL_BORROWING) {
-            safe = handleBorrowAsNormalUser(
-                _safeId,
-                safe,
-                _compressedRate,
-                _amount,
-                _borrowParams
-            );
-        } else if (_borrowMode == SBStructs.BorrowMode.BORROW_FROM_POOL) {
-            // TODO: Implement borrow from pool
-        }
+        safe = handleBorrow(
+            _safeId,
+            safe,
+            _amount,
+            _shieldingRate,
+            _nearestSpotInLiquidationQueue,
+            _nearestSpotInRedemptionQueue
+        );
         safes[_safeId] = safe;
 
         // Emit the Borrow event
@@ -166,40 +133,40 @@ contract StableBaseCDP is StableBase {
     }
 
     // Repay function
-    function repay(uint256 _safeId, uint256 _amount) external {
-        SBStructs.Safe storage safe = safes[_safeId];
-        require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
-        require(safe.borrowedAmount > 0, "No borrowed amount to repay");
+    function repay(
+        uint256 safeId,
+        uint256 amount,
+        uint256 nearestSpotInLiquidationQueue
+    ) external {
+        SBStructs.Safe storage _safe = safes[safeId];
+        require(_isApprovedOrOwner(msg.sender, safeId), "Unauthorized");
+        require(_safe.borrowedAmount > 0, "No borrowed amount to repay");
+        require(sbdToken.balanceOf(msg.sender) >= amount, "Insufficient SBD");
 
         // Check if the repayment amount is valid
         require(
-            _amount <= safe.borrowedAmount,
+            amount <= _safe.borrowedAmount,
             "Repayment amount exceeds borrowed amount"
         );
-
-        // Calculate the origination fee (assuming it's a percentage of the borrowed amount)
-        uint256 originationFee = (safe.borrowedAmount *
-            originationFeeRateBasisPoints) / BASIS_POINTS_DIVISOR;
-
-        // Burn SBD tokens from the user to repay the borrowed amount
-        sbdToken.burnFrom(msg.sender, _amount + originationFee);
-
-        // Update the Safe's borrowed amount and origination fee paid
-        safe.borrowedAmount -= _amount;
-        // safe.originationFeePaid += originationFee;
-
-        // Check if the borrowed amount is fully repaid
-        if (safe.borrowedAmount == 0) {
-            // Reset the borrowed amount and origination fee paid
-            safe.borrowedAmount = 0;
-            // safe.originationFeePaid = 0;
-        }
+        sbdToken.burnFrom(msg.sender, amount);
+        _safe.borrowedAmount -= amount;
+        uint256 _newRatio = ((_safe.borrowedAmount * PRECISION) /
+            _safe.depositedAmount);
+        safesOrderedForLiquidation.upsert(
+            safeId,
+            _newRatio,
+            nearestSpotInLiquidationQueue
+        );
     }
 
     // Withdraw collateral function
-    function withdrawCollateral(uint256 _safeId, uint256 _amount) external {
-        SBStructs.Safe storage safe = safes[_safeId];
-        require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
+    function withdrawCollateral(
+        uint256 safeId,
+        uint256 amount,
+        uint256 nearestSpotInLiquidationQueue
+    ) external {
+        SBStructs.Safe storage safe = safes[safeId];
+        require(_isApprovedOrOwner(msg.sender, safeId), "Unauthorized");
         require(safe.depositedAmount > 0, "No collateral to withdraw");
 
         if (safe.borrowedAmount > 0) {
@@ -213,54 +180,28 @@ contract StableBaseCDP is StableBase {
             uint256 maxWithdrawal = safe.depositedAmount -
                 (safe.borrowedAmount * liquidationRatio) /
                 (price * 100);
-            require(_amount <= maxWithdrawal, "Insufficient collateral");
+            require(amount <= maxWithdrawal, "Insufficient collateral");
 
             // Check if the remaining collateral is sufficient to cover the borrowed amount after withdrawal
             require(
-                ((safe.depositedAmount - _amount) * price * 100) /
+                ((safe.depositedAmount - amount) * price * 100) /
                     safe.borrowedAmount >=
                     liquidationRatio,
                 "Insufficient collateral after withdrawal"
             );
         } else {
             // If there's no borrowed amount, ensure the withdrawal does not exceed deposited collateral
-            require(_amount <= safe.depositedAmount, "Insufficient collateral");
+            require(amount <= safe.depositedAmount, "Insufficient collateral");
         }
 
         // Withdraw ETH or ERC20 token using SBUtils library
-        SBUtils.withdrawEthOrToken(safe.token, msg.sender, _amount);
+        SBUtils.withdrawEthOrToken(safe.token, msg.sender, amount);
 
         // Update the Safe's deposited amount
-        safe.depositedAmount -= _amount;
-    }
-
-    function renewProtection(
-        uint256 _safeId,
-        address _safe,
-        uint256 _shieldingRate
-    ) public {
-        // Only the owner can update the shielding
-        //SBStructs.Safe memory safe = safes[_safeId];
-        require(
-            _isApprovedOrOwner(msg.sender, _safeId),
-            "Only the owner can update the shielding rate"
-        );
-        // Update the shielding rate for the safe
-        shieldingRates[_safe] = _shieldingRate;
+        safe.depositedAmount -= amount;
     }
 
     event SafeShielded(uint256 safeId, address owner, uint256 shieldingUntil);
-
-    function extendProtectionUntil(
-        uint256 _safeId,
-        uint256 _shieldingUntil
-    ) public {
-        SBStructs.Safe storage safe = safes[_safeId];
-        require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
-        safe.shieldedUntil = _shieldingUntil;
-        IDoublyLinkedList(shieldedSafes).upsert(uint(_safeId), 0, 0);
-        emit SafeShielded(_safeId, msg.sender, _shieldingUntil);
-    }
 
     // Function to redeem SBD tokens for the underlying collateral
 
@@ -268,7 +209,7 @@ contract StableBaseCDP is StableBase {
         require(_amount > 0, "Amount must be greater than 0");
         sbdToken.burnFrom(msg.sender, _amount);
         SBStructs.RedemptionToken[10] memory tokensList;
-        SBStructs.Redemption memory redemption = SBStructs.Redemption({
+        SBStructs.Redemption memory _redemption = SBStructs.Redemption({
             requestedAmount: _amount,
             redeemedAmount: 0,
             tokensList: tokensList,
@@ -276,47 +217,37 @@ contract StableBaseCDP is StableBase {
             processedSpots: 0
         });
 
-        redemption = _redeemExpiredSafes(redemption);
-
-        IDoublyLinkedList reserveRatioList = IDoublyLinkedList(
-            orderedReserveRatios
-        );
-        IDoublyLinkedList targetShieldedRateList = IDoublyLinkedList(
-            orderedTargetShieldedRates
-        );
-        redemption = _redeemSafesByTargetShieldingRate(
-            redemption,
+        _redemption = _redeemSafes(
+            _redemption,
             redemptionParams,
-            reserveRatioList,
-            targetShieldedRateList
+            safesOrderedForRedemption,
+            safesOrderedForLiquidation
         );
-        redemption = _redeemSafesByReserveRatio(
-            redemption,
-            redemptionParams,
-            reserveRatioList,
-            targetShieldedRateList
-        );
-        // A redemption should always happen.
-        redemption = _redeemSafesNonExpired(redemption);
-
-        _redeemToUser(redemption);
+        _redeemToUser(_redemption);
         // Return a success status
         return;
     }
 
-    function renewSafe(
-        uint256 _safeId,
+    function topUpProtection(
+        uint256 safeId,
         uint256 feeRate,
-        bytes calldata renewParams
+        uint256 nearestSpotInRedemptionQueue
     ) external {
         //TODO:  Check if the required fee is paid
-        SBStructs.Safe storage safe = safes[_safeId];
-        require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
-        safe.shieldedUntil = _getShieldingTime(feeRate, block.timestamp);
-        safes[_safeId] = safe;
-        uint256 nearestSpot = abi.decode(renewParams[0:32], (uint256));
+        require(feeRate > 0, "Fee rate must be greater than 0");
+        uint256 balance = sbdToken.balanceOf(msg.sender);
+        uint256 fee = (feeRate * safes[safeId].borrowedAmount) /
+            BASIS_POINTS_DIVISOR;
+        require(balance >= fee, "Insufficient SBD");
+        SBStructs.Safe storage safe = safes[safeId];
+        require(_isApprovedOrOwner(msg.sender, safeId), "Unauthorized");
         // Update the spot in the shieldedSafes list
-        shieldedSafes.upsert(uint(_safeId), safe.shieldedUntil, nearestSpot);
+        safe.paidFeePercentage += feeRate;
+        safesOrderedForRedemption.upsert(
+            safeId,
+            safe.paidFeePercentage,
+            nearestSpotInRedemptionQueue
+        );
         // TODO: Distribute the fee
     }
 
@@ -351,6 +282,7 @@ contract StableBaseCDP is StableBase {
             safe.depositedAmount
         );
         // TODO: Add liquidation fee
+        // TODO: Add an event
 
         // Remove the Safe from the mapping
         delete safes[_safeId];

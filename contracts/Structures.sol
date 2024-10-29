@@ -8,8 +8,9 @@ library SBStructs {
         address token;
         uint256 depositedAmount;
         uint256 borrowedAmount;
-        uint256 rates;
-        uint256 shieldedUntil;
+        uint256 paidFeePercentage;
+        uint256 totalFeePaid;
+        uint256 discountedFee; // Used only for accounting purpose, and not for actual calculations
     }
 
     struct WhitelistedToken {
@@ -22,22 +23,9 @@ library SBStructs {
         NORMAL
     }
 
-    enum BorrowMode {
-        NORMAL_BORROWING, // 00 - shielding rate
-        RATE_GOVERNOR, // 01 - reserve ratio
-        BORROW_FROM_POOL // 10
-    }
-
-    enum StabilityType {
-        SHIELDING_RATE,
-        RESERVE_RATIO,
-        TARGET_SHIELDING_RATE
-    }
-
     struct GlobalVars {
         uint256 totalMintedSBD;
         Math.Rate referenceOriginationFeeRate;
-        Math.Rate referenceReserveRatio;
     }
 
     struct Redemption {

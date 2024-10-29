@@ -46,21 +46,6 @@ library SBUtils {
         }
     }
 
-    function getBorrowMode(
-        uint32 mode
-    ) internal pure returns (SBStructs.BorrowMode) {
-        uint32 _mode = mode & 0x00000003;
-        if (_mode == 0) {
-            return SBStructs.BorrowMode.NORMAL_BORROWING;
-        } else if (_mode == 1) {
-            return SBStructs.BorrowMode.RATE_GOVERNOR;
-        } else if (_mode == 2) {
-            return SBStructs.BorrowMode.BORROW_FROM_POOL;
-        } else {
-            revert("Invalid borrow mode");
-        }
-    }
-
     /**
      * @dev Get the rate at a specific position in the compressed rate
      *
