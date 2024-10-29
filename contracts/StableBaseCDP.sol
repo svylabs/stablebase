@@ -189,20 +189,16 @@ contract StableBaseCDP is StableBase {
         safe.depositedAmount -= amount;
     }
 
-    event SafeShielded(uint256 safeId, address owner, uint256 shieldingUntil);
-
     // Function to redeem SBD tokens for the underlying collateral
 
     function redeem(uint256 _amount, bytes calldata redemptionParams) external {
         require(_amount > 0, "Amount must be greater than 0");
         sbdToken.burn(msg.sender, _amount);
-        SBStructs.RedemptionToken[10] memory tokensList;
         SBStructs.Redemption memory _redemption = SBStructs.Redemption({
             requestedAmount: _amount,
             redeemedAmount: 0,
-            tokensList: tokensList,
-            tokensCount: 0,
-            processedSpots: 0
+            processedSpots: 0,
+            collateralAmount: 0
         });
 
         _redemption = _redeemSafes(

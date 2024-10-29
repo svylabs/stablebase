@@ -4,6 +4,10 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IStabilityPool.sol";
 
+interface IMintableToken is IERC20 {
+    function mint(address to, uint256 amount) external;
+}
+
 contract StabilityPool is IStabilityPool {
     IERC20 public stakingToken; // Token that users stake and receive rewards in
     address public debtContract; // External contract to liquidate debt
@@ -16,8 +20,36 @@ contract StabilityPool is IStabilityPool {
     uint256 public stakeResetCount; // Number of times scaling factor has been reset
     mapping(uint256 => uint256) public cumulativeProductScalingFactors; // Cumulative product of scaling factors at each reset
 
+    // Maintaining a separate mapping for sbrRewardSnapshots instead of in userInfo to avoid potential gas costs later on
+    mapping(address => uint256) public sbrRewardSnapshots;
+    uint256 public totalSbrRewardPerToken = 0;
+
     uint256 public constant precision = 1e18; // Precision for fixed-point calculations
     uint256 public constant minimumScalingFactor = 1e6; // Minimum scaling factor before reset
+
+    uint256 public sbrRewardDistributionEndTime = 0;
+    uint256 public lastSBRRewardDistributedTime = 0;
+    enum SBRRewardDistribution {
+        NOT_STARTED,
+        STARTED,
+        ENDED
+    }
+    SBRRewardDistribution public sbrRewardDistributionStatus =
+        SBRRewardDistribution.NOT_STARTED;
+
+    /**
+       Distribute SBR reward to early users for 1 year, beginning from first person that stakes SBR.
+       After 1 year, distribute SBR reward to all users.
+       Total supply: 365 * 24 * 60 * 60 = 31536000
+       31536000 / 365 = 864000 SBR per day
+       864000 / 24 = 3600 SBR per hour
+       3600 / 60 = 60 SBR per minute
+       60 / 60 = 1 SBR per second
+    */
+    uint256 public sbrDistributionRate = 1e18; // 1 SBR per second
+    IMintableToken public sbrToken;
+    event SBRRewardsAdded(uint256 rewardAmount, uint256 totalRewardPerToken);
+    event SBRRewardClaimed(address indexed user, uint256 rewardAmount);
 
     mapping(address => UserInfo) public users;
 
@@ -26,12 +58,17 @@ contract StabilityPool is IStabilityPool {
         _;
     }
 
-    constructor(address _stakingToken, address _debtContract) {
+    constructor(
+        address _stakingToken,
+        address _debtContract,
+        address _sbrToken
+    ) {
         stakingToken = IERC20(_stakingToken);
         debtContract = _debtContract;
         stakeScalingFactor = precision; // Initialize scaling factor to 1 (scaled by precision)
         cumulativeProductScalingFactors[0] = precision; // Initialize cumulative product of scaling factors
         stakeResetCount = 0;
+        sbrToken = IMintableToken(_sbrToken);
     }
 
     receive() external payable {
@@ -70,8 +107,53 @@ contract StabilityPool is IStabilityPool {
 
     function _claim(UserInfo storage user) internal {
         (uint256 reward, uint256 collateral) = _updateRewards(user);
+        if (sbrRewardDistributionStatus != SBRRewardDistribution.ENDED) {
+            _addSBRRewards();
+        }
+        _claimSBRTokens(user);
         _updateUserStake(user);
         emit RewardClaimed(msg.sender, reward, collateral);
+    }
+
+    function _addSBRRewards() internal {
+        if (sbrRewardDistributionStatus == SBRRewardDistribution.STARTED) {
+            uint256 timeElapsed = block.timestamp -
+                lastSBRRewardDistributedTime;
+            if (block.timestamp >= sbrRewardDistributionEndTime) {
+                sbrRewardDistributionStatus = SBRRewardDistribution.ENDED;
+                timeElapsed =
+                    sbrRewardDistributionEndTime -
+                    lastSBRRewardDistributedTime;
+            }
+            uint256 sbrReward = timeElapsed * sbrDistributionRate;
+            if (totalStakedRaw > 0) {
+                totalSbrRewardPerToken +=
+                    ((sbrReward * stakeScalingFactor * precision) /
+                        totalStakedRaw) /
+                    precision;
+                emit SBRRewardsAdded(sbrReward, totalSbrRewardPerToken);
+            }
+            lastSBRRewardDistributedTime = block.timestamp;
+        } else if (
+            sbrRewardDistributionStatus == SBRRewardDistribution.NOT_STARTED
+        ) {
+            lastSBRRewardDistributedTime = block.timestamp;
+            sbrRewardDistributionEndTime = block.timestamp + 365 days;
+            sbrRewardDistributionStatus = SBRRewardDistribution.STARTED;
+        }
+    }
+
+    function _claimSBRTokens(UserInfo storage user) internal {
+        if (user.cumulativeProductScalingFactor != 0) {
+            uint256 totalSBRRewards = ((((totalSbrRewardPerToken -
+                sbrRewardSnapshots[msg.sender]) * user.stake) * precision) /
+                user.cumulativeProductScalingFactor) / precision;
+            if (totalSBRRewards > 0) {
+                sbrToken.mint(msg.sender, totalSBRRewards);
+                emit SBRRewardClaimed(msg.sender, totalSBRRewards);
+            }
+        }
+        sbrRewardSnapshots[msg.sender] = totalSbrRewardPerToken;
     }
 
     // Claim accumulated rewards
@@ -90,6 +172,10 @@ contract StabilityPool is IStabilityPool {
         totalRewardPerToken +=
             ((_amount * stakeScalingFactor * precision) / totalStakedRaw) /
             precision;
+
+        if (sbrRewardDistributionStatus != SBRRewardDistribution.ENDED) {
+            _addSBRRewards();
+        }
 
         emit RewardAdded(_amount);
     }

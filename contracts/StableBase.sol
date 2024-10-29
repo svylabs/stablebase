@@ -14,7 +14,6 @@ import "./interfaces/IStabilityPool.sol";
 import "./interfaces/ISBRStaking.sol";
 
 abstract contract StableBase is IStableBase, ERC721 {
-    uint256 internal originationFeeRateBasisPoints = 0; // start with 0% origination fee
     uint256 internal liquidationRatio = 110; // 110% liquidation ratio
     uint256 internal constant BASIS_POINTS_DIVISOR = 10000;
     uint256
@@ -41,7 +40,9 @@ abstract contract StableBase is IStableBase, ERC721 {
 
     ISBRStaking public sbrTokenStaking;
 
-    uint256 public constant SBR_FEE_REWARD = 20;
+    uint256 public constant SBR_FEE_REWARD = 10; // 10% of the fee goes to SBR Stakers
+
+    uint256 public constant REDEMPTION_LIQUIDATION_FEE = 75; // 0.5%;
 
     constructor(
         address _sbdToken,
@@ -187,10 +188,12 @@ abstract contract StableBase is IStableBase, ERC721 {
     }
 
     function _redeemToUser(SBStructs.Redemption memory redemption) internal {
-        for (uint256 i = 0; i < redemption.tokensList.length; i++) {
-            SBStructs.RedemptionToken memory token = redemption.tokensList[i];
-            SBUtils.withdrawEthOrToken(token.token, msg.sender, token.amount);
-        }
+        // TODO: Distribute fees to SBR Stakers
+        uint256 fee = (redemption.collateralAmount *
+            REDEMPTION_LIQUIDATION_FEE) / BASIS_POINTS_DIVISOR;
+        payable(address(sbrTokenStaking)).transfer(fee);
+        sbrTokenStaking.addCollateralReward(fee);
+        payable(msg.sender).transfer(redemption.collateralAmount);
     }
 
     function redeemSafe(
@@ -202,26 +205,13 @@ abstract contract StableBase is IStableBase, ERC721 {
         //uint256 amountInCollateral = amountToRedeem /
         uint256 amountInCollateral = amountToRedeem / priceOracle.getPrice();
         safe.depositedAmount -= amountInCollateral;
-        bool found = false;
-        for (uint256 i = 0; i < redemption.tokensCount; i++) {
-            if (redemption.tokensList[i].token == safe.token) {
-                redemption.tokensList[i].amount += amountInCollateral;
-                found = true;
-            }
-        }
-        if (!found) {
-            redemption.tokensList[redemption.tokensCount] = SBStructs
-                .RedemptionToken({
-                    token: safe.token,
-                    amount: amountInCollateral
-                });
-            redemption.tokensCount++;
-        }
         safe.borrowedAmount -= amountToRedeem;
+        redemption.collateralAmount += amountInCollateral;
+        redemption.redeemedAmount += amountToRedeem;
         if (safe.borrowedAmount == 0) {
             // TODO: SEE WHAT TO DO WITH THE SAFE
+            safesOrderedForRedemption.remove(_safeId);
         }
-        redemption.redeemedAmount += amountToRedeem;
         safes[_safeId] = safe;
         return (safe, redemption);
     }

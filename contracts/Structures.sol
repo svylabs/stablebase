@@ -31,9 +31,8 @@ library SBStructs {
     struct Redemption {
         uint256 requestedAmount;
         uint256 redeemedAmount;
-        RedemptionToken[10] tokensList;
-        uint256 tokensCount;
         uint256 processedSpots;
+        uint256 collateralAmount;
     }
 
     struct RedemptionToken {
