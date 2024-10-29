@@ -2,8 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./interfaces/IStabilityPool.sol";
 
-contract StabilityPool {
+contract StabilityPool is IStabilityPool {
     IERC20 public stakingToken; // Token that users stake and receive rewards in
     address public debtContract; // External contract to liquidate debt
 
@@ -18,32 +19,7 @@ contract StabilityPool {
     uint256 public constant precision = 1e18; // Precision for fixed-point calculations
     uint256 public constant minimumScalingFactor = 1e6; // Minimum scaling factor before reset
 
-    // User data structure
-    struct UserInfo {
-        uint256 stake; // User's raw stake amount
-        uint256 rewardSnapshot; // Rewards already paid out to the user
-        uint256 collateralSnapshot; // Collateral already paid out to the user
-        uint256 cumulativeProductScalingFactor; // User's scaling factor at last update
-    }
-
     mapping(address => UserInfo) public users;
-
-    // Events
-    event Staked(address indexed user, uint256 amount);
-    event Unstaked(address indexed user, uint256 amount);
-    event RewardAdded(uint256 amount);
-    event RewardClaimed(
-        address indexed user,
-        uint256 amount,
-        uint256 collateral
-    );
-    event CollateralClaimed(address indexed user, uint256 amount);
-    event LiquidationPerformed(
-        uint256 amountStaked,
-        uint256 collateralReceived
-    );
-    event ScalingFactorReset(uint256 newScalingFactor);
-    event Received(address sender, uint256 amount);
 
     modifier onlyDebtContract() {
         require(msg.sender == debtContract, "Caller is not the debt contract");
@@ -111,7 +87,9 @@ contract StabilityPool {
         //require(totalEffectiveStake > 0, "No staked tokens");
         stakingToken.transferFrom(msg.sender, address(this), _amount);
 
-        totalRewardPerToken += (_amount * stakeScalingFactor) / totalStakedRaw;
+        totalRewardPerToken +=
+            ((_amount * stakeScalingFactor * precision) / totalStakedRaw) /
+            precision;
 
         emit RewardAdded(_amount);
     }
@@ -126,10 +104,8 @@ contract StabilityPool {
     // Scaling factor = (1 - A[1] / T[0]) * ... * (1  - A[n] / T[n-1])
 
     // Perform liquidation using staked tokens
-    function performLiquidation(
-        uint256 amount,
-        uint256 collateral
-    ) external onlyDebtContract {
+    function performLiquidation(uint256 amount, uint256 collateral) external {
+        require(msg.sender == debtContract, "Caller is not the debt contract");
         //uint256 totalEffectiveStake = getTotalEffectiveStake();
         require(
             amount > 0 && amount <= totalStakedRaw,
@@ -194,10 +170,9 @@ contract StabilityPool {
     function _updateUserStake(UserInfo storage user) internal {
         // Adjust user's stake
         // TODO: Check if this is needed or not
-        if (user.stake != 0 && user.cumulativeProductScalingFactor != 0) {
-            user.stake =
-                (user.stake * stakeScalingFactor) /
-                user.cumulativeProductScalingFactor;
+        if (user.cumulativeProductScalingFactor != 0) {
+            user.stake = ((((user.stake * stakeScalingFactor) * precision) /
+                user.cumulativeProductScalingFactor) / precision);
         }
 
         // Update user's scaling factor and reset count
@@ -208,11 +183,10 @@ contract StabilityPool {
     function _updateRewards(
         UserInfo storage user
     ) internal returns (uint256 pendingReward, uint256 pendingCollateral) {
-        if (user.stake == 0) {
-            return (0, 0);
+        if (user.cumulativeProductScalingFactor != 0) {
+            pendingReward = userPendingReward(user);
+            pendingCollateral = userPendingCollateral(user);
         }
-        pendingReward = userPendingReward(user);
-        pendingCollateral = userPendingCollateral(user);
         if (pendingReward != 0) {
             stakingToken.transfer(msg.sender, pendingReward);
         }
@@ -228,16 +202,17 @@ contract StabilityPool {
         UserInfo storage user
     ) internal view returns (uint256) {
         return
-            ((totalRewardPerToken - user.rewardSnapshot) * user.stake) /
-            user.cumulativeProductScalingFactor;
+            ((((totalRewardPerToken - user.rewardSnapshot) * user.stake) *
+                precision) / user.cumulativeProductScalingFactor) / precision;
     }
 
     function userPendingCollateral(
         UserInfo storage user
     ) internal view returns (uint256) {
         return
-            ((totalCollateralPerToken - user.collateralSnapshot) * user.stake) /
-            user.cumulativeProductScalingFactor;
+            ((((totalCollateralPerToken - user.collateralSnapshot) *
+                user.stake) * precision) /
+                user.cumulativeProductScalingFactor) / precision;
     }
 
     function userPendingReward(address _user) public view returns (uint256) {
@@ -256,15 +231,17 @@ contract StabilityPool {
         UserInfo storage user
     ) internal view returns (uint256) {
         return
-            (user.stake * stakeScalingFactor) /
-            user.cumulativeProductScalingFactor;
+            (((user.stake * stakeScalingFactor) * precision) /
+                user.cumulativeProductScalingFactor) / precision;
     }
 
     function getUser(
         address _user
     ) public view returns (UserInfo memory userInfo) {
         UserInfo storage user = users[_user];
-        uint256 userEffectiveStake = getUserEffectiveStake(user);
-        userInfo.stake = userEffectiveStake;
+        if (user.cumulativeProductScalingFactor != 0) {
+            uint256 userEffectiveStake = getUserEffectiveStake(user);
+            userInfo.stake = userEffectiveStake;
+        }
     }
 }
