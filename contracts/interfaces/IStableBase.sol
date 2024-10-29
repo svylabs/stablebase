@@ -40,7 +40,7 @@ interface IStableBase {
 
     function redeem(uint256 _amount, bytes calldata redemptionParams) external;
 
-    function topUpProtection(
+    function topup(
         uint256 safeId,
         uint256 feeRate,
         uint256 nearestSpotInRedemptionQueue

@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract SBDToken is ERC20 {
+contract SBRToken is ERC20 {
     address public minter;
 
     // Optional: Variable to track total burned tokens
@@ -12,7 +12,7 @@ contract SBDToken is ERC20 {
     // Event for burning tokens
     event Burn(address indexed from, uint256 amount);
 
-    constructor() ERC20("StableBase USD", "SBD") {
+    constructor() ERC20("StableBase Revenue", "SBR") {
         minter = msg.sender;
     }
 

@@ -1,9 +1,12 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { time } = require('@nomicfoundation/hardhat-network-helpers');
+
+const start = Date.now();
 
 describe("StabilityPool", function () {
   let StabilityPool, stabilityPool;
-  let MockERC20, sbdToken, collateralToken;
+  let MockERC20, sbdToken, sbrToken, collateralToken;
   let MockDebtContract, debtContract;
   let owner, alice, bob, charlie, david;
   const precision = BigInt("1" + "0".repeat(18));
@@ -13,8 +16,12 @@ describe("StabilityPool", function () {
     [owner, alice, bob, charlie, david, ...addrs] = await ethers.getSigners();
 
     const SBDToken = await ethers.getContractFactory("SBDToken");
-    sbdToken = await SBDToken.deploy("SBD Token", "SBD");
+    sbdToken = await SBDToken.deploy();
     await sbdToken.waitForDeployment();
+
+    const SBRToken = await ethers.getContractFactory("SBRToken");
+    sbrToken = await SBDToken.deploy();
+    await sbrToken.waitForDeployment();
 
     // Deploy mock tokens
     //MockERC20 = await ethers.getContractFactory("SBDToken");
@@ -32,8 +39,11 @@ describe("StabilityPool", function () {
     stabilityPool = await StabilityPool.deploy(
       sbdToken.target,
       owner.address,
+      sbrToken.target
     );
     await stabilityPool.waitForDeployment();
+
+    sbrToken.connect(owner).setMinter(stabilityPool.target);
 
     await debtContract.connect(owner).setPool(stabilityPool.target);
 
@@ -327,6 +337,8 @@ describe("StabilityPool", function () {
 
     describe("Complex test case", async function() {
       it("Should execute the test sequence and check intermediary results", async function () {
+        console.log(await time.latest());
+        const startTime = await time.latest();
         // Keep track of total staked for calculations
         let totalStaked = ethers.parseEther("0");
     
@@ -363,6 +375,7 @@ describe("StabilityPool", function () {
         const userAStake = ethers.parseUnits("1000", 18);
         const userBStake = ethers.parseUnits("1000", 18);
         const userCStake = ethers.parseUnits("1000", 18);
+        const midTime = await time.latest();
     
         // === Step 1: Alice stakes ===
         await expect(stabilityPool.connect(alice).stake(userAStake))
@@ -491,6 +504,8 @@ describe("StabilityPool", function () {
         expect(aliceInfo.stake).to.equal(userAStake);
         totalStakedFromContract = await stabilityPool.totalStakedRaw();
         expect(totalStakedFromContract).to.equal(totalStaked);
+
+        await time.increase(86400 * 100);
     
         // === Step 9: Bob unstakes ===
         await expect(stabilityPool.connect(bob).unstake(userBStake))
@@ -626,7 +641,6 @@ describe("StabilityPool", function () {
             userRewards[charlie.address],
             charliePendingCollateral
           );
-    
         // Reset Charlie's rewards
         userRewards[charlie.address] = BigInt(0);
         userCollateralGain[charlie.address] = BigInt(0);
@@ -758,6 +772,14 @@ pool.liquidate(Uint.unscaled(500), Uint.unscaled(1))
         userRewards[charlie.address] = userRewards[charlie.address] + (rewardAmount2 / BigInt(5));
         userRewards[david.address] = userRewards[david.address] + (rewardAmount2 / BigInt(5));
         await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david], stabilityPool);
+
+        let end = Date.now();
+        console.log("Total supply", await sbrToken.totalSupply(), await stabilityPool.totalSbrRewardPerToken(), "Time diff: ", end - start);
+        for (const user of [alice, bob, charlie, david]) {
+          console.log(await sbrToken.balanceOf(user.address));
+        }
+        //await new Promise(resolve => setTimeout(resolve, 10000));
+        await time.increase(86400 * 365 + 20);
     
         // === Step 17: Perform another liquidation ===
         const liquidateAmount2 = ethers.parseUnits("333", 18);
@@ -847,6 +869,13 @@ pool.liquidate(Uint.unscaled(500), Uint.unscaled(1))
         userCollateralGain[david.address] = BigInt(0);
     
         await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david], stabilityPool);
+        end = Date.now();
+        console.log("Total supply", await sbrToken.totalSupply() / BigInt(10 ** 18), await stabilityPool.totalSbrRewardPerToken() / BigInt(10 ** 18), "Time diff: ", end - start);
+        for (const user of [alice, bob, charlie, david]) {
+          console.log(await sbrToken.balanceOf(user.address) / BigInt(10 ** 18));
+        }
+        const endTime = await time.latest();
+        console.log("Elapsed Time: ", endTime - startTime, startTime, endTime, midTime);
       });
     })
 

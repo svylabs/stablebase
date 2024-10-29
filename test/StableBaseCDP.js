@@ -10,7 +10,7 @@ describe("StableBaseCDP", function () {
 
     // Deploy SBDToken
     const SBDToken = await ethers.getContractFactory("SBDToken");
-    sbdToken = await SBDToken.deploy("SBD Token", "SBD");
+    sbdToken = await SBDToken.deploy();
     await sbdToken.waitForDeployment();
 
     // Deploy StableBaseCDP with the sbdToken address
