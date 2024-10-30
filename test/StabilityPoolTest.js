@@ -918,21 +918,9 @@ print_pool(pool, "After 5 claims")
         const liquidateAmountStep20 = (totalEffectiveStake * BigInt(999999999999)) / BigInt(1000000000000);
         //const liquidateAmountStep20 = ethers.parseUnits("1333.999999999999999999", 18);
         const collateralAmountStep20 = ethers.parseUnits("1", 18);
-        await sendCollateral(collateralAmountStep20);
-        await expect(stabilityPool.connect(owner).performLiquidation(liquidateAmountStep20, collateralAmountStep20))
-        .to.emit(stabilityPool, "LiquidationPerformed")
-        .withArgs(liquidateAmountStep20, collateralAmountStep20);
+        await liquidate(liquidateAmountStep20, collateralAmountStep20);
 
-        userCollateralGain[alice.address] = userCollateralGain[alice.address] + collateralAmountStep20 * userStakes[alice.address] / totalStaked;
-        userCollateralGain[charlie.address] = userCollateralGain[charlie.address] + collateralAmountStep20 * userStakes[charlie.address] / totalStaked;
-        userCollateralGain[david.address] = userCollateralGain[david.address] + collateralAmountStep20 * userStakes[david.address] / totalStaked;
-        userCollateralGain[fabio.address] = userCollateralGain[fabio.address] + collateralAmountStep20 * userStakes[fabio.address] / totalStaked;
-
-        userStakes[alice.address] = userStakes[alice.address] - (liquidateAmountStep20 * userStakes[alice.address] / totalStaked);
-        userStakes[charlie.address] = userStakes[charlie.address] - (liquidateAmountStep20 * userStakes[charlie.address] / totalStaked);
-        userStakes[david.address] = userStakes[david.address] - (liquidateAmountStep20 * userStakes[david.address] / totalStaked);
-        userStakes[fabio.address] = userStakes[fabio.address] - (liquidateAmountStep20 * userStakes[fabio.address] / totalStaked);
-        
+        await adjustStakesAndGainAfterLiquidation(userStakes, userCollateralGain, totalStaked, liquidateAmountStep20, collateralAmountStep20, [alice, charlie, david, fabio]);
 
         totalStaked = totalStaked - liquidateAmountStep20;
         expect(await stabilityPool.stakeScalingFactor()).to.equal(BigInt(10**18));
@@ -979,7 +967,7 @@ print_pool(pool, "After 5 claims")
 
 
         totalEffectiveStake = await stabilityPool.totalStakedRaw();
-        const liquidateAmountStep25 = (totalEffectiveStake * BigInt(999999999999)) / BigInt(1000000000000);
+        const liquidateAmountStep25 = totalEffectiveStake;
         //const liquidateAmountStep20 = ethers.parseUnits("1333.999999999999999999", 18);
         const collateralAmountStep25 = ethers.parseUnits("1", 18);
         await sendCollateral(collateralAmountStep25);
@@ -998,6 +986,41 @@ print_pool(pool, "After 5 claims")
         await checkClaims(userRewards, userCollateralGain, [alice, bob, charlie, david, eli, fabio], stabilityPool);
 
         await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david, eli, fabio], stabilityPool);
+
+        // Eli stakes 1000 tokens
+        expect(await stabilityPool.connect(eli).stake(ethers.parseEther("1000"))).to.emit(stabilityPool, "Staked").withArgs(eli.address, ethers.parseEther("1000"));
+        userStakes[eli.address] += ethers.parseEther("1000");
+        totalStaked = totalStaked + ethers.parseEther("1000");
+
+        // Fabio stakes 500 tokens
+        expect(await stabilityPool.connect(fabio).stake(ethers.parseEther("500"))).to.emit(stabilityPool, "Staked").withArgs(fabio.address, ethers.parseEther("500"));
+        userStakes[fabio.address] += ethers.parseEther("500");
+        totalStaked = totalStaked + ethers.parseEther("500");
+
+        console.log("user stakes", userStakes, userRewards, userCollateralGain);
+
+        await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david, eli, fabio], stabilityPool);
+
+        // Add Reward of 100 tokens
+        expect(await stabilityPool.connect(owner).addReward(ethers.parseEther("100")))
+          .to.emit(stabilityPool, "RewardAdded")
+          .withArgs(ethers.parseEther("100"));
+
+        await adjustRewards(userRewards, userStakes, totalStaked, ethers.parseEther("100"), [eli, fabio]);
+
+        await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david, eli, fabio], stabilityPool);
+
+        await checkClaims(userRewards, userCollateralGain, [alice, bob, charlie, david, eli, fabio], stabilityPool);
+
+        const liquidationAmount30 = ethers.parseEther("1000");
+        const collateralAmount30 = ethers.parseEther("1");
+        await liquidate(liquidationAmount30, collateralAmount30);
+        await adjustStakesAndGainAfterLiquidation(userStakes, userCollateralGain, totalStaked, liquidationAmount30, collateralAmount30, [alice, charlie, david, eli, fabio]);
+        totalStaked = totalStaked - liquidationAmount30;
+        await checkClaims(userRewards, userCollateralGain, [alice, bob, charlie, david, eli, fabio], stabilityPool);
+        await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david, eli, fabio], stabilityPool);
+
+        
 
         console.log(totalStaked);
         console.log("User Stakes", userStakes);
@@ -1055,18 +1078,27 @@ print_pool(pool, "After 5 claims")
 
   async function adjustStakesAndGainAfterLiquidation(userStakes, userCollateralGain, totalStaked, liquidatedAmount, collateralAmount, users) {
     for (const user of users) {
-      userCollateralGain[user.address] = userCollateralGain[user.address] + collateralAmount * userStakes[user.address] / totalStaked;
-      userStakes[user.address] = userStakes[user.address] - (liquidatedAmount * userStakes[user.address] / totalStaked);
+      if (userStakes[user.address] != BigInt(0)) {
+        userCollateralGain[user.address] = userCollateralGain[user.address] + collateralAmount * userStakes[user.address] / totalStaked;
+        userStakes[user.address] = userStakes[user.address] - (liquidatedAmount * userStakes[user.address] / totalStaked);
+      }
     }
   }
 
   async function adjustRewards(userRewards, userStakes, totalStaked, rewardAmount, users) {
     for (const user of users) {
-      userRewards[user.address] = userRewards[user.address] + (rewardAmount * userStakes[user.address]) / totalStaked;
+      if (userStakes[user.address] != BigInt(0)) {
+        userRewards[user.address] = userRewards[user.address] + (rewardAmount * userStakes[user.address]) / totalStaked;
+      }
     }
   }
 
-
+  async function liquidate(liquidationAmount, collateralAmount) {
+        await sendCollateral(collateralAmount);
+        await expect(stabilityPool.connect(owner).performLiquidation(liquidationAmount, collateralAmount))
+        .to.emit(stabilityPool, "LiquidationPerformed")
+        .withArgs(liquidationAmount, collateralAmount);
+  }
 
 
 

@@ -44,6 +44,19 @@ abstract contract StableBase is IStableBase, ERC721 {
 
     uint256 public constant REDEMPTION_LIQUIDATION_FEE = 75; // 0.5%;
 
+    uint256 public cumulativeDebtPerUnitCollateral;
+
+    uint256 public cumulativeCollateralPerUnitCollateral;
+
+    uint256 public totalCollateral;
+
+    struct LiquidationSnapshot {
+        uint256 collateralPerCollateralSnapshot;
+        uint256 debtPerCollateralSnapshot;
+    }
+
+    mapping(uint256 => LiquidationSnapshot) public liquidationSnapshots;
+
     constructor(
         address _sbdToken,
         address _priceOracle,
@@ -100,7 +113,7 @@ abstract contract StableBase is IStableBase, ERC721 {
 
         // Calculate the ratio (borrowAmount per unit collateral)
         uint256 ratio = (safe.borrowedAmount * PRECISION) /
-            safe.depositedAmount;
+            safe.collateralAmount;
 
         if (shieldingRate > 0) {
             safesOrderedForRedemption.upsert(
@@ -132,7 +145,8 @@ abstract contract StableBase is IStableBase, ERC721 {
         uint256 spotForUpdate
     ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
         // bytes32 _safeId = bytes32(_safeId);
-        SBStructs.Safe memory safe = safes[_safeId];
+        SBStructs.Safe storage safe = safes[_safeId];
+        _updateSafe(_safeId, safe);
         uint256 amountToRedeem = redemption.requestedAmount -
             redemption.redeemedAmount;
         if (amountToRedeem > safe.borrowedAmount) {
@@ -145,7 +159,7 @@ abstract contract StableBase is IStableBase, ERC721 {
         } else {
             // update with new collateral ratio
             uint256 _newRatio = ((safe.borrowedAmount - amountToRedeem) *
-                PRECISION) / safe.depositedAmount;
+                PRECISION) / safe.collateralAmount;
             safesOrderedForLiquidation.upsert(
                 _safeId,
                 _newRatio,
@@ -204,7 +218,7 @@ abstract contract StableBase is IStableBase, ERC721 {
     ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
         //uint256 amountInCollateral = amountToRedeem /
         uint256 amountInCollateral = amountToRedeem / priceOracle.getPrice();
-        safe.depositedAmount -= amountInCollateral;
+        safe.collateralAmount -= amountInCollateral;
         safe.borrowedAmount -= amountToRedeem;
         redemption.collateralAmount += amountInCollateral;
         redemption.redeemedAmount += amountToRedeem;
@@ -226,5 +240,48 @@ abstract contract StableBase is IStableBase, ERC721 {
         stabilityPool.addReward(stabilityPoolFee);
         sbdToken.approve(address(sbrTokenStaking), sbrStakersFee);
         sbrTokenStaking.addReward(sbrStakersFee);
+    }
+
+    function distributeDebtAndCollateral(
+        uint256 debtAmount,
+        uint256 collateralAmount
+    ) internal {
+        totalCollateral -= collateralAmount;
+        cumulativeCollateralPerUnitCollateral +=
+            (collateralAmount * PRECISION) /
+            totalCollateral;
+        cumulativeDebtPerUnitCollateral +=
+            (debtAmount * PRECISION) /
+            totalCollateral;
+    }
+
+    // Internal function to update a safe's borrowed amount and deposited amount
+    function _updateSafe(
+        uint _safeId,
+        SBStructs.Safe storage _safe
+    ) internal returns (SBStructs.Safe memory) {
+        // Update borrowed amount
+        LiquidationSnapshot storage liquidationSnapshot = liquidationSnapshots[
+            _safeId
+        ];
+        uint debtIncrease = (_safe.collateralAmount *
+            (cumulativeDebtPerUnitCollateral -
+                liquidationSnapshot.debtPerCollateralSnapshot)) / PRECISION;
+        _safe.borrowedAmount += debtIncrease;
+        liquidationSnapshot
+            .debtPerCollateralSnapshot = cumulativeDebtPerUnitCollateral;
+
+        // Update deposited amount
+        uint collateralIncrease = (_safe.collateralAmount *
+            (cumulativeCollateralPerUnitCollateral -
+                liquidationSnapshot.collateralPerCollateralSnapshot)) /
+            PRECISION;
+        _safe.collateralAmount += collateralIncrease;
+        liquidationSnapshot
+            .collateralPerCollateralSnapshot = cumulativeCollateralPerUnitCollateral;
+
+        totalCollateral += collateralIncrease;
+
+        return _safe;
     }
 }

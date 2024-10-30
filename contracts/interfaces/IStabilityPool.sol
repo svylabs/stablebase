@@ -23,7 +23,12 @@ interface IStabilityPool {
 
     function claim() external;
 
-    function performLiquidation(uint256 amount, uint256 collateral) external;
+    function isLiquidationPossible(uint256 amount) external view returns (bool);
+
+    function performLiquidation(
+        uint256 amount,
+        uint256 collateral
+    ) external returns (bool);
 
     function addReward(uint256 _amount) external;
 

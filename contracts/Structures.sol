@@ -5,12 +5,10 @@ import "./library/Math.sol";
 
 library SBStructs {
     struct Safe {
-        address token;
-        uint256 depositedAmount;
+        uint256 collateralAmount;
         uint256 borrowedAmount;
         uint256 paidFeePercentage;
         uint256 totalFeePaid;
-        uint256 discountedFee; // Used only for accounting purpose, and not for actual calculations
     }
 
     struct WhitelistedToken {
