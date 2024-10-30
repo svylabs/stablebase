@@ -182,6 +182,12 @@ contract StabilityPool is IStabilityPool {
         emit RewardAdded(_amount);
     }
 
+    function isLiquidationPossible(
+        uint256 amount
+    ) external view override returns (bool) {
+        return amount <= totalStakedRaw;
+    }
+
     // Perform liquidation using staked tokens
     // S[i][0] = Initial stake of a user i
     // T[0] = Initial total stake
@@ -192,14 +198,15 @@ contract StabilityPool is IStabilityPool {
     // Scaling factor = (1 - A[1] / T[0]) * ... * (1  - A[n] / T[n-1])
 
     // Perform liquidation using staked tokens
-    function performLiquidation(uint256 amount, uint256 collateral) external {
+    function performLiquidation(
+        uint256 amount,
+        uint256 collateral
+    ) external returns (bool) {
         require(msg.sender == debtContract, "Caller is not the debt contract");
         //uint256 totalEffectiveStake = getTotalEffectiveStake();
-        require(
-            amount > 0 && amount <= totalStakedRaw,
-            "Invalid liquidation amount"
-        );
-        require(collateral > 0, "No collateral received");
+        if (amount > totalStakedRaw) {
+            return false;
+        }
 
         uint256 previousScalingFactor = stakeScalingFactor;
         //uint256 scalingFactorReduction = (_amount * precision) / totalStakedRaw;
@@ -237,6 +244,7 @@ contract StabilityPool is IStabilityPool {
         }
 
         emit LiquidationPerformed(amount, collateral);
+        return true;
     }
 
     function _updateUserStake(UserInfo storage user) internal {
