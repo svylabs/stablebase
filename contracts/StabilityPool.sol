@@ -223,8 +223,6 @@ contract StabilityPool is IStabilityPool {
             totalStakedRaw == 0 ||
             cumulativeProductScalingFactor < minimumScalingFactor
         ) {
-            stakeScalingFactor = precision;
-            stakeResetCount++;
             uint256 scalingFactor = cumulativeProductScalingFactor;
             StakeResetSnapshot memory resetSnapshot = StakeResetSnapshot({
                 scalingFactor: scalingFactor,
@@ -232,11 +230,13 @@ contract StabilityPool is IStabilityPool {
                 totalCollateralPerToken: totalCollateralPerToken,
                 totalSBRRewardPerToken: totalSbrRewardPerToken
             });
+            stakeResetSnapshots[stakeResetCount] = resetSnapshot;
             totalCollateralPerToken = 0;
             totalRewardPerToken = 0;
             totalSbrRewardPerToken = 0;
-            stakeResetSnapshots[stakeResetCount] = resetSnapshot;
-            emit ScalingFactorReset(stakeResetCount, resetSnapshot);
+            stakeScalingFactor = precision;
+            stakeResetCount++;
+            emit ScalingFactorReset(stakeResetCount - 1, resetSnapshot);
         }
 
         emit LiquidationPerformed(amount, collateral);
@@ -251,6 +251,7 @@ contract StabilityPool is IStabilityPool {
 
         // Update user's scaling factor and reset count
         user.cumulativeProductScalingFactor = stakeScalingFactor;
+        user.stakeResetCount = stakeResetCount;
     }
 
     // Internal function to update user rewards

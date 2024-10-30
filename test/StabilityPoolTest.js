@@ -764,13 +764,14 @@ pool.liquidate(Uint.unscaled(500), Uint.unscaled(1))
         // Update total rewards
         totalRewards = totalRewards + (rewardAmount2);
     
-        userRewards[alice.address] = userRewards[alice.address] + ((rewardAmount2 * BigInt(3)) / BigInt(5));
+        totalStakedFromContract = await stabilityPool.totalStakedRaw();
+        userRewards[alice.address] = userRewards[alice.address] + ((rewardAmount2 * userStakes[alice.address]) / totalStaked);
     
         // === Check pending rewards ===
         alicePendingReward = await stabilityPool.userPendingReward(alice.address);
         expect(alicePendingReward).to.be.closeTo(userRewards[alice.address], ethers.parseEther("0.000001"));
-        userRewards[charlie.address] = userRewards[charlie.address] + (rewardAmount2 / BigInt(5));
-        userRewards[david.address] = userRewards[david.address] + (rewardAmount2 / BigInt(5));
+        userRewards[charlie.address] = userRewards[charlie.address] + (rewardAmount2 * userStakes[charlie.address]) / totalStaked;
+        userRewards[david.address] = userRewards[david.address] + (rewardAmount2 * userStakes[david.address]) / totalStaked;
         await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david], stabilityPool);
 
         let end = Date.now();
@@ -869,6 +870,57 @@ pool.liquidate(Uint.unscaled(500), Uint.unscaled(1))
         userCollateralGain[david.address] = BigInt(0);
     
         await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david], stabilityPool);
+
+
+
+       // Add checks for reset mechanism
+       /**
+        * ## This should update stake reset count, and reset the stake scaling factor, all of these should work
+pool.liquidate(Uint.unscaled(1332.9999999999), Uint.unscaled(1))
+print_pool(pool, "After liquidation that resets the stake scaling factor")
+pool.stake(5, Uint.unscaled(1000))
+print_pool(pool, "After 5 stakes 1000 tokens")
+pool.add_reward(Uint.unscaled(100))
+print_pool(pool, "After 100 token rewards added")
+pool.liquidate(Uint.unscaled(500), Uint.unscaled(1))
+print_pool(pool, "After liquidation with new stake reset count")
+print(pool.claim(1), "After 1 claims") # This should work
+print_pool(pool, "After 1 claims")
+print(pool.claim(3), "After 3 claims") # This should work
+print_pool(pool, "After 3 claims")
+print(pool.claim(4), "After 4 claims") # This should work
+print_pool(pool, "After 4 claims")
+print(pool.claim(5), "After 5 claims") # This should work
+print_pool(pool, "After 5 claims")
+        */
+        const totalEffectiveStake = await stabilityPool.totalStakedRaw();
+        const liquidateAmountStep20 = (totalEffectiveStake * BigInt(999999999999)) / BigInt(1000000000000);
+        //const liquidateAmountStep20 = ethers.parseUnits("1333.999999999999999999", 18);
+        const collateralAmountStep20 = ethers.parseUnits("1", 18);
+        await sendCollateral(collateralAmountStep20);
+        await expect(stabilityPool.connect(owner).performLiquidation(liquidateAmountStep20, collateralAmountStep20))
+        .to.emit(stabilityPool, "LiquidationPerformed")
+        .withArgs(liquidateAmountStep20, collateralAmountStep20);
+
+        userCollateralGain[alice.address] = userCollateralGain[alice.address] + collateralAmountStep20 * userStakes[alice.address] / totalStaked;
+        userCollateralGain[charlie.address] = userCollateralGain[charlie.address] + collateralAmountStep20 * userStakes[charlie.address] / totalStaked;
+        userCollateralGain[david.address] = userCollateralGain[david.address] + collateralAmountStep20 * userStakes[david.address] / totalStaked;
+        userStakes[alice.address] = userStakes[alice.address] - (liquidateAmountStep20 * userStakes[alice.address] / totalStaked);
+        userStakes[charlie.address] = userStakes[charlie.address] - (liquidateAmountStep20 * userStakes[charlie.address] / totalStaked);
+        userStakes[david.address] = userStakes[david.address] - (liquidateAmountStep20 * userStakes[david.address] / totalStaked);
+        
+
+        totalStaked = totalStaked - liquidateAmountStep20;
+        expect(await stabilityPool.stakeScalingFactor()).to.equal(BigInt(10**18));
+        expect(await stabilityPool.stakeResetCount()).to.equal(BigInt(1));
+
+        await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david], stabilityPool);
+
+
+
+
+
+
         end = Date.now();
         console.log("Total supply", await sbrToken.totalSupply() / BigInt(10 ** 18), await stabilityPool.totalSbrRewardPerToken() / BigInt(10 ** 18), "Time diff: ", end - start);
         for (const user of [alice, bob, charlie, david]) {
@@ -883,13 +935,13 @@ pool.liquidate(Uint.unscaled(500), Uint.unscaled(1))
   async function checkStates(userStakes, userRewards, userCollateral, totalStaked, users, stabilityPool) {
      expect(totalStaked).to.equal(await stabilityPool.totalStakedRaw());
      for (const user of users) {
-      //console.log("Checking user: ", user.address);
+      console.log("Checking user: ", user.address);
        const userStake = await stabilityPool.getUser(user.address);
-       expect(userStake.stake).to.be.closeTo(userStakes[user.address], ethers.parseEther("0.0000001"));
+       expect(userStake.stake).to.be.closeTo(userStakes[user.address], ethers.parseEther("0.0000000000001"));
        const pendingReward = await stabilityPool.userPendingReward(user.address);
-       expect(pendingReward).to.be.closeTo(userRewards[user.address], ethers.parseEther("0.0000001"));
+       expect(pendingReward).to.be.closeTo(userRewards[user.address], ethers.parseEther("0.0000000000001"));
        const pendingCollateral = await stabilityPool.userPendingCollateral(user.address);
-       expect(pendingCollateral).to.be.closeTo(userCollateral[user.address], ethers.parseEther("0.0000001"));
+       expect(pendingCollateral).to.be.closeTo(userCollateral[user.address], ethers.parseEther("0.0000000000001"));
      }
   }
 
