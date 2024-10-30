@@ -342,15 +342,23 @@ contract StabilityPool is IStabilityPool {
 
             if (user.stakeResetCount + 1 != stakeResetCount) {
                 snapshot = stakeResetSnapshots[user.stakeResetCount + 1];
-                pendingReward += (snapshot.totalRewardPerToken * userStake);
-                pendingCollateral += (snapshot.totalCollateralPerToken *
-                    userStake);
-                pendingSbrRewards += (snapshot.totalSBRRewardPerToken *
-                    userStake);
+                pendingReward +=
+                    (snapshot.totalRewardPerToken * userStake) /
+                    precision;
+                pendingCollateral +=
+                    (snapshot.totalCollateralPerToken * userStake) /
+                    precision;
+                pendingSbrRewards +=
+                    (snapshot.totalSBRRewardPerToken * userStake) /
+                    precision;
             } else {
-                pendingReward += (totalRewardPerToken * userStake);
-                pendingCollateral += (totalCollateralPerToken * userStake);
-                pendingSbrRewards += totalSbrRewardPerToken * userStake;
+                pendingReward += (totalRewardPerToken * userStake) / precision;
+                pendingCollateral +=
+                    (totalCollateralPerToken * userStake) /
+                    precision;
+                pendingSbrRewards +=
+                    (totalSbrRewardPerToken * userStake) /
+                    precision;
             }
         }
     }
@@ -382,7 +390,7 @@ contract StabilityPool is IStabilityPool {
     }
 
     function _getUserEffectiveStake(
-        UserInfo storage user
+        UserInfo memory user
     ) internal view returns (uint256 stake) {
         if (user.stakeResetCount == stakeResetCount) {
             stake =
@@ -412,13 +420,11 @@ contract StabilityPool is IStabilityPool {
                 */
     }
 
-    function getUser(
-        address _user
-    ) public view returns (UserInfo memory userInfo) {
-        UserInfo storage user = users[_user];
+    function getUser(address _user) public view returns (UserInfo memory user) {
+        user = users[_user];
         if (user.cumulativeProductScalingFactor != 0) {
             uint256 userEffectiveStake = _getUserEffectiveStake(user);
-            userInfo.stake = userEffectiveStake;
+            user.stake = userEffectiveStake;
         }
     }
 }
