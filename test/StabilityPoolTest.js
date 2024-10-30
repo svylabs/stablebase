@@ -953,11 +953,9 @@ print_pool(pool, "After 5 claims")
           .to.emit(stabilityPool, "RewardAdded")
           .withArgs(ethers.parseEther("100"));
 
-        userRewards[alice.address] = userRewards[alice.address] + (ethers.parseEther("100") * userStakes[alice.address]) / totalStaked;
-        userRewards[charlie.address] = userRewards[charlie.address] + (ethers.parseEther("100") * userStakes[charlie.address]) / totalStaked;
-        userRewards[david.address] = userRewards[david.address] + (ethers.parseEther("100") * userStakes[david.address]) / totalStaked;
-        userRewards[eli.address] = userRewards[eli.address] + (ethers.parseEther("100") * userStakes[eli.address]) / totalStaked;
-        userRewards[fabio.address] = userRewards[fabio.address] + (ethers.parseEther("100") * userStakes[fabio.address]) / totalStaked;
+        await adjustRewards(userRewards, userStakes, totalStaked, ethers.parseEther("100"), [alice, bob, charlie, david, eli, fabio]);
+
+       
         //console.log(userRewards);
         //console.log(userStakes);
         await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david, eli], stabilityPool);
@@ -971,20 +969,10 @@ print_pool(pool, "After 5 claims")
         .to.emit(stabilityPool, "LiquidationPerformed")
         .withArgs(liquidateAmountStep21, collateralAmountStep21);
 
-        userCollateralGain[alice.address] = userCollateralGain[alice.address] + collateralAmountStep21 * userStakes[alice.address] / totalStaked;
-        userCollateralGain[charlie.address] = userCollateralGain[charlie.address] + collateralAmountStep21 * userStakes[charlie.address] / totalStaked;
-        userCollateralGain[david.address] = userCollateralGain[david.address] + collateralAmountStep21 * userStakes[david.address] / totalStaked;
-        userCollateralGain[eli.address] = userCollateralGain[eli.address] + collateralAmountStep21 * userStakes[eli.address] / totalStaked;
-        userCollateralGain[fabio.address] = userCollateralGain[fabio.address] + collateralAmountStep21 * userStakes[fabio.address] / totalStaked;
-
-        userStakes[alice.address] = userStakes[alice.address] - (liquidateAmountStep21 * userStakes[alice.address] / totalStaked);
-        userStakes[charlie.address] = userStakes[charlie.address] - (liquidateAmountStep21 * userStakes[charlie.address] / totalStaked);
-        userStakes[david.address] = userStakes[david.address] - (liquidateAmountStep21 * userStakes[david.address] / totalStaked);
-        userStakes[eli.address] = userStakes[eli.address] - (liquidateAmountStep21 * userStakes[eli.address] / totalStaked);
-        userStakes[fabio.address] = userStakes[fabio.address] - (liquidateAmountStep21 * userStakes[fabio.address] / totalStaked);
+        await adjustStakesAndGainAfterLiquidation(userStakes, userCollateralGain, totalStaked, liquidateAmountStep21, collateralAmountStep21, [alice, charlie, david, eli, fabio]);
 
         totalStaked = totalStaked - liquidateAmountStep21;
-        await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david, eli], stabilityPool);
+        await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david, eli, fabio], stabilityPool);
 
         console.log(totalStaked);
         //console.log(userStakes);
@@ -999,17 +987,7 @@ print_pool(pool, "After 5 claims")
         .to.emit(stabilityPool, "LiquidationPerformed")
         .withArgs(liquidateAmountStep25, collateralAmountStep25);
 
-        userCollateralGain[alice.address] = userCollateralGain[alice.address] + collateralAmountStep25 * userStakes[alice.address] / totalStaked;
-        userCollateralGain[charlie.address] = userCollateralGain[charlie.address] + collateralAmountStep25 * userStakes[charlie.address] / totalStaked;
-        userCollateralGain[david.address] = userCollateralGain[david.address] + collateralAmountStep25 * userStakes[david.address] / totalStaked;
-        userCollateralGain[eli.address] = userCollateralGain[eli.address] + collateralAmountStep25 * userStakes[eli.address] / totalStaked;
-        userCollateralGain[fabio.address] = userCollateralGain[fabio.address] + collateralAmountStep25 * userStakes[fabio.address] / totalStaked;
-
-        userStakes[alice.address] = userStakes[alice.address] - (liquidateAmountStep25 * userStakes[alice.address] / totalStaked);
-        userStakes[charlie.address] = userStakes[charlie.address] - (liquidateAmountStep25 * userStakes[charlie.address] / totalStaked);
-        userStakes[david.address] = userStakes[david.address] - (liquidateAmountStep25 * userStakes[david.address] / totalStaked);
-        userStakes[eli.address] = userStakes[eli.address] - (liquidateAmountStep25 * userStakes[eli.address] / totalStaked);
-        userStakes[fabio.address] = userStakes[fabio.address] - (liquidateAmountStep25 * userStakes[fabio.address] / totalStaked);
+        await adjustStakesAndGainAfterLiquidation(userStakes, userCollateralGain, totalStaked, liquidateAmountStep25, collateralAmountStep25, [alice, charlie, david, eli, fabio]);
 
         totalStaked = totalStaked - liquidateAmountStep25;
 
@@ -1063,6 +1041,19 @@ print_pool(pool, "After 5 claims")
       expect(await sbdToken.balanceOf(user.address)).to.be.closeTo(sbd_balances[user.address] + userRewards[user.address], ethers.parseEther("0.001"));
       userRewards[user.address] = BigInt(0);
       userCollateralGain[user.address] = BigInt(0);
+    }
+  }
+
+  async function adjustStakesAndGainAfterLiquidation(userStakes, userCollateralGain, totalStaked, liquidatedAmount, collateralAmount, users) {
+    for (const user of users) {
+      userCollateralGain[user.address] = userCollateralGain[user.address] + collateralAmount * userStakes[user.address] / totalStaked;
+      userStakes[user.address] = userStakes[user.address] - (liquidatedAmount * userStakes[user.address] / totalStaked);
+    }
+  }
+
+  async function adjustRewards(userRewards, userStakes, totalStaked, rewardAmount, users) {
+    for (const user of users) {
+      userRewards[user.address] = userRewards[user.address] + (rewardAmount * userStakes[user.address]) / totalStaked;
     }
   }
 
