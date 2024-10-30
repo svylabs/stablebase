@@ -398,10 +398,33 @@ contract StabilityPool is IStabilityPool {
 
     function _getUserEffectiveStake(
         UserInfo storage user
-    ) internal view returns (uint256) {
+    ) internal view returns (uint256 stake) {
+        if (user.stakeResetCount == stakeResetCount) {
+            stake =
+                (((user.stake * stakeScalingFactor) * precision) /
+                    user.cumulativeProductScalingFactor) /
+                precision;
+        } else {
+            StakeResetSnapshot memory snapshot = stakeResetSnapshots[
+                user.stakeResetCount
+            ];
+            stake =
+                ((user.stake * snapshot.scalingFactor * precision) /
+                    user.cumulativeProductScalingFactor) /
+                precision;
+
+            if (user.stakeResetCount + 1 != stakeResetCount) {
+                snapshot = stakeResetSnapshots[user.stakeResetCount + 1];
+                stake = (stake * snapshot.scalingFactor) / precision;
+            } else {
+                stake = (stake * stakeScalingFactor) / precision;
+            }
+        }
+        /*
         return
             (((user.stake * stakeScalingFactor) * precision) /
                 user.cumulativeProductScalingFactor) / precision;
+                */
     }
 
     function getUser(
