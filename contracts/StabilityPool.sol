@@ -18,21 +18,24 @@ contract StabilityPool is IStabilityPool {
 
     uint256 public stakeScalingFactor; // Current scaling factor
     uint256 public stakeResetCount; // Number of times scaling factor has been reset
-    mapping(uint256 => uint256) public cumulativeProductScalingFactors; // Cumulative product of scaling factors at each reset
+
+    mapping(uint256 => StakeResetSnapshot) public stakeResetSnapshots; // Cumulative product of scaling factors at each reset
 
     // Maintaining a separate mapping for sbrRewardSnapshots instead of in userInfo to avoid potential gas costs later on
     mapping(address => uint256) public sbrRewardSnapshots;
+
     uint256 public totalSbrRewardPerToken = 0;
 
     uint256 public constant precision = 1e18; // Precision for fixed-point calculations
-    uint256 public constant minimumScalingFactor = 1e6; // Minimum scaling factor before reset
+    uint256 public constant minimumScalingFactor = 1e9; // Minimum scaling factor before reset
 
     uint256 public sbrRewardDistributionEndTime = 0;
     uint256 public lastSBRRewardDistributedTime = 0;
     enum SBRRewardDistribution {
         NOT_STARTED,
         STARTED,
-        ENDED
+        ENDED,
+        CLAIMED
     }
     SBRRewardDistribution public sbrRewardDistributionStatus =
         SBRRewardDistribution.NOT_STARTED;
@@ -66,7 +69,6 @@ contract StabilityPool is IStabilityPool {
         stakingToken = IERC20(_stakingToken);
         debtContract = _debtContract;
         stakeScalingFactor = precision; // Initialize scaling factor to 1 (scaled by precision)
-        cumulativeProductScalingFactors[0] = precision; // Initialize cumulative product of scaling factors
         stakeResetCount = 0;
         sbrToken = IMintableToken(_sbrToken);
     }
@@ -106,11 +108,10 @@ contract StabilityPool is IStabilityPool {
     }
 
     function _claim(UserInfo storage user) internal {
-        (uint256 reward, uint256 collateral) = _updateRewards(user);
         if (sbrRewardDistributionStatus != SBRRewardDistribution.ENDED) {
             _addSBRRewards();
         }
-        _claimSBRTokens(user);
+        (uint256 reward, uint256 collateral, ) = _updateRewards(user);
         _updateUserStake(user);
         emit RewardClaimed(msg.sender, reward, collateral);
     }
@@ -198,6 +199,7 @@ contract StabilityPool is IStabilityPool {
             amount > 0 && amount <= totalStakedRaw,
             "Invalid liquidation amount"
         );
+        require(collateral > 0, "No collateral received");
 
         uint256 previousScalingFactor = stakeScalingFactor;
         //uint256 scalingFactorReduction = (_amount * precision) / totalStakedRaw;
@@ -207,40 +209,7 @@ contract StabilityPool is IStabilityPool {
         uint256 cumulativeProductScalingFactor = (stakeScalingFactor *
             newScalingFactor) / precision;
 
-        // When cumulative product scaling factor is less than minimum scaling factor, reset scaling factor
-        // Implies that the product of all scaling factors has become too small
-        // we need to reset the scaling factor
-        // which is to say cumulativeProductScalingFactor is equal to the maximum scaling now which is 1.
-        /*
-        if (cumulativeProductScalingFactor <= minimumScalingFactor) {
-            // Update cumulative product scaling factors before reset
-            // TODO: What to do with this.
-            cumulativeProductScalingFactors[stakeResetCount + 1] =
-                (cumulativeProductScalingFactors[stakeResetCount] *
-                    newScalingFactor) /
-                stakeScalingFactor;
-
-            // Increment reset count and reset scaling factor
-            stakeResetCount += 1;
-            stakeScalingFactor = precision;
-
-            emit ScalingFactorReset(stakeScalingFactor);
-        } else {
-            // Update cumulative product scaling factors
-            cumulativeProductScalingFactors[
-                stakeResetCount
-            ] = cumulativeProductScalingFactor;
-
-            // Update scaling factor
-            stakeScalingFactor = cumulativeProductScalingFactor;
-        }*/
-
         stakeScalingFactor = cumulativeProductScalingFactor;
-
-        // Transfer staked tokens to debt contract and perform liquidation
-        //stakingToken.transfer(address(debtContract), _amount);
-        //uint256 collateralReceived = debtContract.liquidate(_amount);
-        require(collateral > 0, "No collateral received");
 
         // Update total collateral per token
         totalCollateralPerToken +=
@@ -248,8 +217,27 @@ contract StabilityPool is IStabilityPool {
                 totalStakedRaw) /
             precision;
 
-        // TODO: Check if this is needed or not
         totalStakedRaw -= amount;
+
+        if (
+            totalStakedRaw == 0 ||
+            cumulativeProductScalingFactor < minimumScalingFactor
+        ) {
+            uint256 scalingFactor = cumulativeProductScalingFactor;
+            StakeResetSnapshot memory resetSnapshot = StakeResetSnapshot({
+                scalingFactor: scalingFactor,
+                totalRewardPerToken: totalRewardPerToken,
+                totalCollateralPerToken: totalCollateralPerToken,
+                totalSBRRewardPerToken: totalSbrRewardPerToken
+            });
+            stakeResetSnapshots[stakeResetCount] = resetSnapshot;
+            totalCollateralPerToken = 0;
+            totalRewardPerToken = 0;
+            totalSbrRewardPerToken = 0;
+            stakeScalingFactor = precision;
+            stakeResetCount++;
+            emit ScalingFactorReset(stakeResetCount - 1, resetSnapshot);
+        }
 
         emit LiquidationPerformed(amount, collateral);
     }
@@ -258,21 +246,31 @@ contract StabilityPool is IStabilityPool {
         // Adjust user's stake
         // TODO: Check if this is needed or not
         if (user.cumulativeProductScalingFactor != 0) {
-            user.stake = ((((user.stake * stakeScalingFactor) * precision) /
-                user.cumulativeProductScalingFactor) / precision);
+            user.stake = _getUserEffectiveStake(user);
         }
 
         // Update user's scaling factor and reset count
         user.cumulativeProductScalingFactor = stakeScalingFactor;
+        user.stakeResetCount = stakeResetCount;
     }
 
     // Internal function to update user rewards
     function _updateRewards(
         UserInfo storage user
-    ) internal returns (uint256 pendingReward, uint256 pendingCollateral) {
+    )
+        internal
+        returns (
+            uint256 pendingReward,
+            uint256 pendingCollateral,
+            uint256 pendingSbrRewards
+        )
+    {
         if (user.cumulativeProductScalingFactor != 0) {
-            pendingReward = userPendingReward(user);
-            pendingCollateral = userPendingCollateral(user);
+            (
+                pendingReward,
+                pendingCollateral,
+                pendingSbrRewards
+            ) = userPendingRewardAndCollateral(user);
         }
         if (pendingReward != 0) {
             stakingToken.transfer(msg.sender, pendingReward);
@@ -280,26 +278,103 @@ contract StabilityPool is IStabilityPool {
         if (pendingCollateral != 0) {
             payable(msg.sender).transfer(pendingCollateral);
         }
+        if (pendingSbrRewards != 0) {
+            sbrToken.mint(msg.sender, pendingSbrRewards);
+        }
 
         user.rewardSnapshot = totalRewardPerToken;
         user.collateralSnapshot = totalCollateralPerToken;
+        sbrRewardSnapshots[msg.sender] = totalSbrRewardPerToken;
+    }
+
+    function userPendingRewardAndCollateral(
+        UserInfo storage user
+    )
+        internal
+        view
+        returns (
+            uint256 pendingReward,
+            uint256 pendingCollateral,
+            uint256 pendingSbrRewards
+        )
+    {
+        if (user.stakeResetCount == stakeResetCount) {
+            pendingReward =
+                ((((totalRewardPerToken - user.rewardSnapshot) * user.stake) *
+                    precision) / user.cumulativeProductScalingFactor) /
+                precision;
+            pendingCollateral =
+                ((((totalCollateralPerToken - user.collateralSnapshot) *
+                    user.stake) * precision) /
+                    user.cumulativeProductScalingFactor) /
+                precision;
+            pendingSbrRewards =
+                ((((totalSbrRewardPerToken - sbrRewardSnapshots[msg.sender]) *
+                    user.stake) * precision) /
+                    user.cumulativeProductScalingFactor) /
+                precision;
+        } else {
+            StakeResetSnapshot memory snapshot = stakeResetSnapshots[
+                user.stakeResetCount
+            ];
+            pendingReward =
+                ((((snapshot.totalRewardPerToken - user.rewardSnapshot) *
+                    user.stake) * precision) /
+                    user.cumulativeProductScalingFactor) /
+                precision;
+
+            pendingCollateral =
+                ((((snapshot.totalCollateralPerToken -
+                    user.collateralSnapshot) * user.stake) * precision) /
+                    user.cumulativeProductScalingFactor) /
+                precision;
+
+            pendingSbrRewards =
+                ((((snapshot.totalSBRRewardPerToken -
+                    sbrRewardSnapshots[msg.sender]) * user.stake) * precision) /
+                    user.cumulativeProductScalingFactor) /
+                precision;
+
+            // Calculate the user stake at reset snapshot
+            uint256 userStake = ((user.stake *
+                snapshot.scalingFactor *
+                precision) / user.cumulativeProductScalingFactor) / precision;
+
+            if (user.stakeResetCount + 1 != stakeResetCount) {
+                snapshot = stakeResetSnapshots[user.stakeResetCount + 1];
+                pendingReward +=
+                    (snapshot.totalRewardPerToken * userStake) /
+                    precision;
+                pendingCollateral +=
+                    (snapshot.totalCollateralPerToken * userStake) /
+                    precision;
+                pendingSbrRewards +=
+                    (snapshot.totalSBRRewardPerToken * userStake) /
+                    precision;
+            } else {
+                pendingReward += (totalRewardPerToken * userStake) / precision;
+                pendingCollateral +=
+                    (totalCollateralPerToken * userStake) /
+                    precision;
+                pendingSbrRewards +=
+                    (totalSbrRewardPerToken * userStake) /
+                    precision;
+            }
+        }
     }
 
     function userPendingReward(
         UserInfo storage user
     ) internal view returns (uint256) {
-        return
-            ((((totalRewardPerToken - user.rewardSnapshot) * user.stake) *
-                precision) / user.cumulativeProductScalingFactor) / precision;
+        (uint256 pendingReward, , ) = userPendingRewardAndCollateral(user);
+        return pendingReward;
     }
 
     function userPendingCollateral(
         UserInfo storage user
     ) internal view returns (uint256) {
-        return
-            ((((totalCollateralPerToken - user.collateralSnapshot) *
-                user.stake) * precision) /
-                user.cumulativeProductScalingFactor) / precision;
+        (, uint256 pendingCollateral, ) = userPendingRewardAndCollateral(user);
+        return pendingCollateral;
     }
 
     function userPendingReward(address _user) public view returns (uint256) {
@@ -314,21 +389,42 @@ contract StabilityPool is IStabilityPool {
         return userPendingCollateral(user);
     }
 
-    function getUserEffectiveStake(
-        UserInfo storage user
-    ) internal view returns (uint256) {
+    function _getUserEffectiveStake(
+        UserInfo memory user
+    ) internal view returns (uint256 stake) {
+        if (user.stakeResetCount == stakeResetCount) {
+            stake =
+                (((user.stake * stakeScalingFactor) * precision) /
+                    user.cumulativeProductScalingFactor) /
+                precision;
+        } else {
+            StakeResetSnapshot memory snapshot = stakeResetSnapshots[
+                user.stakeResetCount
+            ];
+            stake =
+                ((user.stake * snapshot.scalingFactor * precision) /
+                    user.cumulativeProductScalingFactor) /
+                precision;
+
+            if (user.stakeResetCount + 1 != stakeResetCount) {
+                snapshot = stakeResetSnapshots[user.stakeResetCount + 1];
+                stake = (stake * snapshot.scalingFactor) / precision;
+            } else {
+                stake = (stake * stakeScalingFactor) / precision;
+            }
+        }
+        /*
         return
             (((user.stake * stakeScalingFactor) * precision) /
                 user.cumulativeProductScalingFactor) / precision;
+                */
     }
 
-    function getUser(
-        address _user
-    ) public view returns (UserInfo memory userInfo) {
-        UserInfo storage user = users[_user];
+    function getUser(address _user) public view returns (UserInfo memory user) {
+        user = users[_user];
         if (user.cumulativeProductScalingFactor != 0) {
-            uint256 userEffectiveStake = getUserEffectiveStake(user);
-            userInfo.stake = userEffectiveStake;
+            uint256 userEffectiveStake = _getUserEffectiveStake(user);
+            user.stake = userEffectiveStake;
         }
     }
 }
