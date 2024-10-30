@@ -1,6 +1,5 @@
-                                       StableBase: The first market-driven stablecoin protocol
-                                           (Bye Bye interest rates, Simply Pay-As-You-Go)
-                                  Sridhar<sg@svylabs.com>, Gopalakrishnan<gopalakrishnan.g@gov.in>
+                                       StableBase: Pay-as-you-go stablecoin protocol, without ongoing interest rates.
+                                          Sridhar<sg@svylabs.com>, Gopalakrishnan<gopalakrishnan.g@gov.in>
 
 # Abstract
 
