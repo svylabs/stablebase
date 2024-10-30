@@ -1035,10 +1035,19 @@ print_pool(pool, "After 5 claims")
     for (const user of users) {
       eth_balances[user.address] = await ethers.provider.getBalance(user.address);
       sbd_balances[user.address] = await sbdToken.balanceOf(user.address);
-      expect(await stabilityPool.connect(user).claim())
-      .to.emit(stabilityPool, "RewardClaimed");
-      expect(await ethers.provider.getBalance(user.address)).to.be.closeTo(eth_balances[user.address] + userCollateralGain[user.address], ethers.parseEther("0.001"));
-      expect(await sbdToken.balanceOf(user.address)).to.be.closeTo(sbd_balances[user.address] + userRewards[user.address], ethers.parseEther("0.001"));
+      const tx = await stabilityPool.connect(user).claim();
+      const details = await tx.wait();
+      expect(tx).to.emit(stabilityPool, "RewardClaimed");
+      //console.log(details.events);
+     /// console.log(JSON.stringify(details));
+      const gas = details.gasUsed * details.gasPrice;
+      /*const event = details.events.filter((event) => {
+        return event.event == "RewardClaimed";
+      });
+      expect(event.length).to.equal(1);*/
+      
+      expect(await ethers.provider.getBalance(user.address) + gas).to.be.closeTo(eth_balances[user.address] + userCollateralGain[user.address], ethers.parseEther("0.00000000001"));
+      expect(await sbdToken.balanceOf(user.address)).to.be.closeTo(sbd_balances[user.address] + userRewards[user.address], ethers.parseEther("0.00000000001"));
       userRewards[user.address] = BigInt(0);
       userCollateralGain[user.address] = BigInt(0);
     }
