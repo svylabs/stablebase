@@ -34,7 +34,8 @@ contract StabilityPool is IStabilityPool {
     enum SBRRewardDistribution {
         NOT_STARTED,
         STARTED,
-        ENDED
+        ENDED,
+        CLAIMED
     }
     SBRRewardDistribution public sbrRewardDistributionStatus =
         SBRRewardDistribution.NOT_STARTED;
@@ -107,11 +108,10 @@ contract StabilityPool is IStabilityPool {
     }
 
     function _claim(UserInfo storage user) internal {
-        (uint256 reward, uint256 collateral) = _updateRewards(user);
         if (sbrRewardDistributionStatus != SBRRewardDistribution.ENDED) {
             _addSBRRewards();
         }
-        _claimSBRTokens(user);
+        (uint256 reward, uint256 collateral, ) = _updateRewards(user);
         _updateUserStake(user);
         emit RewardClaimed(msg.sender, reward, collateral);
     }
@@ -260,10 +260,20 @@ contract StabilityPool is IStabilityPool {
     // Internal function to update user rewards
     function _updateRewards(
         UserInfo storage user
-    ) internal returns (uint256 pendingReward, uint256 pendingCollateral) {
+    )
+        internal
+        returns (
+            uint256 pendingReward,
+            uint256 pendingCollateral,
+            uint256 pendingSbrRewards
+        )
+    {
         if (user.cumulativeProductScalingFactor != 0) {
-            pendingReward = userPendingReward(user);
-            pendingCollateral = userPendingCollateral(user);
+            (
+                pendingReward,
+                pendingCollateral,
+                pendingSbrRewards
+            ) = userPendingRewardAndCollateral(user);
         }
         if (pendingReward != 0) {
             stakingToken.transfer(msg.sender, pendingReward);
@@ -271,35 +281,107 @@ contract StabilityPool is IStabilityPool {
         if (pendingCollateral != 0) {
             payable(msg.sender).transfer(pendingCollateral);
         }
+        if (pendingSbrRewards != 0) {
+            sbrToken.mint(msg.sender, pendingSbrRewards);
+        }
 
         user.rewardSnapshot = totalRewardPerToken;
         user.collateralSnapshot = totalCollateralPerToken;
+        sbrRewardSnapshots[msg.sender] = totalSbrRewardPerToken;
+    }
+
+    function userPendingRewardAndCollateral(
+        UserInfo storage user
+    )
+        internal
+        view
+        returns (
+            uint256 pendingReward,
+            uint256 pendingCollateral,
+            uint256 pendingSbrRewards
+        )
+    {
+        if (user.stakeResetCount == stakeResetCount) {
+            pendingReward =
+                ((((totalRewardPerToken - user.rewardSnapshot) * user.stake) *
+                    precision) / user.cumulativeProductScalingFactor) /
+                precision;
+            pendingCollateral =
+                ((((totalCollateralPerToken - user.collateralSnapshot) *
+                    user.stake) * precision) /
+                    user.cumulativeProductScalingFactor) /
+                precision;
+            pendingSbrRewards =
+                ((((totalSbrRewardPerToken - sbrRewardSnapshots[msg.sender]) *
+                    user.stake) * precision) /
+                    user.cumulativeProductScalingFactor) /
+                precision;
+        } else {
+            StakeResetSnapshot memory snapshot = stakeResetSnapshots[
+                user.stakeResetCount
+            ];
+            pendingReward =
+                (((snapshot.totalRewardPerToken - user.rewardSnapshot) *
+                    user.stake) * precision) /
+                user.cumulativeProductScalingFactor;
+
+            pendingCollateral =
+                (((snapshot.totalCollateralPerToken - user.collateralSnapshot) *
+                    user.stake) * precision) /
+                user.cumulativeProductScalingFactor;
+
+            pendingSbrRewards =
+                (((snapshot.totalSBRRewardPerToken -
+                    sbrRewardSnapshots[msg.sender]) * user.stake) * precision) /
+                user.cumulativeProductScalingFactor;
+
+            uint256 userStake = (user.stake * snapshot.scalingFactor) /
+                user.cumulativeProductScalingFactor;
+
+            if (user.stakeResetCount + 1 != stakeResetCount) {
+                snapshot = stakeResetSnapshots[user.stakeResetCount + 1];
+                pendingReward +=
+                    ((snapshot.totalRewardPerToken * userStake * precision) /
+                        snapshot.scalingFactor) /
+                    precision;
+                pendingCollateral +=
+                    ((snapshot.totalCollateralPerToken *
+                        userStake *
+                        precision) / snapshot.scalingFactor) /
+                    precision;
+                pendingSbrRewards +=
+                    ((snapshot.totalSBRRewardPerToken * userStake * precision) /
+                        snapshot.scalingFactor) /
+                    precision;
+            } else {
+                pendingReward +=
+                    ((totalRewardPerToken * userStake * precision) /
+                        stakeScalingFactor) /
+                    precision;
+                pendingCollateral +=
+                    ((totalCollateralPerToken * userStake * precision) /
+                        stakeScalingFactor) /
+                    precision;
+                pendingSbrRewards +=
+                    ((totalSbrRewardPerToken * userStake * precision) /
+                        stakeScalingFactor) /
+                    precision;
+            }
+        }
     }
 
     function userPendingReward(
         UserInfo storage user
     ) internal view returns (uint256) {
-        if (user.stakeResetCount == stakeResetCount) {
-            return
-                ((((totalRewardPerToken - user.rewardSnapshot) * user.stake) *
-                    precision) / user.cumulativeProductScalingFactor) /
-                precision;
-        } else {
-            return 0;
-        }
+        (uint256 pendingReward, , ) = userPendingRewardAndCollateral(user);
+        return pendingReward;
     }
 
     function userPendingCollateral(
         UserInfo storage user
     ) internal view returns (uint256) {
-        if (user.stakeResetCount == stakeResetCount) {
-            return
-                ((((totalCollateralPerToken - user.collateralSnapshot) *
-                    user.stake) * precision) /
-                    user.cumulativeProductScalingFactor) / precision;
-        } else {
-            return 0;
-        }
+        (, uint256 pendingCollateral, ) = userPendingRewardAndCollateral(user);
+        return pendingCollateral;
     }
 
     function userPendingReward(address _user) public view returns (uint256) {
