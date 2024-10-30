@@ -6,6 +6,15 @@ interface IStabilityPool {
         uint256 rewardSnapshot; // Rewards already paid out to the user
         uint256 collateralSnapshot; // Collateral already paid out to the user
         uint256 cumulativeProductScalingFactor; // User's scaling factor at last update
+        uint256 stakeResetCount; // User's stake reset count at last update
+    }
+
+    struct StakeResetSnapshot {
+        uint256 scalingFactor;
+        uint256 totalRewardPerToken;
+        uint256 totalCollateralPerToken;
+        uint256 totalSBRRewardPerToken;
+        uint256 totalStakedRaw;
     }
 
     function stake(uint256 _amount) external;
@@ -40,6 +49,9 @@ interface IStabilityPool {
         uint256 amountStaked,
         uint256 collateralReceived
     );
-    event ScalingFactorReset(uint256 newScalingFactor);
+    event ScalingFactorReset(
+        uint256 indexed stakeResetCount,
+        StakeResetSnapshot snapshot
+    );
     event Received(address sender, uint256 amount);
 }
