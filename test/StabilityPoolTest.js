@@ -979,7 +979,7 @@ print_pool(pool, "After 5 claims")
 
 
         totalEffectiveStake = await stabilityPool.totalStakedRaw();
-        const liquidateAmountStep25 = (totalEffectiveStake * BigInt(999999999999)) / BigInt(1000000000000);
+        const liquidateAmountStep25 = totalEffectiveStake;
         //const liquidateAmountStep20 = ethers.parseUnits("1333.999999999999999999", 18);
         const collateralAmountStep25 = ethers.parseUnits("1", 18);
         await sendCollateral(collateralAmountStep25);
@@ -998,6 +998,38 @@ print_pool(pool, "After 5 claims")
         await checkClaims(userRewards, userCollateralGain, [alice, bob, charlie, david, eli, fabio], stabilityPool);
 
         await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david, eli, fabio], stabilityPool);
+
+        // Eli stakes 1000 tokens
+        expect(await stabilityPool.connect(eli).stake(ethers.parseEther("1000"))).to.emit(stabilityPool, "Staked").withArgs(eli.address, ethers.parseEther("1000"));
+        userStakes[eli.address] = ethers.parseEther("1000");
+        totalStaked = totalStaked + ethers.parseEther("1000");
+
+        // Fabio stakes 500 tokens
+
+        expect(await stabilityPool.connect(fabio).stake(ethers.parseEther("500"))).to.emit(stabilityPool, "Staked").withArgs(fabio.address, ethers.parseEther("500"));
+        userStakes[fabio.address] = ethers.parseEther("500");
+        totalStaked = totalStaked + ethers.parseEther("500");
+
+        await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david, eli, fabio], stabilityPool);
+
+        // Add Reward of 100 tokens
+        expect(await stabilityPool.connect(owner).addReward(ethers.parseEther("100")))
+          .to.emit(stabilityPool, "RewardAdded")
+          .withArgs(ethers.parseEther("100"));
+
+        await adjustRewards(userRewards, userStakes, totalStaked, ethers.parseEther("100"), [eli, fabio]);
+
+        await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david, eli, fabio], stabilityPool);
+
+        await checkClaims(userRewards, userCollateralGain, [alice, bob, charlie, david, eli, fabio], stabilityPool);
+
+        const liquidationAmount30 = ethers.parseEther("1000");
+        const collateralAmount30 = ethers.parseEther("1");
+        await liquidate(liquidationAmount30, collateralAmount30);
+        await adjustStakesAndGainAfterLiquidation(userStakes, userCollateralGain, totalStaked, liquidationAmount30, collateralAmount30, [alice, charlie, david, eli, fabio]);
+        await checkClaims(userRewards, userCollateralGain, [alice, bob, charlie, david, eli, fabio], stabilityPool);
+
+        
 
         console.log(totalStaked);
         console.log("User Stakes", userStakes);
@@ -1066,7 +1098,12 @@ print_pool(pool, "After 5 claims")
     }
   }
 
-
+  async function liquidate(liquidationAmount, collateralAmount) {
+        await sendCollateral(collateralAmount);
+        await expect(stabilityPool.connect(owner).performLiquidation(liquidationAmount, collateralAmount))
+        .to.emit(stabilityPool, "LiquidationPerformed")
+        .withArgs(liquidationAmount, collateralAmount);
+  }
 
 
 

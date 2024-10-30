@@ -219,10 +219,7 @@ contract StabilityPool is IStabilityPool {
 
         totalStakedRaw -= amount;
 
-        if (
-            totalStakedRaw == 0 ||
-            cumulativeProductScalingFactor < minimumScalingFactor
-        ) {
+        if (cumulativeProductScalingFactor < minimumScalingFactor) {
             uint256 scalingFactor = cumulativeProductScalingFactor;
             StakeResetSnapshot memory resetSnapshot = StakeResetSnapshot({
                 scalingFactor: scalingFactor,
