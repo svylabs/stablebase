@@ -918,21 +918,9 @@ print_pool(pool, "After 5 claims")
         const liquidateAmountStep20 = (totalEffectiveStake * BigInt(999999999999)) / BigInt(1000000000000);
         //const liquidateAmountStep20 = ethers.parseUnits("1333.999999999999999999", 18);
         const collateralAmountStep20 = ethers.parseUnits("1", 18);
-        await sendCollateral(collateralAmountStep20);
-        await expect(stabilityPool.connect(owner).performLiquidation(liquidateAmountStep20, collateralAmountStep20))
-        .to.emit(stabilityPool, "LiquidationPerformed")
-        .withArgs(liquidateAmountStep20, collateralAmountStep20);
+        await liquidate(liquidateAmountStep20, collateralAmountStep20);
 
-        userCollateralGain[alice.address] = userCollateralGain[alice.address] + collateralAmountStep20 * userStakes[alice.address] / totalStaked;
-        userCollateralGain[charlie.address] = userCollateralGain[charlie.address] + collateralAmountStep20 * userStakes[charlie.address] / totalStaked;
-        userCollateralGain[david.address] = userCollateralGain[david.address] + collateralAmountStep20 * userStakes[david.address] / totalStaked;
-        userCollateralGain[fabio.address] = userCollateralGain[fabio.address] + collateralAmountStep20 * userStakes[fabio.address] / totalStaked;
-
-        userStakes[alice.address] = userStakes[alice.address] - (liquidateAmountStep20 * userStakes[alice.address] / totalStaked);
-        userStakes[charlie.address] = userStakes[charlie.address] - (liquidateAmountStep20 * userStakes[charlie.address] / totalStaked);
-        userStakes[david.address] = userStakes[david.address] - (liquidateAmountStep20 * userStakes[david.address] / totalStaked);
-        userStakes[fabio.address] = userStakes[fabio.address] - (liquidateAmountStep20 * userStakes[fabio.address] / totalStaked);
-        
+        await adjustStakesAndGainAfterLiquidation(userStakes, userCollateralGain, totalStaked, liquidateAmountStep20, collateralAmountStep20, [alice, charlie, david, fabio]);
 
         totalStaked = totalStaked - liquidateAmountStep20;
         expect(await stabilityPool.stakeScalingFactor()).to.equal(BigInt(10**18));
