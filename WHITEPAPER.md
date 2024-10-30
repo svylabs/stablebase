@@ -104,8 +104,7 @@ While there are no ongoing fees or upfront fees charged, stability of the stable
 
 # Supported Collateral
 
-- **Exclusive Asset:** The protocol exclusively supports Ethereum (ETH) as collateral.
-- **Rationale:** ETH's liquidity and market acceptance make it a robust choice for collateralization.
+- **Exclusive Asset:** The protocol exclusively supports Bitcoin or other native assets of the blockchain(eg: ETH) as collateral.
 
 # Conclusion
 
