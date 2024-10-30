@@ -15,7 +15,6 @@ interface IStabilityPool {
         uint256 totalRewardPerToken;
         uint256 totalCollateralPerToken;
         uint256 totalSBRRewardPerToken;
-        uint256 totalStakedRaw;
     }
 
     function stake(uint256 _amount) external;

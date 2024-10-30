@@ -225,12 +225,8 @@ contract StabilityPool is IStabilityPool {
         ) {
             stakeScalingFactor = precision;
             stakeResetCount++;
-            uint256 scalingFactor = previousScalingFactor;
-            if (totalStakedRaw > 0) {
-                scalingFactor = cumulativeProductScalingFactor;
-            }
+            uint256 scalingFactor = cumulativeProductScalingFactor;
             StakeResetSnapshot memory resetSnapshot = StakeResetSnapshot({
-                totalStakedRaw: totalStakedRaw,
                 scalingFactor: scalingFactor,
                 totalRewardPerToken: totalRewardPerToken,
                 totalCollateralPerToken: totalCollateralPerToken,
@@ -321,51 +317,39 @@ contract StabilityPool is IStabilityPool {
                 user.stakeResetCount
             ];
             pendingReward =
-                (((snapshot.totalRewardPerToken - user.rewardSnapshot) *
+                ((((snapshot.totalRewardPerToken - user.rewardSnapshot) *
                     user.stake) * precision) /
-                user.cumulativeProductScalingFactor;
+                    user.cumulativeProductScalingFactor) /
+                precision;
 
             pendingCollateral =
-                (((snapshot.totalCollateralPerToken - user.collateralSnapshot) *
-                    user.stake) * precision) /
-                user.cumulativeProductScalingFactor;
+                ((((snapshot.totalCollateralPerToken -
+                    user.collateralSnapshot) * user.stake) * precision) /
+                    user.cumulativeProductScalingFactor) /
+                precision;
 
             pendingSbrRewards =
-                (((snapshot.totalSBRRewardPerToken -
+                ((((snapshot.totalSBRRewardPerToken -
                     sbrRewardSnapshots[msg.sender]) * user.stake) * precision) /
-                user.cumulativeProductScalingFactor;
+                    user.cumulativeProductScalingFactor) /
+                precision;
 
-            uint256 userStake = (user.stake * snapshot.scalingFactor) /
-                user.cumulativeProductScalingFactor;
+            // Calculate the user stake at reset snapshot
+            uint256 userStake = ((user.stake *
+                snapshot.scalingFactor *
+                precision) / user.cumulativeProductScalingFactor) / precision;
 
             if (user.stakeResetCount + 1 != stakeResetCount) {
                 snapshot = stakeResetSnapshots[user.stakeResetCount + 1];
-                pendingReward +=
-                    ((snapshot.totalRewardPerToken * userStake * precision) /
-                        snapshot.scalingFactor) /
-                    precision;
-                pendingCollateral +=
-                    ((snapshot.totalCollateralPerToken *
-                        userStake *
-                        precision) / snapshot.scalingFactor) /
-                    precision;
-                pendingSbrRewards +=
-                    ((snapshot.totalSBRRewardPerToken * userStake * precision) /
-                        snapshot.scalingFactor) /
-                    precision;
+                pendingReward += (snapshot.totalRewardPerToken * userStake);
+                pendingCollateral += (snapshot.totalCollateralPerToken *
+                    userStake);
+                pendingSbrRewards += (snapshot.totalSBRRewardPerToken *
+                    userStake);
             } else {
-                pendingReward +=
-                    ((totalRewardPerToken * userStake * precision) /
-                        stakeScalingFactor) /
-                    precision;
-                pendingCollateral +=
-                    ((totalCollateralPerToken * userStake * precision) /
-                        stakeScalingFactor) /
-                    precision;
-                pendingSbrRewards +=
-                    ((totalSbrRewardPerToken * userStake * precision) /
-                        stakeScalingFactor) /
-                    precision;
+                pendingReward += (totalRewardPerToken * userStake);
+                pendingCollateral += (totalCollateralPerToken * userStake);
+                pendingSbrRewards += totalSbrRewardPerToken * userStake;
             }
         }
     }
