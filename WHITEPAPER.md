@@ -1,5 +1,5 @@
                                        StableBase: Pay-as-you-go stablecoin protocol, without ongoing interest rates.
-                                          Sridhar<sg@svylabs.com>, Gopalakrishnan<gopalakrishnan.g@gov.in>
+                                           Sridhar<sg@svylabs.com>, Gopalakrishnan<gopalakrishnan.g@gov.in>
 
 # Abstract
 
@@ -57,8 +57,8 @@ While there are no ongoing fees or upfront fees charged, stability of the stable
 
 ## Redemption Queue
 
-- **Mechanism Overview:** Redemptions are processed through a queue, where CDPs are ordered based on their collateralization ratios and fees paid.
-- **Impact on CDPs:** Lower-collateralized CDPs are redeemed first unless users take protective measures.
+- **Mechanism Overview:** Redemptions are processed through a queue, where CDPs are ordered based on the total fees paid as a percentage of their borrowing.
+- **Impact on CDPs:** CDPs that has paid less fees as a percentage of their borrowing are redeemed first.
 
 ## Market-Driven Pay-As-You-Go Model
 
