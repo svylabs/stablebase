@@ -65,14 +65,13 @@ contract StableBaseCDP is StableBase {
             safe.borrowedAmount == 0,
             "Cannot close Safe with borrowed amount"
         );
-
-        payable(msg.sender).transfer(safe.collateralAmount);
-
+        uint256 collateralAmount = safe.collateralAmount;
         // Remove the Safe from the mapping
         delete safes[_safeId];
 
         _burn(_safeId); // burn the NFT Safe
         emit CloseSafe(_safeId);
+        payable(msg.sender).transfer(collateralAmount);
     }
 
     /**
@@ -195,12 +194,11 @@ contract StableBaseCDP is StableBase {
             require(amount <= safe.collateralAmount, "Insufficient collateral");
         }
 
-        // Withdraw ETH or ERC20 token using SBUtils library
-        payable(msg.sender).transfer(amount);
-
         // Update the Safe's deposited amount
         safe.collateralAmount -= amount;
         totalCollateral -= amount;
+        // Withdraw ETH or ERC20 token using SBUtils library
+        payable(msg.sender).transfer(amount);
     }
 
     // Function to redeem SBD tokens for the underlying collateral
@@ -277,8 +275,6 @@ contract StableBaseCDP is StableBase {
         uint256 liquidationFee = (safe.collateralAmount *
             REDEMPTION_LIQUIDATION_FEE) / BASIS_POINTS_DIVISOR;
 
-        payable(msg.sender).transfer(liquidationFee);
-
         if (possible) {
             stabilityPool.performLiquidation(
                 safe.borrowedAmount,
@@ -299,10 +295,11 @@ contract StableBaseCDP is StableBase {
         }
         safesOrderedForLiquidation.remove(_safeId);
         safesOrderedForRedemption.remove(_safeId);
-        // TODO: Add liquidation fee
 
         // Remove the Safe from the mapping
         delete safes[_safeId];
+        // Send fee
+        payable(msg.sender).transfer(liquidationFee);
     }
 
     function _isApprovedOrOwner(

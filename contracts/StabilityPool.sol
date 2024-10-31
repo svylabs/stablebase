@@ -204,9 +204,7 @@ contract StabilityPool is IStabilityPool {
     ) external returns (bool) {
         require(msg.sender == debtContract, "Caller is not the debt contract");
         //uint256 totalEffectiveStake = getTotalEffectiveStake();
-        if (amount > totalStakedRaw) {
-            return false;
-        }
+        require(amount <= totalStakedRaw, "Invalid liquidation amount");
 
         uint256 previousScalingFactor = stakeScalingFactor;
         //uint256 scalingFactorReduction = (_amount * precision) / totalStakedRaw;
@@ -277,6 +275,11 @@ contract StabilityPool is IStabilityPool {
                 pendingSbrRewards
             ) = userPendingRewardAndCollateral(user);
         }
+
+        user.rewardSnapshot = totalRewardPerToken;
+        user.collateralSnapshot = totalCollateralPerToken;
+        sbrRewardSnapshots[msg.sender] = totalSbrRewardPerToken;
+
         if (pendingReward != 0) {
             stakingToken.transfer(msg.sender, pendingReward);
         }
@@ -286,10 +289,6 @@ contract StabilityPool is IStabilityPool {
         if (pendingSbrRewards != 0) {
             sbrToken.mint(msg.sender, pendingSbrRewards);
         }
-
-        user.rewardSnapshot = totalRewardPerToken;
-        user.collateralSnapshot = totalCollateralPerToken;
-        sbrRewardSnapshots[msg.sender] = totalSbrRewardPerToken;
     }
 
     function userPendingRewardAndCollateral(
