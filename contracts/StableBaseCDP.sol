@@ -224,7 +224,7 @@ contract StableBaseCDP is StableBase {
         return;
     }
 
-    function topup(
+    function feeTopup(
         uint256 safeId,
         uint256 feeRate,
         uint256 nearestSpotInRedemptionQueue
