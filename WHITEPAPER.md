@@ -100,7 +100,7 @@ While there are no ongoing fees or upfront fees charged, stability of the stable
 ## Staking SBR Tokens
 
 - **Secondary Staking**: SBR tokens can be staked in a dedicated contract.
-- **Additional Rewards**: Stakers receive 10% of the fees collected from redemptions and liquidations.
+- **Additional Rewards**: Stakers receive 10% of the fees collected from borrowers and 0.75% from redeemers.
 
 # Supported Collateral
 
