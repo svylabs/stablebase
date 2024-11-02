@@ -15,8 +15,6 @@ contract SBRToken is ERC20, Ownable {
 
     function setAddresses(address _stabilityPool) external onlyOwner {
         transferOwnership(_stabilityPool);
-
-        renounceOwnership();
     }
 
     function mint(address to, uint256 amount) external onlyOwner {

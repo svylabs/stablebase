@@ -15,8 +15,6 @@ contract SBDToken is ERC20, Ownable {
 
     function setAddresses(address _stableBaseCDP) external onlyOwner {
         transferOwnership(_stableBaseCDP);
-
-        renounceOwnership();
     }
 
     function mint(address to, uint256 amount) external onlyOwner {

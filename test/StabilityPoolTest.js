@@ -19,6 +19,14 @@ describe("StabilityPool", function () {
     const SBDToken = await ethers.getContractFactory("SBDToken");
     sbdToken = await SBDToken.deploy();
     await sbdToken.waitForDeployment();
+    const initialSupply = ethers.parseEther("10000");
+    await sbdToken.mint(owner.address, initialSupply);
+    await sbdToken.mint(alice.address, initialSupply);
+    await sbdToken.mint(bob.address, initialSupply);
+    await sbdToken.mint(charlie.address, initialSupply);
+    await sbdToken.mint(david.address, initialSupply);
+    await sbdToken.mint(eli.address, initialSupply);
+    await sbdToken.mint(fabio.address, initialSupply);
 
     const SBRToken = await ethers.getContractFactory("SBRToken");
     sbrToken = await SBDToken.deploy();
@@ -30,33 +38,27 @@ describe("StabilityPool", function () {
     //collateralToken = await MockERC20.deploy("Collateral Token", "COL", 18);
     //await collateralToken.deployed();
 
-    // Deploy mock debt contract
-    MockDebtContract = await ethers.getContractFactory("MockDebtContract");
-    debtContract = await MockDebtContract.deploy(sbdToken.target);
-    await debtContract.waitForDeployment();
-
     // Deploy StabilityPool contract
     StabilityPool = await ethers.getContractFactory("StabilityPool");
-    stabilityPool = await StabilityPool.deploy(
-      sbdToken.target,
-      owner.address,
-      sbrToken.target
-    );
+    stabilityPool = await StabilityPool.deploy();
     await stabilityPool.waitForDeployment();
+    await stabilityPool.setAddresses(sbdToken.target,
+      owner.address,
+      sbrToken.target);
+    console.log(await sbrToken.owner());
+    await sbrToken.setAddresses(stabilityPool.target);
 
-    sbrToken.connect(owner).setMinter(stabilityPool.target);
+     // Deploy mock debt contract
+     MockDebtContract = await ethers.getContractFactory("MockDebtContract");
+     debtContract = await MockDebtContract.deploy(sbdToken.target);
+     await debtContract.waitForDeployment();
+     debtContract.setPool(stabilityPool.target);
 
-    await debtContract.connect(owner).setPool(stabilityPool.target);
+    //sbrToken.connect(owner).setMinter(stabilityPool.target);
+
+    //await debtContract.setPool(stabilityPool.target);
 
     // Mint tokens to users
-    const initialSupply = ethers.parseEther("10000");
-    await sbdToken.mint(owner.address, initialSupply);
-    await sbdToken.mint(alice.address, initialSupply);
-    await sbdToken.mint(bob.address, initialSupply);
-    await sbdToken.mint(charlie.address, initialSupply);
-    await sbdToken.mint(david.address, initialSupply);
-    await sbdToken.mint(eli.address, initialSupply);
-    await sbdToken.mint(fabio.address, initialSupply);
 
   });
 
