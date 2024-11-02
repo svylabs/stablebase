@@ -3,21 +3,19 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IStabilityPool.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IMintableToken is IERC20 {
     function mint(address to, uint256 amount) external;
 }
 
-contract StabilityPool is IStabilityPool {
+contract StabilityPool is IStabilityPool, Ownable {
     IERC20 public stakingToken; // Token that users stake and receive rewards in
-    address public debtContract; // External contract to liquidate debt
+    address public stableBaseCDP; // External contract to liquidate debt
 
     uint256 public totalStakedRaw; // Total raw tokens staked in the pool
     uint256 public totalRewardPerToken; // Accumulated rewards per token staked
     uint256 public totalCollateralPerToken; // Accumulated collateral per token staked
-
-    uint256 public stakeScalingFactor; // Current scaling factor
-    uint256 public stakeResetCount; // Number of times scaling factor has been reset
 
     mapping(uint256 => StakeResetSnapshot) public stakeResetSnapshots; // Cumulative product of scaling factors at each reset
 
@@ -28,6 +26,9 @@ contract StabilityPool is IStabilityPool {
 
     uint256 public constant precision = 1e18; // Precision for fixed-point calculations
     uint256 public constant minimumScalingFactor = 1e9; // Minimum scaling factor before reset
+
+    uint256 public stakeScalingFactor = precision; // Current scaling factor
+    uint256 public stakeResetCount = 0; // Number of times scaling factor has been reset
 
     uint256 public sbrRewardDistributionEndTime = 0;
     uint256 public lastSBRRewardDistributedTime = 0;
@@ -57,20 +58,22 @@ contract StabilityPool is IStabilityPool {
     mapping(address => UserInfo) public users;
 
     modifier onlyDebtContract() {
-        require(msg.sender == debtContract, "Caller is not the debt contract");
+        require(msg.sender == stableBaseCDP, "Caller is not the debt contract");
         _;
     }
 
-    constructor(
+    constructor() Ownable(msg.sender) {}
+
+    function setAddresses(
         address _stakingToken,
-        address _debtContract,
+        address _stableBaseCDP,
         address _sbrToken
-    ) {
+    ) external onlyOwner {
         stakingToken = IERC20(_stakingToken);
-        debtContract = _debtContract;
-        stakeScalingFactor = precision; // Initialize scaling factor to 1 (scaled by precision)
-        stakeResetCount = 0;
+        stableBaseCDP = _stableBaseCDP;
         sbrToken = IMintableToken(_sbrToken);
+
+        renounceOwnership();
     }
 
     receive() external payable {
@@ -201,8 +204,8 @@ contract StabilityPool is IStabilityPool {
     function performLiquidation(
         uint256 amount,
         uint256 collateral
-    ) external returns (bool) {
-        require(msg.sender == debtContract, "Caller is not the debt contract");
+    ) external onlyDebtContract returns (bool) {
+        //require(msg.sender == debtContract, "Caller is not the debt contract");
         //uint256 totalEffectiveStake = getTotalEffectiveStake();
         require(amount <= totalStakedRaw, "Invalid liquidation amount");
 

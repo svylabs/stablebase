@@ -10,16 +10,7 @@ import "./interfaces/IDoublyLinkedList.sol";
 import "./StableBase.sol";
 
 contract StableBaseCDP is StableBase {
-    constructor(
-        address _sbdToken,
-        address _priceOracle,
-        address _stabilityPool,
-        address _sbrTokenStaking
-    ) StableBase(_sbdToken, _priceOracle, _stabilityPool, _sbrTokenStaking) {
-        // Initialize the contract
-        safesOrderedForLiquidation = new OrderedDoublyLinkedList();
-        safesOrderedForRedemption = new OrderedDoublyLinkedList();
-    }
+    constructor() StableBase() {}
 
     /**
      * @dev Opens a new Safe for the borrower and tracks the collateral deposited, etc.
@@ -235,10 +226,12 @@ contract StableBaseCDP is StableBase {
         require(feeRate > 0, "Fee rate must be greater than 0");
         uint256 balance = sbdToken.balanceOf(msg.sender);
         uint256 fee = (feeRate * safe.borrowedAmount) / BASIS_POINTS_DIVISOR;
-        require(balance >= fee, "Insufficient SBD");
+        require(balance >= fee, "Insufficient Balance to pay fee");
         require(_isApprovedOrOwner(msg.sender, safeId), "Unauthorized");
         // Update the spot in the shieldedSafes list
         safe.paidFeePercentage += feeRate;
+        sbdToken.transferFrom(msg.sender, address(this), fee);
+        // Jump to the correct position in the redemption queue
         safesOrderedForRedemption.upsert(
             safeId,
             safe.paidFeePercentage,

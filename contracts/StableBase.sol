@@ -12,8 +12,9 @@ import "./library/Rate.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "./interfaces/IStabilityPool.sol";
 import "./interfaces/ISBRStaking.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract StableBase is IStableBase, ERC721 {
+abstract contract StableBase is IStableBase, ERC721, Ownable {
     uint256 internal liquidationRatio = 110; // 110% liquidation ratio
     uint256 internal constant BASIS_POINTS_DIVISOR = 10000;
     uint256
@@ -57,16 +58,28 @@ abstract contract StableBase is IStableBase, ERC721 {
 
     mapping(uint256 => LiquidationSnapshot) public liquidationSnapshots;
 
-    constructor(
+    constructor() Ownable(msg.sender) ERC721("StableBase Safe", "SBSafe") {}
+
+    function setAddresses(
         address _sbdToken,
         address _priceOracle,
         address _stabilityPool,
-        address _sbrTokenStaking
-    ) ERC721("StableBase Safe", "SBSafe") {
+        address _sbrTokenStaking,
+        address _safesOrderedForLiquidation,
+        address _safesOrderedForRedemption
+    ) external onlyOwner {
         sbdToken = SBDToken(_sbdToken);
         priceOracle = IPriceOracle(_priceOracle);
         stabilityPool = IStabilityPool(_stabilityPool);
         sbrTokenStaking = ISBRStaking(_sbrTokenStaking);
+        // Initialize the contract
+        safesOrderedForLiquidation = IDoublyLinkedList(
+            _safesOrderedForLiquidation
+        );
+        safesOrderedForRedemption = IDoublyLinkedList(
+            _safesOrderedForRedemption
+        );
+        renounceOwnership();
     }
 
     function handleBorrow(
@@ -88,14 +101,8 @@ abstract contract StableBase is IStableBase, ERC721 {
                 .value;
             // Adjust the fee percentage based on the minimum value, so the new borrowers don't start from the beginning.
             // This is to keep it fair for new borrowers, and is only an accounting trick.
-            if (
-                shieldingRate <=
-                FIRST_TIME_BORROW_BASIS_POINTS_DISCOUNT_THRESHOLD
-            ) {
-                safe.paidFeePercentage = _minRatePaid + shieldingRate;
-            } else {
-                safe.paidFeePercentage = shieldingRate;
-            }
+            // Fee for new borrowers is in relation to the minimum rate paid by the existing borrowers
+            safe.paidFeePercentage = _minRatePaid + shieldingRate;
         } else {
             // There is an existing borrowing, so pay this rate for the existing borrowing as well
             _shieldingFee +=

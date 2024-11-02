@@ -15,7 +15,7 @@ interface ISBRStaking {
 
     function addReward(uint256 _amount) external;
 
-    function addCollateralReward(uint256 _amount) external;
+    function addCollateralReward(uint256 _amount) external payable;
 
     function getStake(address user) external view returns (Stake memory stake);
 
