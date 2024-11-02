@@ -8,6 +8,7 @@ interface IStableBase {
     );
     event Borrow(uint256 indexed safeId, uint256 amount);
     event CloseSafe(uint256 indexed safeId);
+    event BorrowFeeRefund(uint256 indexed safeId, uint256 amount);
 
     function openSafe(uint256 _safeId, uint256 _amount) external payable;
 

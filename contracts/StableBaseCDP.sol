@@ -92,7 +92,7 @@ contract StableBaseCDP is StableBase {
         // Check if the requested amount is within the maximum borrowable limits
         require(
             safe.borrowedAmount + _amount <= maxBorrowAmount,
-            "Borrow amount exceeds the maximum allowed"
+            "Borrow amount exceeds the limit"
         );
 
         handleBorrow(

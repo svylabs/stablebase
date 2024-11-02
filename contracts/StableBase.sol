@@ -79,6 +79,8 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         safesOrderedForRedemption = IDoublyLinkedList(
             _safesOrderedForRedemption
         );
+        sbdToken.approve(address(sbrTokenStaking), type(uint256).max);
+        sbdToken.approve(address(stabilityPool), type(uint256).max);
         renounceOwnership();
     }
 
@@ -142,12 +144,17 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
             nearestSpotInLiquidationQueue
         );
 
+        uint256 feePaid;
+        uint256 canRefund;
+        if (_shieldingFee > 0) {
+            (feePaid, canRefund) = distributeFees(_shieldingFee, true);
+        }
+        if (canRefund > 0) {
+            _amountToBorrow += canRefund;
+            emit BorrowFeeRefund(safeId, canRefund);
+        }
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amountToBorrow);
-
-        if (_shieldingFee > 0) {
-            distributeFees(_shieldingFee, true);
-        }
     }
 
     function _redeemNode(
@@ -243,16 +250,31 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         return (safe, redemption);
     }
 
-    function distributeFees(uint fee, bool mint) internal {
+    function distributeFees(
+        uint fee,
+        bool mint
+    ) internal returns (uint256 feePaid, uint256 canRefund) {
         if (mint) {
             sbdToken.mint(address(this), fee);
         }
         uint256 sbrStakersFee = (fee * SBR_FEE_REWARD) / 100;
-        uint256 stabilityPoolFee = fee - sbrStakersFee;
-        sbdToken.approve(address(stabilityPool), stabilityPoolFee);
-        stabilityPool.addReward(stabilityPoolFee);
-        sbdToken.approve(address(sbrTokenStaking), sbrStakersFee);
-        sbrTokenStaking.addReward(sbrStakersFee);
+        uint256 stabilityPoolFee = fee;
+        canRefund = fee;
+        bool feeAdded1 = sbrTokenStaking.addReward(sbrStakersFee);
+        if (feeAdded1) {
+            stabilityPoolFee = fee - sbrStakersFee;
+            feePaid = fee;
+            canRefund -= sbrStakersFee;
+        }
+        bool feeAdded2 = stabilityPool.addReward(stabilityPoolFee);
+        if (feeAdded2) {
+            feePaid += fee;
+            canRefund -= stabilityPoolFee;
+        }
+        require(canRefund <= fee, "Invalid refund amount");
+        if (canRefund > 0) {
+            sbdToken.burn(address(this), canRefund);
+        }
     }
 
     function distributeDebtAndCollateral(

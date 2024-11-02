@@ -13,7 +13,7 @@ interface ISBRStaking {
 
     function claim() external;
 
-    function addReward(uint256 _amount) external;
+    function addReward(uint256 _amount) external returns (bool);
 
     function addCollateralReward(uint256 _amount) external payable;
 

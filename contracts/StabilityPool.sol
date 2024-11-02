@@ -168,14 +168,20 @@ contract StabilityPool is IStabilityPool, Ownable {
     }
 
     // Add rewards to the pool
-    function addReward(uint256 _amount) external onlyDebtContract {
+    function addReward(
+        uint256 _amount
+    ) external onlyDebtContract returns (bool) {
         require(_amount > 0, "Reward must be greater than zero");
         //uint256 totalEffectiveStake = getTotalEffectiveStake();
         //require(totalEffectiveStake > 0, "No staked tokens");
+        uint256 _totalStakedRaw = totalStakedRaw;
+        if (_totalStakedRaw == 0) {
+            return false;
+        }
         stakingToken.transferFrom(msg.sender, address(this), _amount);
 
         totalRewardPerToken +=
-            ((_amount * stakeScalingFactor * precision) / totalStakedRaw) /
+            ((_amount * stakeScalingFactor * precision) / _totalStakedRaw) /
             precision;
 
         if (sbrRewardDistributionStatus != SBRRewardDistribution.ENDED) {
@@ -183,6 +189,7 @@ contract StabilityPool is IStabilityPool, Ownable {
         }
 
         emit RewardAdded(_amount);
+        return true;
     }
 
     function isLiquidationPossible(

@@ -105,10 +105,58 @@ describe("Test the flow", function () {
           const amount = ethers.parseEther("1.0");
           await stableBaseCDP.connect(alice).openSafe(safeId, amount, {value: amount});
           await priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 2250
-          const borrowAmount = ethers.parseEther("3000");
+          const borrowAmount = ethers.parseEther("2000");
           const shieldingRate = BigInt(0);
           await stableBaseCDP.connect(alice).borrow(safeId, borrowAmount, shieldingRate, BigInt(0), BigInt(0));
           const safe = await stableBaseCDP.safes(safeId);
+          expect(safe.borrowedAmount).to.equal(borrowAmount);
+          expect(await sbdToken.balanceOf(alice.address)).to.equal(borrowAmount);
+
+          // Make another borrowing of 1000 should succeed.
+          const borrowAmount2 = ethers.parseEther("1000");
+          await stableBaseCDP.connect(alice).borrow(safeId, borrowAmount2, shieldingRate, BigInt(0), BigInt(0));
+          const safe2 = await stableBaseCDP.safes(safeId);
+          expect(safe2.borrowedAmount).to.equal(borrowAmount + borrowAmount2);
+          expect(await sbdToken.balanceOf(alice.address)).to.equal(borrowAmount + borrowAmount2);
+
+
+          // Another borrowing should fail
+          const borrowAmount3 = ethers.parseEther("1");
+          await expect(stableBaseCDP.connect(alice).borrow(safeId, borrowAmount3, shieldingRate, BigInt(0), BigInt(0)))
+            .to.be.revertedWith("Borrow amount exceeds the limit");
+          const safe3 = await stableBaseCDP.safes(safeId);
+          expect(safe3.borrowedAmount).to.equal(borrowAmount + borrowAmount2);
+          expect(await sbdToken.balanceOf(alice.address)).to.equal(borrowAmount + borrowAmount2);
+      });
+
+      it ("Borrowing above 110% should not work", async function() {
+        const safeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const amount = ethers.parseEther("1.0");
+        await stableBaseCDP.connect(alice).openSafe(safeId, amount, {value: amount});
+        await priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 
+        const borrowAmount = ethers.parseUnits(((BigInt(3300) * BigInt(10000)) / BigInt(11000) + BigInt(1)).toString(), 18);
+        const shieldingRate = BigInt(0);
+        await expect(stableBaseCDP.connect(alice).borrow(safeId, borrowAmount, shieldingRate, BigInt(0), BigInt(0)))
+          .to.be.revertedWith("Borrow amount exceeds the limit");
+        const safe = await stableBaseCDP.safes(safeId);
+        expect(safe.collateralAmount).to.equal(amount);
+        expect(safe.borrowedAmount).to.equal(BigInt(0));
+        expect(await sbdToken.balanceOf(alice.address)).to.equal(BigInt(0));
+      });
+
+      it ("Borrowing with fee should work, but fee should be refunded back to user", async function() {
+          const safeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+          const amount = ethers.parseEther("1.0");
+          await stableBaseCDP.connect(alice).openSafe(safeId, amount, {value: amount});
+          await priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 2250
+          const borrowAmount = ethers.parseEther("2000");
+          const feePercent = BigInt(100); // 1%
+          const fee = (borrowAmount * feePercent) / BigInt(10000);
+          await expect(stableBaseCDP.connect(alice).borrow(safeId, borrowAmount, feePercent, BigInt(0), BigInt(0)))
+            .to.emit(stableBaseCDP, "BorrowFeeRefund")
+            .withArgs(safeId, fee);
+          const safe = await stableBaseCDP.safes(safeId);
+          const actualBorrowAmount = borrowAmount - fee; // but fee is refunded to the borrower because there are no stakers
           expect(safe.borrowedAmount).to.equal(borrowAmount);
           expect(await sbdToken.balanceOf(alice.address)).to.equal(borrowAmount);
       });

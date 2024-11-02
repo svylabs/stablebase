@@ -58,14 +58,20 @@ contract SBRStaking is ISBRStaking, Ownable {
         emit Unstaked(msg.sender, _amount);
     }
 
-    function addReward(uint256 _amount) external {
+    function addReward(uint256 _amount) external returns (bool) {
         require(
             msg.sender == stableBaseContract,
             "Only stableBase contract can add rewards"
         );
-        rewardToken.transferFrom(msg.sender, address(this), _amount);
-        totalRewardPerToken += (_amount * PRECISION) / totalStake;
-        emit RewardAdded(_amount);
+        uint _totalStake = totalStake;
+        if (_totalStake == 0) {
+            return false;
+        } else {
+            rewardToken.transferFrom(msg.sender, address(this), _amount);
+            totalRewardPerToken += (_amount * PRECISION) / _totalStake;
+            emit RewardAdded(_amount);
+            return true;
+        }
     }
 
     function addCollateralReward(uint256 _amount) external payable {
