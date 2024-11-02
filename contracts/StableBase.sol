@@ -15,7 +15,7 @@ import "./interfaces/ISBRStaking.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 abstract contract StableBase is IStableBase, ERC721, Ownable {
-    uint256 internal liquidationRatio = 110; // 110% liquidation ratio
+    uint256 internal liquidationRatio = 11000; // 110% liquidation ratio
     uint256 internal constant BASIS_POINTS_DIVISOR = 10000;
     uint256
         internal constant FIRST_TIME_BORROW_BASIS_POINTS_DISCOUNT_THRESHOLD =
@@ -84,25 +84,33 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
 
     function handleBorrow(
         uint256 safeId,
-        SBStructs.Safe memory safe,
+        SBStructs.Safe storage safe,
         uint256 amount,
         uint256 shieldingRate,
         uint256 nearestSpotInLiquidationQueue,
         uint256 nearestSpotInRedemptionQueue
-    ) internal returns (SBStructs.Safe memory) {
+    ) internal {
         // SBStructs.Safe storage currentSafe = safes[_safeId];
-        require(ownerOf(safeId) == msg.sender, "Only the NFT owner can borrow");
+        require(
+            ownerOf(safeId) == msg.sender,
+            "Only the Safe owner can borrow"
+        );
         uint256 _shieldingFee = (amount * shieldingRate) / BASIS_POINTS_DIVISOR;
         // Is first time borrowing
         if (safe.borrowedAmount == 0) {
             uint256 _minRateNode = safesOrderedForRedemption.getHead();
-            uint256 _minRatePaid = safesOrderedForRedemption
-                .get(_minRateNode)
-                .value;
-            // Adjust the fee percentage based on the minimum value, so the new borrowers don't start from the beginning.
-            // This is to keep it fair for new borrowers, and is only an accounting trick.
-            // Fee for new borrowers is in relation to the minimum rate paid by the existing borrowers
-            safe.paidFeePercentage = _minRatePaid + shieldingRate;
+            if (_minRateNode == 0) {
+                // There are no existing borrowings, so the fee is the minimum rate
+                safe.paidFeePercentage = shieldingRate;
+            } else {
+                uint256 _minRatePaid = safesOrderedForRedemption
+                    .get(_minRateNode)
+                    .value;
+                // Adjust the fee percentage based on the minimum value, so the new borrowers don't start from the beginning.
+                // This is to keep it fair for new borrowers, and is only an accounting trick.
+                // Fee for new borrowers is in relation to the minimum rate paid by the existing borrowers
+                safe.paidFeePercentage = _minRatePaid + shieldingRate;
+            }
         } else {
             // There is an existing borrowing, so pay this rate for the existing borrowing as well
             _shieldingFee +=
@@ -122,13 +130,11 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         uint256 ratio = (safe.borrowedAmount * PRECISION) /
             safe.collateralAmount;
 
-        if (shieldingRate > 0) {
-            safesOrderedForRedemption.upsert(
-                safeId,
-                safe.paidFeePercentage,
-                nearestSpotInRedemptionQueue
-            );
-        }
+        safesOrderedForRedemption.upsert(
+            safeId,
+            safe.paidFeePercentage,
+            nearestSpotInRedemptionQueue
+        );
 
         safesOrderedForLiquidation.upsert(
             safeId,
@@ -139,9 +145,9 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amountToBorrow);
 
-        distributeFees(_shieldingFee, true);
-
-        return safe;
+        if (_shieldingFee > 0) {
+            distributeFees(_shieldingFee, true);
+        }
     }
 
     function _redeemNode(

@@ -22,7 +22,7 @@ contract StableBaseCDP is StableBase {
 
     function openSafe(uint256 _safeId, uint256 _amount) external payable {
         require(_amount > 0, "Amount must be greater than 0");
-        require(msg.value == _amount, "Invalid amount");
+        require(msg.value == _amount, "Insufficient collateral");
 
         SBStructs.Safe memory safe = SBStructs.Safe({
             collateralAmount: _amount,
@@ -85,8 +85,9 @@ contract StableBaseCDP is StableBase {
         uint256 price = priceOracle.getPrice();
 
         // Calculate the maximum borrowable amount
-        uint256 maxBorrowAmount = (safe.collateralAmount * price * 100) /
-            liquidationRatio;
+        uint256 maxBorrowAmount = (safe.collateralAmount *
+            price *
+            BASIS_POINTS_DIVISOR) / liquidationRatio;
 
         // Check if the requested amount is within the maximum borrowable limits
         require(
@@ -94,9 +95,7 @@ contract StableBaseCDP is StableBase {
             "Borrow amount exceeds the maximum allowed"
         );
 
-        SBStructs.Safe memory _safe = safe;
-
-        _safe = handleBorrow(
+        handleBorrow(
             _safeId,
             safe,
             _amount,
@@ -104,7 +103,6 @@ contract StableBaseCDP is StableBase {
             _nearestSpotInLiquidationQueue,
             _nearestSpotInRedemptionQueue
         );
-        safes[_safeId] = safe;
 
         // Emit the Borrow event
         emit Borrow(_safeId, _amount);
