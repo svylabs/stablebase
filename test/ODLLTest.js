@@ -422,6 +422,7 @@ describe("OrderedDoublyLinkedListTest", function () {
         //await orderedDoublyLinkedList.connect(owner).upsert(1, 1, 0);
         await expect(orderedDoublyLinkedList.connect(owner).upsert(1, 1, 0)).to.be.revertedWithCustomError(orderedDoublyLinkedList, "OwnableUnauthorizedAccount");
         await orderedDoublyLinkedList.connect(addr1).setAddresses(owner.address);
+        await expect(orderedDoublyLinkedList.connect(addr1).upsert(1, 1, 0)).to.be.revertedWithCustomError(orderedDoublyLinkedList, "OwnableUnauthorizedAccount");
         await orderedDoublyLinkedList.connect(owner).upsert(1, 1, 0);
         const head = await orderedDoublyLinkedList.connect(owner).head();
         expect(head).to.equal(id);
