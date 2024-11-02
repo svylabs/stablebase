@@ -416,4 +416,19 @@ describe("OrderedDoublyLinkedListTest", function () {
         }
     });
 
+    it ("Should change ownership", async function() {
+        const id = 1;
+        const value = 1;
+        //await orderedDoublyLinkedList.connect(owner).upsert(1, 1, 0);
+        await expect(orderedDoublyLinkedList.connect(owner).upsert(1, 1, 0)).to.be.revertedWithCustomError(orderedDoublyLinkedList, "OwnableUnauthorizedAccount");
+        await orderedDoublyLinkedList.connect(addr1).setAddresses(owner.address);
+        await orderedDoublyLinkedList.connect(owner).upsert(1, 1, 0);
+        const head = await orderedDoublyLinkedList.connect(owner).head();
+        expect(head).to.equal(id);
+        const tail = await orderedDoublyLinkedList.connect(owner).tail();
+        expect(tail).to.equal(id);
+        const node = await orderedDoublyLinkedList.connect(addr1).nodes(id);
+        expect(node.value).to.equal(value);
+    });
+
 });
