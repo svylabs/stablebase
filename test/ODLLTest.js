@@ -5,7 +5,7 @@ describe("OrderedDoublyLinkedListTest", function () {
     this.beforeEach(async function () {
         [owner, addr1] = await ethers.getSigners();
         const OrderedDoublyLinkedListFactory = await ethers.getContractFactory("OrderedDoublyLinkedList");
-        orderedDoublyLinkedList = await OrderedDoublyLinkedListFactory.deploy();
+        orderedDoublyLinkedList = await OrderedDoublyLinkedListFactory.connect(addr1).deploy();
         await orderedDoublyLinkedList.waitForDeployment(); // wait for deployment to complete
     });
 
