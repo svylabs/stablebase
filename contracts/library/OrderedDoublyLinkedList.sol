@@ -17,8 +17,6 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList, Ownable {
 
     function setAddresses(address _stableBaseCDP) external onlyOwner {
         transferOwnership(_stableBaseCDP);
-
-        renounceOwnership();
     }
 
     function _insert(

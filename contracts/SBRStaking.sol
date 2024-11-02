@@ -13,22 +13,19 @@ contract SBRStaking is ISBRStaking, Ownable {
 
     uint256 public PRECISION = 1e18;
 
-    IERC20 public rewardToken;
     IERC20 public stakingToken;
-    IERC20 public collateralToken;
+    IERC20 public rewardToken;
     address public stableBaseContract;
 
     constructor() Ownable(msg.sender) {}
 
     function setAddresses(
-        address _rewardToken,
         address _stakingToken,
-        address _collateralToken,
+        address _rewardToken,
         address _stableBaseContract
     ) external onlyOwner {
-        rewardToken = IERC20(_rewardToken);
         stakingToken = IERC20(_stakingToken);
-        collateralToken = IERC20(_collateralToken);
+        rewardToken = IERC20(_rewardToken);
         stableBaseContract = _stableBaseContract;
 
         renounceOwnership();
