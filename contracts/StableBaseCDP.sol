@@ -131,6 +131,7 @@ contract StableBaseCDP is StableBase {
             _newRatio,
             nearestSpotInLiquidationQueue
         );
+        totalDebt -= amount;
     }
 
     function depositCollateral(
@@ -204,6 +205,8 @@ contract StableBaseCDP is StableBase {
             safesOrderedForLiquidation
         );
         _redeemToUser(_redemption);
+        totalCollateral -= _redemption.collateralAmount;
+        totalDebt -= _redemption.redeemedAmount;
         // Return a success status
         return;
     }
@@ -290,6 +293,8 @@ contract StableBaseCDP is StableBase {
         delete safes[_safeId];
         // Send fee
         payable(msg.sender).transfer(liquidationFee);
+        totalCollateral -= safe.collateralAmount;
+        totalDebt -= safe.borrowedAmount;
     }
 
     modifier _onlyOwner(uint256 _tokenId) {

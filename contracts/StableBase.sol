@@ -51,6 +51,8 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
 
     uint256 public totalCollateral;
 
+    uint256 public totalDebt;
+
     struct LiquidationSnapshot {
         uint256 collateralPerCollateralSnapshot;
         uint256 debtPerCollateralSnapshot;
@@ -163,6 +165,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         }
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amountToBorrow);
+        totalDebt += amount;
     }
 
     function _redeemNode(
@@ -324,6 +327,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
             .collateralPerCollateralSnapshot = cumulativeCollateralPerUnitCollateral;
 
         totalCollateral += collateralIncrease;
+        totalDebt += debtIncrease;
 
         return _safe;
     }

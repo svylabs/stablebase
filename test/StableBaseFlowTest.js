@@ -29,7 +29,7 @@ const utils = require("./utils");
 
 
 describe("Test the flow", function () {
-  let stableBaseCDP, sbdToken, sbrToken, sbrStaking, mockPriceOracle, owner, user, stabilityPool, redemptionQueue, liquidationQueue, priceOracle, mockOracle;
+  let stableBaseCDP, sbdToken, sbrToken, sbrStaking, mockPriceOracle, owner, user, stabilityPool, redemptionQueue, liquidationQueue, priceOracle, mockOracle, contracts;
   const safeId = 1;
   const price = BigInt(1000); // Price of the token
 
@@ -77,6 +77,17 @@ describe("Test the flow", function () {
     await redemptionQueue.setAddresses(stableBaseCDP.target);
     await liquidationQueue.setAddresses(stableBaseCDP.target);
     await stableBaseCDP.setAddresses(sbdToken.target, priceOracle.target, stabilityPool.target, sbrStaking.target, liquidationQueue.target, redemptionQueue.target);
+
+    contracts = {
+      stableBaseCDP,
+      sbdToken,
+      sbrToken,
+      sbrStaking,
+      priceOracle,
+      stabilityPool,
+      redemptionQueue,
+      liquidationQueue
+    }
 
   });
 
@@ -209,8 +220,31 @@ describe("Test the flow", function () {
 
           await expect(stabilityPool.connect(alice).claim()).to.emit(stabilityPool, "RewardClaimed").withArgs(alice.address, fee, BigInt(0));
           expect(await sbdToken.balanceOf(stabilityPool.target)).to.equal(borrowAmount);
+      });
 
-  });
+      it("Multiple people borrowing should order the redemption and liquidation queue appropriately", async function() {
+          const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+          const bobSafeId = ethers.solidityPackedKeccak256(["address", "address"], [bob.address, ethers.ZeroAddress]);
+          const charlieSafeId = ethers.solidityPackedKeccak256(["address", "address"], [charlie.address, ethers.ZeroAddress]);
+
+          const aliceCollateral = ethers.parseEther("1.0");
+          const bobCollateral = ethers.parseEther("1.0");
+          const charlieCollateral = ethers.parseEther("1.0");
+
+          const aliceBorrowAmount = ethers.parseEther("2000");
+          const bobBorrowAmount = ethers.parseEther("2500");
+          const charlieBorrowAmount = ethers.parseEther("2700");
+
+          priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+
+          //console.log(contracts);
+
+          const aliceSnapshot = await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+          const bobSnapshot = await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(100), contracts);
+          const charlieSnapshot = await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
+
+          
+      })
 
     });
 
@@ -259,4 +293,6 @@ describe("Test the flow", function () {
       });
 
     });
+
+
 });
