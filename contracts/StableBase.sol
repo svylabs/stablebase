@@ -41,9 +41,9 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
 
     ISBRStaking public sbrTokenStaking;
 
-    uint256 public constant SBR_FEE_REWARD = 10; // 10% of the fee goes to SBR Stakers
+    uint256 public constant SBR_FEE_REWARD = 1000; // 10% of the fee goes to SBR Stakers
 
-    uint256 public constant REDEMPTION_LIQUIDATION_FEE = 75; // 0.5%;
+    uint256 public constant REDEMPTION_LIQUIDATION_FEE = 75; // 0.75%;
 
     uint256 public cumulativeDebtPerUnitCollateral;
 
@@ -139,8 +139,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         safe.borrowedAmount += amount;
 
         // Calculate the ratio (borrowAmount per unit collateral)
-        uint256 ratio = (safe.borrowedAmount * PRECISION) /
-            safe.collateralAmount;
+        uint256 ratio = (safe.borrowedAmount) / safe.collateralAmount;
 
         safesOrderedForRedemption.upsert(
             safeId,
@@ -189,8 +188,8 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
             _safesOrderedForLiquidation.remove(_safeId);
         } else {
             // update with new collateral ratio
-            uint256 _newRatio = ((safe.borrowedAmount - amountToRedeem) *
-                PRECISION) / safe.collateralAmount;
+            uint256 _newRatio = ((safe.borrowedAmount - amountToRedeem)) /
+                safe.collateralAmount;
             safesOrderedForLiquidation.upsert(
                 _safeId,
                 _newRatio,
@@ -268,7 +267,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         if (mint) {
             sbdToken.mint(address(this), fee);
         }
-        uint256 sbrStakersFee = (fee * SBR_FEE_REWARD) / 100;
+        uint256 sbrStakersFee = (fee * SBR_FEE_REWARD) / 10000;
         uint256 stabilityPoolFee = fee;
         canRefund = fee;
         bool feeAdded1 = sbrTokenStaking.addReward(sbrStakersFee);
@@ -283,7 +282,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
             canRefund -= stabilityPoolFee;
         }
         require(canRefund <= fee, "Invalid refund amount");
-        if (canRefund > 0) {
+        if (canRefund > 0 && mint) {
             sbdToken.burn(address(this), canRefund);
         }
     }

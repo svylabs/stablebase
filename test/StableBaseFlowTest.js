@@ -232,7 +232,7 @@ describe("Test the flow", function () {
           const charlieCollateral = ethers.parseEther("1.0");
 
           const aliceBorrowAmount = ethers.parseEther("2000");
-          const bobBorrowAmount = ethers.parseEther("2500");
+          const bobBorrowAmount = ethers.parseEther("2700");
           const charlieBorrowAmount = ethers.parseEther("2700");
 
           priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
@@ -240,9 +240,74 @@ describe("Test the flow", function () {
           //console.log(contracts);
 
           const aliceSnapshot = await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
-          const bobSnapshot = await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(100), contracts);
+          const bobSnapshot = await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
           const charlieSnapshot = await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
 
+          expect(aliceSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.head).to.equal(aliceSafeId);
+          expect(aliceSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.tail).to.equal(aliceSafeId);
+
+          expect(aliceSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.head).to.equal(aliceSafeId);
+          expect(aliceSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.tail).to.equal(aliceSafeId);
+
+          expect(bobSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.head).to.equal(bobSafeId);
+          expect(bobSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.tail).to.equal(aliceSafeId);
+          expect(bobSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.head).to.equal(aliceSafeId);
+          expect(bobSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.tail).to.equal(bobSafeId);
+
+          expect(charlieSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.head).to.equal(bobSafeId);
+          expect(charlieSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.tail).to.equal(charlieSafeId);
+
+          expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.head).to.equal(aliceSafeId);
+          expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.tail).to.equal(bobSafeId);
+
+          charlieSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.all.forEach((node) => {
+             //console.log(node);
+             if (node.safeId == aliceSafeId) {
+                expect(node.data.value).to.equal(aliceSnapshot.newSafe.weight);
+             }
+             if (node.safeId == bobSafeId) {
+                expect(node.data.value).to.equal(bobSnapshot.newSafe.weight);
+             }
+              if (node.safeId == charlieSafeId) {
+                  console.log(node);
+                  expect(node.data.value).to.equal(charlieSnapshot.newSafe.weight);
+              }
+          });
+
+          const bobSnapshot2 = await utils.feeTopup(bob, bobSafeId, BigInt(100), contracts);
+          expect(bobSnapshot2.newSnapshot.stableBaseCDP.redemptionQueue.head).to.equal(aliceSafeId);
+          expect(bobSnapshot2.newSnapshot.stableBaseCDP.redemptionQueue.tail).to.equal(charlieSafeId);
+
+          bobSnapshot2.newSnapshot.stableBaseCDP.redemptionQueue.all.forEach((node) => {
+              if (node.safeId == aliceSafeId) {
+                  expect(node.data.value).to.equal(aliceSnapshot.newSnapshot.safe.weight);
+              }
+              if (node.safeId == bobSafeId) {
+                  expect(node.data.value).to.equal(bobSnapshot2.newSnapshot.safe.weight);
+              }
+              if (node.safeId == charlieSafeId) {
+                  expect(node.data.value).to.equal(charlieSnapshot.newSnapshot.safe.weight);
+              }
+          });
+
+
+          bobSnapshot2.newSnapshot.stableBaseCDP.liquidationQueue.all.forEach((node) => {
+              if (node.safeId == aliceSafeId) {
+                  const safe = aliceSnapshot.newSnapshot.safe;
+                  const l2v = safe.borrowedAmount / safe.collateralAmount;
+                  expect(node.data.value).to.equal(l2v);
+              }
+              if (node.safeId == bobSafeId) {
+                const safe = bobSnapshot2.newSnapshot.safe;
+                const l2v = safe.borrowedAmount / safe.collateralAmount;
+                expect(node.data.value).to.equal(l2v);
+              }
+              if (node.safeId == charlieSafeId) {
+                const safe = charlieSnapshot.newSnapshot.safe;
+                const l2v = safe.borrowedAmount / safe.collateralAmount;
+                expect(node.data.value).to.equal(l2v);
+              }
+            });
           
       })
 
