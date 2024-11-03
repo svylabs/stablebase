@@ -46,22 +46,21 @@ contract StableBaseCDP is StableBase {
      * @dev Closes a Safe and returns the collateral to the owner.
      * Check if the borrowedAmount is 0, if there is any SB token borrowed, close should not work.
      * Return back the collateral
-     * @param _safeId The ID of the Safe to close
+     * @param safeId The ID of the Safe to close
      */
-    function closeSafe(uint256 _safeId) external {
-        SBStructs.Safe storage safe = safes[_safeId];
-        _updateSafe(_safeId, safe);
-        require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
+    function closeSafe(uint256 safeId) external _onlyOwner(safeId) {
+        SBStructs.Safe storage safe = safes[safeId];
+        _updateSafe(safeId, safe);
         require(
             safe.borrowedAmount == 0,
             "Cannot close Safe with borrowed amount"
         );
         uint256 collateralAmount = safe.collateralAmount;
         // Remove the Safe from the mapping
-        delete safes[_safeId];
+        delete safes[safeId];
 
-        _burn(_safeId); // burn the NFT Safe
-        emit CloseSafe(_safeId);
+        _burn(safeId); // burn the NFT Safe
+        emit CloseSafe(safeId);
         payable(msg.sender).transfer(collateralAmount);
     }
 
@@ -70,15 +69,14 @@ contract StableBaseCDP is StableBase {
      *
      */
     function borrow(
-        uint256 _safeId,
-        uint256 _amount,
-        uint256 _shieldingRate,
-        uint256 _nearestSpotInLiquidationQueue,
-        uint256 _nearestSpotInRedemptionQueue
-    ) external {
-        SBStructs.Safe storage safe = safes[_safeId];
-        _updateSafe(_safeId, safe);
-        require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
+        uint256 safeId,
+        uint256 amount,
+        uint256 shieldingRate,
+        uint256 nearestSpotInLiquidationQueue,
+        uint256 nearestSpotInRedemptionQueue
+    ) external _onlyOwner(safeId) {
+        SBStructs.Safe storage safe = safes[safeId];
+        _updateSafe(safeId, safe);
         require(safe.collateralAmount > 0, "Safe does not exist");
 
         // Fetch the price of the collateral from the oracle
@@ -91,21 +89,21 @@ contract StableBaseCDP is StableBase {
 
         // Check if the requested amount is within the maximum borrowable limits
         require(
-            safe.borrowedAmount + _amount <= maxBorrowAmount,
+            safe.borrowedAmount + amount <= maxBorrowAmount,
             "Borrow amount exceeds the limit"
         );
 
         handleBorrow(
-            _safeId,
+            safeId,
             safe,
-            _amount,
-            _shieldingRate,
-            _nearestSpotInLiquidationQueue,
-            _nearestSpotInRedemptionQueue
+            amount,
+            shieldingRate,
+            nearestSpotInLiquidationQueue,
+            nearestSpotInRedemptionQueue
         );
 
         // Emit the Borrow event
-        emit Borrow(_safeId, _amount);
+        emit Borrow(safeId, amount);
     }
 
     // Repay function
@@ -113,10 +111,9 @@ contract StableBaseCDP is StableBase {
         uint256 safeId,
         uint256 amount,
         uint256 nearestSpotInLiquidationQueue
-    ) external {
+    ) external _onlyOwner(safeId) {
         SBStructs.Safe storage _safe = safes[safeId];
         _updateSafe(safeId, _safe);
-        require(_isApprovedOrOwner(msg.sender, safeId), "Unauthorized");
         require(_safe.borrowedAmount > 0, "No borrowed amount to repay");
         require(sbdToken.balanceOf(msg.sender) >= amount, "Insufficient SBD");
 
@@ -139,10 +136,9 @@ contract StableBaseCDP is StableBase {
     function depositCollateral(
         uint256 safeId,
         uint256 amount
-    ) external payable {
+    ) external payable _onlyOwner(safeId) {
         SBStructs.Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
-        require(_isApprovedOrOwner(msg.sender, safeId), "Unauthorized");
         require(safe.collateralAmount > 0, "Safe does not exist");
         require(msg.value == amount, "Invalid amount");
 
@@ -155,10 +151,9 @@ contract StableBaseCDP is StableBase {
         uint256 safeId,
         uint256 amount,
         uint256 nearestSpotInLiquidationQueue
-    ) external {
+    ) external _onlyOwner(safeId) {
         SBStructs.Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
-        require(_isApprovedOrOwner(msg.sender, safeId), "Unauthorized");
         require(safe.collateralAmount > 0, "No collateral to withdraw");
 
         if (safe.borrowedAmount > 0) {
@@ -192,11 +187,11 @@ contract StableBaseCDP is StableBase {
 
     // Function to redeem SBD tokens for the underlying collateral
 
-    function redeem(uint256 _amount, bytes calldata redemptionParams) external {
-        require(_amount > 0, "Amount must be greater than 0");
-        sbdToken.burn(msg.sender, _amount);
+    function redeem(uint256 amount, bytes calldata redemptionParams) external {
+        require(amount > 0, "Amount must be greater than 0");
+        sbdToken.burn(msg.sender, amount);
         SBStructs.Redemption memory _redemption = SBStructs.Redemption({
-            requestedAmount: _amount,
+            requestedAmount: amount,
             redeemedAmount: 0,
             processedSpots: 0,
             collateralAmount: 0
@@ -217,7 +212,7 @@ contract StableBaseCDP is StableBase {
         uint256 safeId,
         uint256 feeRate,
         uint256 nearestSpotInRedemptionQueue
-    ) external {
+    ) external _onlyOwner(safeId) {
         SBStructs.Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
         //TODO:  Check if the required fee is paid
@@ -225,7 +220,6 @@ contract StableBaseCDP is StableBase {
         uint256 balance = sbdToken.balanceOf(msg.sender);
         uint256 fee = (feeRate * safe.borrowedAmount) / BASIS_POINTS_DIVISOR;
         require(balance >= fee, "Insufficient Balance to pay fee");
-        require(_isApprovedOrOwner(msg.sender, safeId), "Unauthorized");
         // Update the spot in the shieldedSafes list
         safe.paidFeePercentage += feeRate;
         sbdToken.transferFrom(msg.sender, address(this), fee);
@@ -239,7 +233,7 @@ contract StableBaseCDP is StableBase {
     }
 
     function liquidate() external {
-        uint256 _safeId = safesOrderedForLiquidation.getHead();
+        uint256 _safeId = safesOrderedForLiquidation.getTail();
         SBStructs.Safe storage safe = safes[_safeId];
         _updateSafe(_safeId, safe);
         //require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
@@ -293,13 +287,9 @@ contract StableBaseCDP is StableBase {
         payable(msg.sender).transfer(liquidationFee);
     }
 
-    function _isApprovedOrOwner(
-        address _spender,
-        uint256 _tokenId
-    ) internal view returns (bool) {
+    modifier _onlyOwner(uint256 _tokenId) {
         address owner = ownerOf(_tokenId);
-        return (msg.sender == owner ||
-            getApproved(_tokenId) == _spender ||
-            isApprovedForAll(owner, _spender));
+        require(msg.sender == owner, "Not the owner");
+        _;
     }
 }

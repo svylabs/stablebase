@@ -161,5 +161,22 @@ describe("Test the flow", function () {
           expect(await sbdToken.balanceOf(alice.address)).to.equal(borrowAmount);
       });
 
+      it ("Borrowing as different user should not work", async function() {
+        const safeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const amount = ethers.parseEther("1.0");
+        await stableBaseCDP.connect(alice).openSafe(safeId, amount, {value: amount});
+        await priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 2250
+        const borrowAmount = ethers.parseEther("2000");
+        const feePercent = BigInt(100); // 1%
+        const fee = (borrowAmount * feePercent) / BigInt(10000);
+        await expect(stableBaseCDP.connect(bob).borrow(safeId, borrowAmount, feePercent, BigInt(0), BigInt(0)))
+          .to.be.revertedWith("Not the owner");
+        const safe = await stableBaseCDP.safes(safeId);
+        expect(safe.collateralAmount).to.equal(amount);
+        expect(safe.borrowedAmount).to.equal(BigInt(0));
+        expect(await sbdToken.balanceOf(alice.address)).to.equal(0);
+        expect(await sbdToken.balanceOf(bob.address)).to.equal(0);  
+    });
+
     });
 });
