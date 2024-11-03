@@ -53,6 +53,9 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
 
     uint256 public totalDebt;
 
+    SBStructs.Mode public PROTOCOL_MODE = SBStructs.Mode.BOOTSTRAP;
+    uint256 public constant BOOTSTRAP_MODE_DEBT_THRESHOLD = 5000000 * 10 ** 18; // 5 million SBD
+
     struct LiquidationSnapshot {
         uint256 collateralPerCollateralSnapshot;
         uint256 debtPerCollateralSnapshot;
@@ -164,7 +167,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         }
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amountToBorrow);
-        totalDebt += amount;
+        _updateTotalDebt(totalDebt, amount, true);
     }
 
     function _redeemNode(
@@ -327,9 +330,39 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
             .collateralPerCollateralSnapshot = cumulativeCollateralPerUnitCollateral;
 
         totalCollateral += collateralIncrease;
-        totalDebt += debtIncrease;
+        _updateTotalDebt(totalDebt, debtIncrease, true);
 
         return _safe;
+    }
+
+    function _updateTotalDebt(
+        uint256 currentDebt,
+        uint256 delta,
+        bool add
+    ) internal returns (uint256) {
+        uint256 debt = currentDebt;
+        if (add) {
+            debt = currentDebt + delta;
+        } else {
+            debt = currentDebt - delta;
+        }
+        // Bootstrap Mode to Normal mode only once, Normal mode to bootstrap mode is not possible
+        if (
+            debt > BOOTSTRAP_MODE_DEBT_THRESHOLD &&
+            PROTOCOL_MODE == SBStructs.Mode.BOOTSTRAP
+        ) {
+            PROTOCOL_MODE = SBStructs.Mode.NORMAL;
+        }
+        totalDebt = debt;
+        return debt;
+    }
+
+    modifier onlyInNormalMode() {
+        require(
+            PROTOCOL_MODE == SBStructs.Mode.NORMAL,
+            "Protocol in bootstrap mode"
+        );
+        _;
     }
 
     function _removeSafe(uint256 _safeId) internal {

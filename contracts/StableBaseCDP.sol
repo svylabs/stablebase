@@ -144,7 +144,7 @@ contract StableBaseCDP is StableBase {
             safesOrderedForLiquidation.remove(safeId);
             safesOrderedForRedemption.remove(safeId);
         }
-        totalDebt -= amount;
+        _updateTotalDebt(totalDebt, amount, false);
     }
 
     function addCollateral(
@@ -213,7 +213,10 @@ contract StableBaseCDP is StableBase {
 
     // Function to redeem SBD tokens for the underlying collateral
 
-    function redeem(uint256 amount, bytes calldata redemptionParams) external {
+    function redeem(
+        uint256 amount,
+        bytes calldata redemptionParams
+    ) external onlyInNormalMode {
         require(amount > 0, "Amount must be greater than 0");
         sbdToken.burn(msg.sender, amount);
         SBStructs.Redemption memory _redemption = SBStructs.Redemption({
@@ -231,7 +234,8 @@ contract StableBaseCDP is StableBase {
         );
         _redeemToUser(_redemption);
         totalCollateral -= _redemption.collateralAmount;
-        totalDebt -= _redemption.redeemedAmount;
+        //totalDebt -= _redemption.redeemedAmount;
+        _updateTotalDebt(totalDebt, _redemption.redeemedAmount, false);
         // Return a success status
         return;
     }
@@ -291,7 +295,7 @@ contract StableBaseCDP is StableBase {
             REDEMPTION_LIQUIDATION_FEE) / BASIS_POINTS_DIVISOR;
 
         totalCollateral -= collateralAmount;
-        totalDebt -= borrowedAmount;
+        _updateTotalDebt(totalDebt, borrowedAmount, false);
 
         if (possible) {
             stabilityPool.performLiquidation(
