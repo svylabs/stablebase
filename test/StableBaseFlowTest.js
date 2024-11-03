@@ -604,11 +604,21 @@ describe("Test the flow", function () {
         const aliceRepayAmount = aliceBorrowAmount;
         const aliceSnapshot = await utils.repay(alice, aliceSafeId, aliceRepayAmount, contracts);
         expect(aliceSnapshot.newSnapshot.safe.borrowedAmount).to.equal(0);
+        aliceSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.all.forEach((node) => { 
+          if (node.safeId == aliceSafeId) {
+             assert.fail("Alice safe should be removed from the liquidation queue");
+          }
+       });
 
         const withdrawAmount = ethers.parseEther("2");
         const aliceSnapshot2 = await utils.withdrawCollateral(alice, aliceSafeId, withdrawAmount, contracts);
         expect(aliceSnapshot2.newSnapshot.user.ethBalance).to.equal(aliceSnapshot2.existingSnapshot.user.ethBalance + withdrawAmount - aliceSnapshot2.gasPaid);
         expect(aliceSnapshot2.newSnapshot.safe.collateralAmount).to.equal(0);
+        aliceSnapshot2.newSnapshot.stableBaseCDP.liquidationQueue.all.forEach((node) => { 
+           if (node.safeId == aliceSafeId) {
+              assert.fail("Alice safe should be removed from the liquidation queue");
+           }
+        });
 
        });
 
@@ -642,7 +652,6 @@ describe("Test the flow", function () {
         } catch (ex) {
           expect(ex.message).to.equal("VM Exception while processing transaction: reverted with reason string 'Not the owner'");
         }
-
        });
 
     });
