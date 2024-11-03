@@ -398,7 +398,50 @@ describe("Test the flow", function () {
       });
 
 
+      it("Partial Repay should work", async function() {
+        const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const bobSafeId = ethers.solidityPackedKeccak256(["address", "address"], [bob.address, ethers.ZeroAddress]);
+        const charlieSafeId = ethers.solidityPackedKeccak256(["address", "address"], [charlie.address, ethers.ZeroAddress]);
 
+        const aliceCollateral = ethers.parseEther("2.0");
+        const bobCollateral = ethers.parseEther("2.0");
+        const charlieCollateral = ethers.parseEther("2.0");
+
+        const aliceBorrowAmount = ethers.parseEther("5000");
+        const bobBorrowAmount = ethers.parseEther("4500");
+        const charlieBorrowAmount = ethers.parseEther("5700");
+
+        priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+
+        await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+        await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
+        await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
+
+        const aliceRepayAmount = ethers.parseUnits("1000", 18);
+        const aliceSnapshot = await utils.repay(alice, aliceSafeId, aliceRepayAmount, contracts);
+        aliceSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.all.forEach((node) => {
+          if (node.safeId == aliceSafeId) {
+              expect(node.data.value).to.equal(aliceSnapshot.newSnapshot.safe.weight);
+          }
+        });
+
+        expect(aliceSnapshot.existingSnapshot.stableBaseCDP.liquidationQueue.head).to.equal(bobSafeId);
+        expect(aliceSnapshot.existingSnapshot.stableBaseCDP.liquidationQueue.tail).to.equal(charlieSafeId);
+
+        expect(aliceSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.head).to.equal(aliceSafeId);
+        expect(aliceSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.tail).to.equal(charlieSafeId);
+
+        aliceSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.all.forEach((node) => {
+          if (node.safeId == aliceSafeId) {
+             const ratio = aliceSnapshot.newSnapshot.safe.borrowedAmount / aliceSnapshot.newSnapshot.safe.collateralAmount;
+             expect(node.data.value).to.equal(ratio);
+          }
+        });
+        expect(aliceSnapshot.newSnapshot.safe.borrowedAmount).to.equal(aliceBorrowAmount - aliceRepayAmount);
+        expect(aliceSnapshot.newSnapshot.safe.collateralAmount).to.equal(aliceCollateral);
+        expect(aliceSnapshot.existingSnapshot.user.sbdBalance).to.equal(aliceBorrowAmount);
+        expect(aliceSnapshot.newSnapshot.user.sbdBalance).to.equal(aliceBorrowAmount - aliceRepayAmount);
+      });
 
 
     });
