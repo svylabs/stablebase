@@ -98,28 +98,36 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
             "Only the Safe owner can borrow"
         );
         uint256 _shieldingFee = (amount * shieldingRate) / BASIS_POINTS_DIVISOR;
+        uint256 _minFeeWeightNode = safesOrderedForRedemption.getHead();
         // Is first time borrowing
         if (safe.borrowedAmount == 0) {
-            uint256 _minRateNode = safesOrderedForRedemption.getHead();
-            if (_minRateNode == 0) {
+            if (_minFeeWeightNode == 0) {
                 // There are no existing borrowings, so the fee is the minimum rate
-                safe.paidFeePercentage = shieldingRate;
+                safe.feeWeight = shieldingRate;
             } else {
-                uint256 _minRatePaid = safesOrderedForRedemption
-                    .get(_minRateNode)
+                uint256 _minFeeWeight = safesOrderedForRedemption
+                    .get(_minFeeWeightNode)
                     .value;
                 // Adjust the fee percentage based on the minimum value, so the new borrowers don't start from the beginning.
                 // This is to keep it fair for new borrowers, and is only an accounting trick.
                 // Fee for new borrowers is in relation to the minimum rate paid by the existing borrowers
-                safe.paidFeePercentage = _minRatePaid + shieldingRate;
+                safe.feeWeight = _minFeeWeight + shieldingRate;
             }
         } else {
-            // There is an existing borrowing, so pay this rate for the existing borrowing as well
-            _shieldingFee +=
-                (safe.borrowedAmount * shieldingRate) /
+            uint256 _minFeeWeight = safesOrderedForRedemption
+                .get(_minFeeWeightNode)
+                .value;
+            // ShieldingRate is always in relation to the minimum rate paid by the existing borrowers
+            uint256 diff = safe.feeWeight - _minFeeWeight;
+            uint256 weightedDiff = (diff * safe.borrowedAmount) /
                 BASIS_POINTS_DIVISOR;
+
+            uint256 newFeeWeight = ((_shieldingFee + weightedDiff) *
+                BASIS_POINTS_DIVISOR) / (safe.borrowedAmount + amount);
+
+            // No need to charge the already borrowed amount as it has already been charged, just update the relative rate.
             if (shieldingRate > 0) {
-                safe.paidFeePercentage += shieldingRate;
+                safe.feeWeight = _minFeeWeight + newFeeWeight;
             }
         }
         if (amount < _shieldingFee) {
@@ -134,7 +142,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
 
         safesOrderedForRedemption.upsert(
             safeId,
-            safe.paidFeePercentage,
+            safe.feeWeight,
             nearestSpotInRedemptionQueue
         );
 
@@ -268,7 +276,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         }
         bool feeAdded2 = stabilityPool.addReward(stabilityPoolFee);
         if (feeAdded2) {
-            feePaid += fee;
+            feePaid += stabilityPoolFee;
             canRefund -= stabilityPoolFee;
         }
         require(canRefund <= fee, "Invalid refund amount");

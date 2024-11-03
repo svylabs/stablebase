@@ -7,7 +7,7 @@ library SBStructs {
     struct Safe {
         uint256 collateralAmount;
         uint256 borrowedAmount;
-        uint256 paidFeePercentage;
+        uint256 feeWeight;
         uint256 totalFeePaid;
     }
 

@@ -27,7 +27,7 @@ contract StableBaseCDP is StableBase {
         SBStructs.Safe memory safe = SBStructs.Safe({
             collateralAmount: _amount,
             borrowedAmount: 0,
-            paidFeePercentage: 0,
+            feeWeight: 0,
             totalFeePaid: 0
         });
         LiquidationSnapshot memory liquidationSnapshot = LiquidationSnapshot({
@@ -221,12 +221,12 @@ contract StableBaseCDP is StableBase {
         uint256 fee = (feeRate * safe.borrowedAmount) / BASIS_POINTS_DIVISOR;
         require(balance >= fee, "Insufficient Balance to pay fee");
         // Update the spot in the shieldedSafes list
-        safe.paidFeePercentage += feeRate;
+        safe.feeWeight += feeRate;
         sbdToken.transferFrom(msg.sender, address(this), fee);
         // Jump to the correct position in the redemption queue
         safesOrderedForRedemption.upsert(
             safeId,
-            safe.paidFeePercentage,
+            safe.feeWeight,
             nearestSpotInRedemptionQueue
         );
         distributeFees(fee, false);
