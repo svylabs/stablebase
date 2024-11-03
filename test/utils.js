@@ -25,8 +25,8 @@ async function takeODLLSnapshot(odll, id) {
 
 async function takeCDPSnapshot(contracts, safeId) {
     const snapshot = {};
-    snapshot.eth_balance = await ethers.provider.getBalance(contracts.stableBaseCDP.target);
-    snapshot.sbd_balance = await contracts.sbdToken.balanceOf(contracts.stabilityPool.target);
+    snapshot.ethBalance = await ethers.provider.getBalance(contracts.stableBaseCDP.target);
+    snapshot.sbdBalance = await contracts.sbdToken.balanceOf(contracts.stabilityPool.target);
     snapshot.cumulativeDebtPerUnitCollateral = await contracts.stableBaseCDP.cumulativeDebtPerUnitCollateral();
     snapshot.cumulativeCollateralPerUnitCollateral = await contracts.stableBaseCDP.cumulativeCollateralPerUnitCollateral();
     snapshot.totalCollateral = await contracts.stableBaseCDP.totalCollateral();
@@ -39,8 +39,8 @@ async function takeCDPSnapshot(contracts, safeId) {
 
 async function takeStabilityPoolSnapshot(contracts) {
     const snapshot = {};
-    snapshot.eth_balance = await ethers.provider.getBalance(contracts.stabilityPool.target);
-    snapshot.sbd_balance = await contracts.sbdToken.balanceOf(contracts.stabilityPool.target);
+    snapshot.ethBalance = await ethers.provider.getBalance(contracts.stabilityPool.target);
+    snapshot.sbdBalance = await contracts.sbdToken.balanceOf(contracts.stabilityPool.target);
     snapshot.totalStakedRaw = await contracts.stabilityPool.totalStakedRaw();
     snapshot.stakeResetCount = await contracts.stabilityPool.stakeResetCount();
     snapshot.stakeScalingFactor = await contracts.stabilityPool.stakeScalingFactor();
@@ -90,10 +90,10 @@ async function takeContractSnapshots(contracts, safeId, user) {
     const snapshots = {};
     //console.log(contracts.stableBaseCDP);
     snapshots.stableBaseCDP = await takeCDPSnapshot(contracts, safeId);
-    snapshots.stabilityPoolSnapshot = await takeStabilityPoolSnapshot(contracts);
-    snapshots.sbdSnapshot = await takeSBDSnapshot(contracts);
-    snapshots.sbrSnapshot = await takeSBRSnapshot(contracts);
-    snapshots.sbrStakingSnapshot = await takeSBRStakingSnapshot(contracts);
+    snapshots.stabilityPool = await takeStabilityPoolSnapshot(contracts);
+    snapshots.sbdToken = await takeSBDSnapshot(contracts);
+    snapshots.sbrToken = await takeSBRSnapshot(contracts);
+    snapshots.sbrStaking = await takeSBRStakingSnapshot(contracts);
     snapshots.safe = await contracts.stableBaseCDP.safes(safeId);
     snapshots.user = await takeUserSnapshots(contracts, safeId, user);
     return snapshots;
@@ -219,4 +219,19 @@ async function adjustPosition(user, safeId, contracts) {
     }
 }
 
-module.exports = { borrow, feeTopup, repay, addCollateral, adjustPosition, liquidate, takeContractSnapshots, withdrawCollateral};
+async function stakeSBD(user, safeId, amount, contracts) {
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    await contracts.sbdToken.connect(user).approve(contracts.stabilityPool.target, amount);
+    const tx = await contracts.stabilityPool.connect(user).stake(amount);
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        existingSnapshot,
+        newSnapshot,
+        gasPaid,
+        gasUsed: receipt.gasUsed
+    }
+}
+
+module.exports = { borrow, feeTopup, repay, addCollateral, adjustPosition, liquidate, stakeSBD, takeContractSnapshots, withdrawCollateral};

@@ -112,7 +112,24 @@ describe("Test the flow", function () {
 
     describe("Test Liquidation from Stability Pool", function() {
         it ("Liquidation should work", async function() {
-            
+            const aliceSnapshot = await utils.stakeSBD(alice, users.alice.safeId, users.alice.borrowAmount, contracts);
+            const bobSnapshot = await utils.stakeSBD(bob, users.bob.safeId, users.bob.borrowAmount, contracts);
+            //const charlieSnapshot = await utils.stakeSBD(charlie, users.charlie.safeId, users.charlie.borrowAmount, contracts);
+
+            priceOracle.setPrice(BigInt(3100));
+            const snapshots = await utils.liquidate(owner, contracts);
+            const liquidationFee = (await stableBaseCDP.REDEMPTION_LIQUIDATION_FEE() * snapshots.existingSnapshot.safe.collateralAmount) / BigInt(10000);
+
+            expect(snapshots.newSnapshot.user.ethBalance).equals(snapshots.existingSnapshot.user.ethBalance + liquidationFee - snapshots.gasPaid);
+
+            expect(snapshots.newSnapshot.stabilityPool.ethBalance).equals(snapshots.existingSnapshot.stabilityPool.ethBalance + users.charlie.collateralAmount - liquidationFee);
+            expect(snapshots.newSnapshot.stabilityPool.sbdBalance).equals(snapshots.existingSnapshot.stabilityPool.sbdBalance - users.charlie.borrowAmount);
+            expect(snapshots.newSnapshot.sbdToken.totalSupply).equals(snapshots.existingSnapshot.sbdToken.totalSupply - users.charlie.borrowAmount);
+
+            expect(snapshots.newSnapshot.stableBaseCDP.totalCollateral).equals(snapshots.existingSnapshot.stableBaseCDP.totalCollateral - snapshots.existingSnapshot.safe.collateralAmount);
+            expect(snapshots.newSnapshot.stableBaseCDP.totalDebt).equals(snapshots.existingSnapshot.stableBaseCDP.totalDebt - snapshots.existingSnapshot.safe.borrowedAmount);
+            expect(snapshots.newSnapshot.stableBaseCDP.cumulativeCollateralPerUnitCollateral).equals(BigInt(0));
+            expect(snapshots.newSnapshot.stableBaseCDP.cumulativeDebtPerUnitCollateral).equals(BigInt(0));
         })
 
     });
