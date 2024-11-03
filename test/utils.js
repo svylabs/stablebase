@@ -2,7 +2,6 @@ const { ethers } = require("hardhat");
 
 async function takeODLLSnapshot(odll, id) {
     //const odll = await ethers.getContractAt("OrderedDoublyLinkedList", address);
-    console.log(odll);
     let head = await odll.getHead();
     let tail = await odll.getTail();
     const snapshot = {
@@ -70,7 +69,22 @@ async function takeSBRStakingSnapshot(contracts) {
     return snapshot;
 }
 
-async function takeContractSnapshots(contracts, safeId) {
+async function takeUserSnapshots(contracts, safeId, user) {
+    const snapshots = {};
+    snapshots.sbdBalance = await contracts.sbdToken.balanceOf(user.address);
+    snapshots.sbrBalance = await contracts.sbrToken.balanceOf(user.address);
+    snapshots.sbrStake = await contracts.sbrStaking.stakes(user.address);
+    const rewards = await contracts.stabilityPool.userPendingRewardAndCollateral(user.address);
+    snapshots.stabilityPool = {
+        stake: await contracts.stabilityPool.getUser(user.address),
+        reward: rewards[0],
+        collateral: rewards[1],
+        sbrReward: rewards[2]
+    }
+    return snapshots;
+}
+
+async function takeContractSnapshots(contracts, safeId, user) {
     const snapshots = {};
     //console.log(contracts.stableBaseCDP);
     snapshots.stableBaseCDP = await takeCDPSnapshot(contracts, safeId);
@@ -79,11 +93,12 @@ async function takeContractSnapshots(contracts, safeId) {
     snapshots.sbrSnapshot = await takeSBRSnapshot(contracts);
     snapshots.sbrStakingSnapshot = await takeSBRStakingSnapshot(contracts);
     snapshots.safe = await contracts.stableBaseCDP.safes(safeId);
+    snapshots.user = await takeUserSnapshots(contracts, safeId, user);
     return snapshots;
 }
 
 async function borrow(user, safeId, collateral, borrowAmount, shieldingRate, contracts) {
-    const existingSnapshot = await takeContractSnapshots(contracts, safeId);
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
     const existingSafe = await contracts.stableBaseCDP.safes(safeId);
     //console.log(existingSafe, safeId, existingSafe.borrowedAmount, existingSafe.collateralAmount);
     if (existingSafe.borrowedAmount == BigInt(0) && existingSafe.collateralAmount == BigInt(0)) {
@@ -93,7 +108,7 @@ async function borrow(user, safeId, collateral, borrowAmount, shieldingRate, con
     const fee = borrowAmount * shieldingRate;
     await contracts.stableBaseCDP.connect(user).borrow(safeId, borrowAmount, shieldingRate, BigInt(0), BigInt(0));
     const newSafe = await contracts.stableBaseCDP.safes(safeId);
-    const newSnapshot = await takeContractSnapshots(contracts, safeId);
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
     return {
         safeId,
         borrowAmount,
@@ -106,11 +121,11 @@ async function borrow(user, safeId, collateral, borrowAmount, shieldingRate, con
 }
 
 async function feeTopup(user, safeId, feeRate, contracts) {
-    const existingSnapshot = await takeContractSnapshots(contracts, safeId);
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
     const totalFee = (existingSnapshot.safe.borrowedAmount * feeRate ) / BigInt(10000);
     await contracts.sbdToken.connect(user).approve(contracts.stableBaseCDP.target, totalFee);
     await contracts.stableBaseCDP.connect(user).feeTopup(safeId, feeRate, BigInt(0));
-    const newSnapshot = await takeContractSnapshots(contracts, safeId);
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
     return {
         safeId,
         feeRate,
@@ -119,4 +134,17 @@ async function feeTopup(user, safeId, feeRate, contracts) {
     }
 }
 
-module.exports = { borrow, feeTopup, takeContractSnapshots };
+async function repay(user, safeId, repayAmount, contracts) {
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    await contracts.sbdToken.connect(user).approve(contracts.stableBaseCDP.target, repayAmount);
+    await contracts.stableBaseCDP.connect(user).repay(safeId, repayAmount, BigInt(0));
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        safeId,
+        repayAmount,
+        existingSnapshot,
+        newSnapshot
+    }
+}
+
+module.exports = { borrow, feeTopup, repay, takeContractSnapshots };

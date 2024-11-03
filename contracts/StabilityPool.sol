@@ -403,6 +403,17 @@ contract StabilityPool is IStabilityPool, Ownable {
         return userPendingCollateral(user);
     }
 
+    function userPendingRewardAndCollateral(
+        address _user
+    ) public view returns (uint256, uint256, uint256) {
+        UserInfo storage user = users[_user];
+        if (user.cumulativeProductScalingFactor != 0) {
+            return userPendingRewardAndCollateral(user);
+        } else {
+            return (0, 0, 0);
+        }
+    }
+
     function _getUserEffectiveStake(
         UserInfo memory user
     ) internal view returns (uint256 stake) {

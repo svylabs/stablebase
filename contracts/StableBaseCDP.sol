@@ -124,13 +124,17 @@ contract StableBaseCDP is StableBase {
         );
         sbdToken.burn(msg.sender, amount);
         _safe.borrowedAmount -= amount;
-        uint256 _newRatio = ((_safe.borrowedAmount * PRECISION) /
-            _safe.collateralAmount);
-        safesOrderedForLiquidation.upsert(
-            safeId,
-            _newRatio,
-            nearestSpotInLiquidationQueue
-        );
+        uint256 _newRatio = _safe.borrowedAmount / _safe.collateralAmount;
+        if (_newRatio != 0) {
+            safesOrderedForLiquidation.upsert(
+                safeId,
+                _newRatio,
+                nearestSpotInLiquidationQueue
+            );
+        } else {
+            safesOrderedForLiquidation.remove(safeId);
+            safesOrderedForRedemption.remove(safeId);
+        }
         totalDebt -= amount;
     }
 

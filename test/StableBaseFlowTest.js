@@ -1,4 +1,4 @@
-const { expect } = require("chai");
+const { expect, assert} = require("chai");
 const { ethers } = require("hardhat");
 const utils = require("./utils");
 
@@ -357,6 +357,56 @@ describe("Test the flow", function () {
         expect(await sbdToken.balanceOf(stabilityPool.target)).to.equal(borrowAmount + fee + topupFee);
       });
 
+    });
+
+    describe("Repay Tests", function() {
+      it("Full Repay should work", async function() {
+        const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const bobSafeId = ethers.solidityPackedKeccak256(["address", "address"], [bob.address, ethers.ZeroAddress]);
+        const charlieSafeId = ethers.solidityPackedKeccak256(["address", "address"], [charlie.address, ethers.ZeroAddress]);
+
+        const aliceCollateral = ethers.parseEther("1.0");
+        const bobCollateral = ethers.parseEther("1.0");
+        const charlieCollateral = ethers.parseEther("1.0");
+
+        const aliceBorrowAmount = ethers.parseEther("2000");
+        const bobBorrowAmount = ethers.parseEther("2700");
+        const charlieBorrowAmount = ethers.parseEther("2700");
+
+        priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+
+        await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+        await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
+        await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
+
+        const aliceRepayAmount = aliceBorrowAmount;
+        const aliceSnapshot = await utils.repay(alice, aliceSafeId, aliceRepayAmount, contracts);
+        aliceSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.all.forEach((node) => {
+          if (node.safeId == aliceSafeId) {
+             assert.fail("Alice safe should be removed from the redemption queue");
+          }
+        });
+        aliceSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.all.forEach((node) => {
+          if (node.safeId == aliceSafeId) {
+             assert.fail("Alice safe should be removed from the liquidation queue");
+          }
+        });
+        expect(aliceSnapshot.newSnapshot.safe.borrowedAmount).to.equal(0);
+        expect(aliceSnapshot.newSnapshot.safe.collateralAmount).to.equal(aliceCollateral);
+        expect(aliceSnapshot.existingSnapshot.user.sbdBalance).to.equal(aliceBorrowAmount);
+        expect(aliceSnapshot.newSnapshot.user.sbdBalance).to.equal(0);
+      });
+
+
+
+
+
+    });
+
+    describe("Add Collateral Tests", function() {
+    });
+
+    describe("Withdraw Collateral Tests", function() {
     });
 
 
