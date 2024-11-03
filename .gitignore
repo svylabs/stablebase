@@ -1,4 +1,5 @@
 timestamps
+coverage/
 node_modules/
 artifacts/
 cache/
