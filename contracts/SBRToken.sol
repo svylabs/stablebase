@@ -21,7 +21,7 @@ contract SBRToken is ERC20, Ownable {
         _mint(to, amount);
     }
 
-    function burn(address from, uint256 amount) external {
+    function burn(address from, uint256 amount) external onlyOwner {
         require(from != address(0), "Invalid address");
         require(amount > 0, "Amount must be greater than 0");
         require(balanceOf(from) >= amount, "Insufficient balance");

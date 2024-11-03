@@ -290,6 +290,9 @@ contract StableBaseCDP is StableBase {
         uint256 liquidationFee = (collateralAmount *
             REDEMPTION_LIQUIDATION_FEE) / BASIS_POINTS_DIVISOR;
 
+        totalCollateral -= collateralAmount;
+        totalDebt -= borrowedAmount;
+
         if (possible) {
             stabilityPool.performLiquidation(
                 borrowedAmount,
@@ -302,8 +305,6 @@ contract StableBaseCDP is StableBase {
                 collateralAmount - liquidationFee
             );
         } else {
-            totalCollateral -= collateralAmount;
-            totalDebt -= borrowedAmount;
             // Liquidate by distributing the debt and collateral to the existing borrowers.
             distributeDebtAndCollateral(
                 borrowedAmount,
