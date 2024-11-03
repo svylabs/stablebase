@@ -38,6 +38,7 @@ interface IStableBase {
      *      minWeightInSystem = minimum Weight in the system(i.e- weight of the the first safe in the redemption queue)
      *      safe.weight = minWeightInSystem + shieldingRate
      *   else:
+     *      // Caclulate the average weight based on existing and new borrowing and add it to the minWeightInSystem
      *      minWeightInSystem = minimum Weight in the system(i.e- weight of the the first safe in the redemption queue)
      *      relativeWeight = (safe.weight - minWeightInSystem)
      *      TotalWeightOfExistingBorrowing = relativeWeight * safe.borrowAmount
