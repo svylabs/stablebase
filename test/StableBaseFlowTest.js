@@ -203,7 +203,7 @@ describe("Test the flow", function () {
           console.log(safe2);
           expect(safe2.borrowedAmount).to.equal(borrowAmount + borrowAmount2);
           const feeWeight = (fee * BigInt(10000) / (borrowAmount2 + borrowAmount));
-          expect(safe2.feeWeight).to.equal(feeWeight);
+          expect(safe2.weight).to.equal(feeWeight);
           expect(await sbdToken.balanceOf(alice.address)).to.equal(actualBorrowAmount);
           expect(await sbdToken.balanceOf(stabilityPool.target)).to.equal(borrowAmount + fee);
 
@@ -211,6 +211,52 @@ describe("Test the flow", function () {
           expect(await sbdToken.balanceOf(stabilityPool.target)).to.equal(borrowAmount);
 
   });
+
+    });
+
+
+    describe("Fee Topup Tests", function() {
+
+      it("topup fee should work and update fee weight", async function() {
+        const safeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const amount = ethers.parseEther("1.0");
+        await stableBaseCDP.connect(alice).openSafe(safeId, amount, {value: amount});
+        await priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 2250
+        const borrowAmount = ethers.parseEther("2000");
+        let shieldingRate = BigInt(0);
+        await stableBaseCDP.connect(alice).borrow(safeId, borrowAmount, shieldingRate, BigInt(0), BigInt(0));
+        const safe = await stableBaseCDP.safes(safeId);
+        expect(safe.borrowedAmount).to.equal(borrowAmount);
+        expect(await sbdToken.balanceOf(alice.address)).to.equal(borrowAmount);
+
+        await sbdToken.connect(alice).approve(stabilityPool.target, borrowAmount);
+        await sbdToken.connect(alice).approve(stableBaseCDP.target, ethers.parseEther("1000000"));
+        await stabilityPool.connect(alice).stake(borrowAmount);
+
+        // Make another borrowing of 1000 should succeed.
+        const borrowAmount2 = ethers.parseEther("1000");
+        shieldingRate = BigInt(100);
+        const fee = (borrowAmount2 * shieldingRate) / BigInt(10000);
+        const actualBorrowAmount = borrowAmount2 - fee;
+        await stableBaseCDP.connect(alice).borrow(safeId, borrowAmount2, shieldingRate, BigInt(0), BigInt(0));
+        const safe2 = await stableBaseCDP.safes(safeId);
+        console.log(safe2);
+        expect(safe2.borrowedAmount).to.equal(borrowAmount + borrowAmount2);
+        const feeWeight = (fee * BigInt(10000) / (borrowAmount2 + borrowAmount));
+        expect(safe2.weight).to.equal(feeWeight);
+        expect(await sbdToken.balanceOf(alice.address)).to.equal(actualBorrowAmount);
+
+        // Topup fee
+        const topupFeeRate = BigInt(100); // 1%
+        const topupFee = (safe2.borrowedAmount * topupFeeRate) / BigInt(10000);
+        await expect(stableBaseCDP.connect(alice).feeTopup(safeId, topupFeeRate, BigInt(0)))
+          .to.emit(stableBaseCDP, "FeeTopup")
+          .withArgs(safeId, topupFeeRate, topupFee, feeWeight + topupFeeRate);
+        const safe3 = await stableBaseCDP.safes(safeId);
+        expect(safe3.weight).to.equal(feeWeight + topupFeeRate);
+        expect(await sbdToken.balanceOf(alice.address)).to.equal(actualBorrowAmount - topupFee);
+        expect(await sbdToken.balanceOf(stabilityPool.target)).to.equal(borrowAmount + fee + topupFee);
+      });
 
     });
 });

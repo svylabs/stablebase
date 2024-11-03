@@ -103,7 +103,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         if (safe.borrowedAmount == 0) {
             if (_minFeeWeightNode == 0) {
                 // There are no existing borrowings, so the fee is the minimum rate
-                safe.feeWeight = shieldingRate;
+                safe.weight = shieldingRate;
             } else {
                 uint256 _minFeeWeight = safesOrderedForRedemption
                     .get(_minFeeWeightNode)
@@ -111,14 +111,14 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
                 // Adjust the fee percentage based on the minimum value, so the new borrowers don't start from the beginning.
                 // This is to keep it fair for new borrowers, and is only an accounting trick.
                 // Fee for new borrowers is in relation to the minimum rate paid by the existing borrowers
-                safe.feeWeight = _minFeeWeight + shieldingRate;
+                safe.weight = _minFeeWeight + shieldingRate;
             }
         } else {
             uint256 _minFeeWeight = safesOrderedForRedemption
                 .get(_minFeeWeightNode)
                 .value;
             // ShieldingRate is always in relation to the minimum rate paid by the existing borrowers
-            uint256 diff = safe.feeWeight - _minFeeWeight;
+            uint256 diff = safe.weight - _minFeeWeight;
             uint256 weightedDiff = (diff * safe.borrowedAmount) /
                 BASIS_POINTS_DIVISOR;
 
@@ -127,7 +127,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
 
             // No need to charge the already borrowed amount as it has already been charged, just update the relative rate.
             if (shieldingRate > 0) {
-                safe.feeWeight = _minFeeWeight + newFeeWeight;
+                safe.weight = _minFeeWeight + newFeeWeight;
             }
         }
         if (amount < _shieldingFee) {
@@ -142,7 +142,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
 
         safesOrderedForRedemption.upsert(
             safeId,
-            safe.feeWeight,
+            safe.weight,
             nearestSpotInRedemptionQueue
         );
 

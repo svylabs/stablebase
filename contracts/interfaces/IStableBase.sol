@@ -6,9 +6,15 @@ interface IStableBase {
         address indexed owner,
         uint256 amount
     );
-    event Borrow(uint256 indexed safeId, uint256 amount);
+    event Borrow(uint256 indexed safeId, uint256 amount, uint256 weight);
     event CloseSafe(uint256 indexed safeId);
     event BorrowFeeRefund(uint256 indexed safeId, uint256 amount);
+    event FeeTopup(
+        uint256 indexed safeId,
+        uint256 topupRate,
+        uint256 feePaid,
+        uint256 newWeight
+    );
 
     function openSafe(uint256 _safeId, uint256 _amount) external payable;
 
@@ -21,24 +27,23 @@ interface IStableBase {
      *
      * Each safe goes into liquidation queue based on the LTV ratio.
      *
-     * Each safe goes into redemption queue based on a feeWeight calculated by the protocol.
+     * Each safe goes into redemption queue based on a weight calculated by the protocol based on the fee paid. Safe with lowest weight is redeemed first.
      *
-     * feeWeight is calculated as follows:
+     * weight of the safe is calculated as follows:
      *
      * If no existing safes in redemption queue:
-     *    safe.feeWeight = shieldingRate
+     *    safe.weight = shieldingRate
      * else:
      *   if there is no existing borrowing for the user:
-     *      minFeeWeightInSystem = minimum feeWeight in the system(i.e- feeWeight of the the first safe in the redemption queue)
-     *      safe.feeWeight = minFeeWeightInSystem + shieldingRate
+     *      minWeightInSystem = minimum Weight in the system(i.e- weight of the the first safe in the redemption queue)
+     *      safe.weight = minWeightInSystem + shieldingRate
      *   else:
-     *      minFeeWeightInSystem = minimum feeWeight in the system(i.e- feeWeight of the the first safe in the redemption queue)
-     *      diff = (safe.feeWeight - minFeeWeightInSystem)
-     *      feeWeightOfExistingBorrowing = diff * safe.borrowAmount
-     *      sheildingFee = shieldingRate * newBorrowAmount
-     *      relativeFeeWeight = (feeWeightOfExistingBorrowing + shieldingFee) / (safe.borrowAmount + newBorrowAmount)
-     *      safe.feeWeight = minFeeWeightInSystem + relativeFeeWeight
-     *
+     *      minWeightInSystem = minimum Weight in the system(i.e- weight of the the first safe in the redemption queue)
+     *      relativeWeight = (safe.weight - minWeightInSystem)
+     *      TotalWeightOfExistingBorrowing = relativeWeight * safe.borrowAmount
+     *      TotalWeightOfAdditionalBorrowing = shieldingRate * additionalBorrowAmount
+     *      newRelativeWeight = (TotalWeightOfExistingBorrowing + TotalWeightOfAdditionalBorrowing) / (safe.borrowAmount + additionalBorrowAmount)
+     *      safe.weight = minWeightInSystem + newRelativeWeight
      *
      *
      * @param safeId - The id of the safe
@@ -71,7 +76,7 @@ interface IStableBase {
 
     function feeTopup(
         uint256 safeId,
-        uint256 feeRate,
+        uint256 topupRate,
         uint256 nearestSpotInRedemptionQueue
     ) external;
 

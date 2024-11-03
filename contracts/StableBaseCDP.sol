@@ -27,7 +27,7 @@ contract StableBaseCDP is StableBase {
         SBStructs.Safe memory safe = SBStructs.Safe({
             collateralAmount: _amount,
             borrowedAmount: 0,
-            feeWeight: 0,
+            weight: 0,
             totalFeePaid: 0
         });
         LiquidationSnapshot memory liquidationSnapshot = LiquidationSnapshot({
@@ -103,7 +103,7 @@ contract StableBaseCDP is StableBase {
         );
 
         // Emit the Borrow event
-        emit Borrow(safeId, amount);
+        emit Borrow(safeId, amount, safe.weight);
     }
 
     // Repay function
@@ -210,26 +210,31 @@ contract StableBaseCDP is StableBase {
 
     function feeTopup(
         uint256 safeId,
-        uint256 feeRate,
+        uint256 topupRate,
         uint256 nearestSpotInRedemptionQueue
     ) external _onlyOwner(safeId) {
         SBStructs.Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
         //TODO:  Check if the required fee is paid
-        require(feeRate > 0, "Fee rate must be greater than 0");
+        require(topupRate > 0, "Fee rate must be greater than 0");
         uint256 balance = sbdToken.balanceOf(msg.sender);
-        uint256 fee = (feeRate * safe.borrowedAmount) / BASIS_POINTS_DIVISOR;
+        uint256 fee = (topupRate * safe.borrowedAmount) / BASIS_POINTS_DIVISOR;
         require(balance >= fee, "Insufficient Balance to pay fee");
         // Update the spot in the shieldedSafes list
-        safe.feeWeight += feeRate;
+        safe.weight += topupRate;
         sbdToken.transferFrom(msg.sender, address(this), fee);
         // Jump to the correct position in the redemption queue
         safesOrderedForRedemption.upsert(
             safeId,
-            safe.feeWeight,
+            safe.weight,
             nearestSpotInRedemptionQueue
         );
-        distributeFees(fee, false);
+        (, uint256 refundFee) = distributeFees(fee, false);
+        if (refundFee > 0) {
+            // Refund undistributed fee back to the user
+            sbdToken.transfer(msg.sender, refundFee);
+        }
+        emit FeeTopup(safeId, topupRate, fee, safe.weight);
     }
 
     function liquidate() external {
