@@ -147,9 +147,10 @@ contract StableBaseCDP is StableBase {
         totalDebt -= amount;
     }
 
-    function depositCollateral(
+    function addCollateral(
         uint256 safeId,
-        uint256 amount
+        uint256 amount,
+        uint256 nearestSpotInLiquidationQueue
     ) external payable _onlyOwner(safeId) {
         SBStructs.Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
@@ -158,6 +159,15 @@ contract StableBaseCDP is StableBase {
 
         safe.collateralAmount += amount;
         totalCollateral += amount;
+
+        uint256 _newRatio = safe.borrowedAmount / safe.collateralAmount;
+        safesOrderedForLiquidation.upsert(
+            safeId,
+            _newRatio,
+            nearestSpotInLiquidationQueue
+        );
+
+        emit AddedCollateral(safeId, amount);
     }
 
     // Withdraw collateral function
@@ -177,24 +187,26 @@ contract StableBaseCDP is StableBase {
             // Calculate the maximum withdrawal amount that maintains the liquidation ratio
             uint256 maxWithdrawal = safe.collateralAmount -
                 (safe.borrowedAmount * liquidationRatio) /
-                (price * 100);
+                (price * BASIS_POINTS_DIVISOR);
             require(amount <= maxWithdrawal, "Insufficient collateral");
-
-            // Check if the remaining collateral is sufficient to cover the borrowed amount after withdrawal
-            require(
-                ((safe.collateralAmount - amount) * price * 100) /
-                    safe.borrowedAmount >=
-                    liquidationRatio,
-                "Insufficient collateral after withdrawal"
+            uint256 _newRatio = safe.borrowedAmount /
+                (safe.collateralAmount - amount);
+            safesOrderedForLiquidation.upsert(
+                safeId,
+                _newRatio,
+                nearestSpotInLiquidationQueue
             );
         } else {
             // If there's no borrowed amount, ensure the withdrawal does not exceed deposited collateral
             require(amount <= safe.collateralAmount, "Insufficient collateral");
+            safesOrderedForLiquidation.remove(safeId);
+            safesOrderedForRedemption.remove(safeId);
         }
 
         // Update the Safe's deposited amount
         safe.collateralAmount -= amount;
         totalCollateral -= amount;
+
         // Withdraw ETH or ERC20 token using SBUtils library
         payable(msg.sender).transfer(amount);
     }

@@ -474,10 +474,75 @@ describe("Test the flow", function () {
 
     });
 
-    describe("Add Collateral Tests", function() {
+    describe("Add Collateral Tests", async function() {
+      it("Add collateral should work", async function() {
+        const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const bobSafeId = ethers.solidityPackedKeccak256(["address", "address"], [bob.address, ethers.ZeroAddress]);
+        const charlieSafeId = ethers.solidityPackedKeccak256(["address", "address"], [charlie.address, ethers.ZeroAddress]);
+
+        const aliceCollateral = ethers.parseEther("2.0");
+        const bobCollateral = ethers.parseEther("2.0");
+        const charlieCollateral = ethers.parseEther("2.0");
+
+        const aliceBorrowAmount = ethers.parseEther("5000");
+        const bobBorrowAmount = ethers.parseEther("4500");
+        const charlieBorrowAmount = ethers.parseEther("5700");
+
+        priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+
+        await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+        await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
+        await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
+
+        const additionalCollateral = ethers.parseEther("2");
+        const charlieSnapshot = await utils.addCollateral(charlie, charlieSafeId, additionalCollateral, contracts);
+        expect(charlieSnapshot.existingSnapshot.safe.collateralAmount).to.equal(charlieCollateral);
+        expect(charlieSnapshot.newSnapshot.safe.collateralAmount).to.equal(charlieCollateral + additionalCollateral);
+
+        expect(charlieSnapshot.existingSnapshot.stableBaseCDP.liquidationQueue.tail).to.equal(charlieSafeId);
+        expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.head).to.equal(charlieSafeId);
+        expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.tail).to.equal(aliceSafeId);
+        expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.node.value).to.equal(charlieSnapshot.newSnapshot.safe.borrowedAmount / charlieSnapshot.newSnapshot.safe.collateralAmount);
+        
+      });
     });
 
     describe("Withdraw Collateral Tests", function() {
+       it("Withdraw collateral should work", async function() {
+        const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const bobSafeId = ethers.solidityPackedKeccak256(["address", "address"], [bob.address, ethers.ZeroAddress]);
+        const charlieSafeId = ethers.solidityPackedKeccak256(["address", "address"], [charlie.address, ethers.ZeroAddress]);
+
+        const aliceCollateral = ethers.parseEther("2.0");
+        const bobCollateral = ethers.parseEther("2.0");
+        const charlieCollateral = ethers.parseEther("3.0");
+
+        const aliceBorrowAmount = ethers.parseEther("5000");
+        const bobBorrowAmount = ethers.parseEther("4500");
+        const charlieBorrowAmount = ethers.parseEther("5700");
+
+        priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+
+        await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+        await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
+        await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
+
+        const withdrawAmount = ethers.parseEther("1");
+        const charlieSnapshot = await utils.withdrawCollateral(charlie, charlieSafeId, withdrawAmount, contracts);
+        expect(charlieSnapshot.existingSnapshot.safe.collateralAmount).to.equal(charlieCollateral);
+        expect(charlieSnapshot.newSnapshot.safe.collateralAmount).to.equal(charlieCollateral - withdrawAmount);
+        expect(charlieSnapshot.newSnapshot.safe.borrowedAmount).to.equal(charlieBorrowAmount);
+
+        expect(charlieSnapshot.existingSnapshot.stableBaseCDP.liquidationQueue.tail).to.equal(aliceSafeId);
+        expect(charlieSnapshot.existingSnapshot.stableBaseCDP.liquidationQueue.head).to.equal(charlieSafeId);
+
+        expect(charlieSnapshot.newSnapshot.user.ethBalance).to.equal(charlieSnapshot.existingSnapshot.user.ethBalance + withdrawAmount - charlieSnapshot.gasPaid);
+        expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.node.value).to.equal(charlieSnapshot.newSnapshot.safe.borrowedAmount / charlieSnapshot.newSnapshot.safe.collateralAmount);
+
+        expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.tail).to.equal(charlieSafeId);
+        expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.head).to.equal(bobSafeId);
+
+       });
     });
 
 

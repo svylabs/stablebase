@@ -74,6 +74,7 @@ async function takeUserSnapshots(contracts, safeId, user) {
     snapshots.sbdBalance = await contracts.sbdToken.balanceOf(user.address);
     snapshots.sbrBalance = await contracts.sbrToken.balanceOf(user.address);
     snapshots.sbrStake = await contracts.sbrStaking.stakes(user.address);
+    snapshots.ethBalance = await ethers.provider.getBalance(user.address);
     const rewards = await contracts.stabilityPool.userPendingRewardAndCollateral(user.address);
     snapshots.stabilityPool = {
         stake: await contracts.stabilityPool.getUser(user.address),
@@ -106,11 +107,14 @@ async function borrow(user, safeId, collateral, borrowAmount, shieldingRate, con
         await contracts.stableBaseCDP.connect(user).openSafe(safeId, collateral, { value: collateral });
     }
     const fee = borrowAmount * shieldingRate;
-    await contracts.stableBaseCDP.connect(user).borrow(safeId, borrowAmount, shieldingRate, BigInt(0), BigInt(0));
+    const tx = await contracts.stableBaseCDP.connect(user).borrow(safeId, borrowAmount, shieldingRate, BigInt(0), BigInt(0));
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
     const newSafe = await contracts.stableBaseCDP.safes(safeId);
     const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
     return {
         safeId,
+        gasPaid,
         borrowAmount,
         fee,
         existingSafe,
@@ -124,10 +128,13 @@ async function feeTopup(user, safeId, feeRate, contracts) {
     const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
     const totalFee = (existingSnapshot.safe.borrowedAmount * feeRate ) / BigInt(10000);
     await contracts.sbdToken.connect(user).approve(contracts.stableBaseCDP.target, totalFee);
-    await contracts.stableBaseCDP.connect(user).feeTopup(safeId, feeRate, BigInt(0));
+    const tx = await contracts.stableBaseCDP.connect(user).feeTopup(safeId, feeRate, BigInt(0));
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
     const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
     return {
         safeId,
+        gasPaid,
         feeRate,
         existingSnapshot,
         newSnapshot
@@ -137,14 +144,47 @@ async function feeTopup(user, safeId, feeRate, contracts) {
 async function repay(user, safeId, repayAmount, contracts) {
     const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
     await contracts.sbdToken.connect(user).approve(contracts.stableBaseCDP.target, repayAmount);
-    await contracts.stableBaseCDP.connect(user).repay(safeId, repayAmount, BigInt(0));
+    const tx = await contracts.stableBaseCDP.connect(user).repay(safeId, repayAmount, BigInt(0));
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
     const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
     return {
         safeId,
+        gasPaid,
         repayAmount,
         existingSnapshot,
         newSnapshot
     }
 }
 
-module.exports = { borrow, feeTopup, repay, takeContractSnapshots };
+async function addCollateral(user, safeId, additionalCollateral, contracts) {
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    const tx = await contracts.stableBaseCDP.connect(user).addCollateral(safeId, additionalCollateral, BigInt(0), { value: additionalCollateral });
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        safeId,
+        gasPaid,
+        additionalCollateral,
+        existingSnapshot,
+        newSnapshot
+    }
+}
+
+async function withdrawCollateral(user, safeId, withdrawCollateral, contracts) {
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    const tx = await contracts.stableBaseCDP.connect(user).withdrawCollateral(safeId, withdrawCollateral, BigInt(0));
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        safeId,
+        gasPaid,
+        withdrawCollateral,
+        existingSnapshot,
+        newSnapshot
+    }
+}
+
+module.exports = { borrow, feeTopup, repay, addCollateral, takeContractSnapshots, withdrawCollateral};
