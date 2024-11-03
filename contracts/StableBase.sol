@@ -20,7 +20,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
     uint256
         internal constant FIRST_TIME_BORROW_BASIS_POINTS_DISCOUNT_THRESHOLD =
         20;
-    using RateLib for Math.Rate;
+    uint256 public constant MINIMUM_DEBT = 2000 * 10 ** 18;
     uint256 internal constant PRECISION = 10 ** 18;
 
     IDoublyLinkedList public safesOrderedForLiquidation;

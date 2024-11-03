@@ -92,6 +92,10 @@ contract StableBaseCDP is StableBase {
             safe.borrowedAmount + amount <= maxBorrowAmount,
             "Borrow amount exceeds the limit"
         );
+        require(
+            safe.borrowedAmount + amount >= MINIMUM_DEBT,
+            "Invalid borrow amount"
+        );
 
         handleBorrow(
             safeId,
@@ -121,6 +125,11 @@ contract StableBaseCDP is StableBase {
         require(
             amount <= _safe.borrowedAmount,
             "Repayment amount exceeds borrowed amount"
+        );
+        require(
+            _safe.borrowedAmount - amount == 0 ||
+                _safe.borrowedAmount - amount >= MINIMUM_DEBT,
+            "Invalid repayment amount"
         );
         sbdToken.burn(msg.sender, amount);
         _safe.borrowedAmount -= amount;
