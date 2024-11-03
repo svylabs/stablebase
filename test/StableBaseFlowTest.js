@@ -612,6 +612,39 @@ describe("Test the flow", function () {
 
        });
 
+       it("Withdraw collateral should not work for unauthorized users", async function() {
+        const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const bobSafeId = ethers.solidityPackedKeccak256(["address", "address"], [bob.address, ethers.ZeroAddress]);
+        const charlieSafeId = ethers.solidityPackedKeccak256(["address", "address"], [charlie.address, ethers.ZeroAddress]);
+
+        const aliceCollateral = ethers.parseEther("2.0");
+        const bobCollateral = ethers.parseEther("2.0");
+        const charlieCollateral = ethers.parseEther("3.0");
+
+        const aliceBorrowAmount = ethers.parseEther("5000");
+        const bobBorrowAmount = ethers.parseEther("4500");
+        const charlieBorrowAmount = ethers.parseEther("5700");
+
+        priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+
+        await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+        await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
+        await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
+
+        const aliceRepayAmount = aliceBorrowAmount;
+        const aliceSnapshot = await utils.repay(alice, aliceSafeId, aliceRepayAmount, contracts);
+        expect(aliceSnapshot.newSnapshot.safe.borrowedAmount).to.equal(0);
+
+        const withdrawAmount = ethers.parseEther("2");
+        try {
+          const aliceSnapshot2 = await utils.withdrawCollateral(bob, aliceSafeId, withdrawAmount, contracts);
+          assert.fail("Withdraw should fail");
+        } catch (ex) {
+          expect(ex.message).to.equal("VM Exception while processing transaction: reverted with reason string 'Not the owner'");
+        }
+
+       });
+
     });
 
 
