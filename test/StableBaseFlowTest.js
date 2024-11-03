@@ -543,6 +543,44 @@ describe("Test the flow", function () {
         expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.head).to.equal(bobSafeId);
 
        });
+
+
+       it("Withdraw collateral should not work when requested amount lowers collateral ratio < 110%", async function() {
+        const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const bobSafeId = ethers.solidityPackedKeccak256(["address", "address"], [bob.address, ethers.ZeroAddress]);
+        const charlieSafeId = ethers.solidityPackedKeccak256(["address", "address"], [charlie.address, ethers.ZeroAddress]);
+
+        const aliceCollateral = ethers.parseEther("1.0");
+        const bobCollateral = ethers.parseEther("1.0");
+        const charlieCollateral = ethers.parseEther("1.0");
+
+        const aliceBorrowAmount = ethers.parseEther("3000");
+        const bobBorrowAmount = ethers.parseEther("2700");
+        const charlieBorrowAmount = ethers.parseEther("2200");
+
+        priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+
+        await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+        await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
+        await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
+
+        const withdrawAmount = ethers.parseEther("0.01");
+        const existingSnapshot = await utils.takeContractSnapshots(contracts, aliceSafeId, alice);
+        try {
+          aliceSnapshot = await utils.withdrawCollateral(alice, aliceSafeId, withdrawAmount, contracts);
+          assert.fail("Withdraw should fail");
+        } catch (ex) {
+          expect(ex.message).to.equal("VM Exception while processing transaction: reverted with reason string 'Insufficient collateral'");
+        }
+        const newSnapshot =  await utils.takeContractSnapshots(contracts, aliceSafeId, alice);
+
+        // Order should be preserved.
+        //console.log(existingSnapshot.stableBaseCDP.liquidationQueue.all);
+        //console.log(newSnapshot.stableBaseCDP.liquidationQueue.all);
+        expect(existingSnapshot.stableBaseCDP.liquidationQueue.all).to.have.deep.members(newSnapshot.stableBaseCDP.liquidationQueue.all);
+        expect(newSnapshot.safe.collateralAmount).to.equal(existingSnapshot.safe.collateralAmount);
+
+       });
     });
 
 
