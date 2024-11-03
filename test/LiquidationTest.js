@@ -145,6 +145,17 @@ describe("Test the flow", function () {
             expect((await stabilityPool.connect(bob).userPendingRewardAndCollateral(bob.address))[1]).to.equal(bobCollateral);
         })
 
+
+        it("stability pool liquidation should not work", async function() {
+            try {
+                await contracts.stabilityPool.connect(owner).performLiquidation(BigInt(1), BigInt(1));
+                assert.fail("Should not have worked!");
+            } catch (ex) {
+                //console.log(ex);
+                expect(ex.message).includes("Caller is not the debt contract");
+            }
+        });
+
     });
 
 
