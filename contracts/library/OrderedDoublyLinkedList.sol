@@ -2,16 +2,21 @@
 pragma solidity ^0.8.19;
 
 import "../interfaces/IDoublyLinkedList.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract OrderedDoublyLinkedList is IDoublyLinkedList {
+contract OrderedDoublyLinkedList is IDoublyLinkedList, Ownable {
     uint256 public head;
     uint256 public tail;
 
     mapping(uint256 => Node) public nodes;
 
-    constructor() {
+    constructor() Ownable(msg.sender) {
         head = 0;
         tail = 0;
+    }
+
+    function setAddresses(address _stableBaseCDP) external onlyOwner {
+        transferOwnership(_stableBaseCDP);
     }
 
     function _insert(
@@ -134,7 +139,7 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList {
         uint256 id,
         uint256 value,
         uint256 _nearestSpot
-    ) external override {
+    ) external override onlyOwner {
         if (
             nodes[id].value == 0 && nodes[id].next == 0 && nodes[id].prev == 0
         ) {
@@ -144,7 +149,15 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList {
         }
     }
 
-    function remove(uint256 id) external override returns (Node memory) {
+    function remove(
+        uint256 id
+    ) external override onlyOwner returns (Node memory) {
+        if (
+            nodes[id].value == 0 && nodes[id].next == 0 && nodes[id].prev == 0
+        ) {
+            // Node doesn't exist
+            return Node(0, 0, 0);
+        }
         return _remove(id);
     }
 

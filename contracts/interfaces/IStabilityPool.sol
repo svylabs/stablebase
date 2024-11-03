@@ -30,7 +30,7 @@ interface IStabilityPool {
         uint256 collateral
     ) external returns (bool);
 
-    function addReward(uint256 _amount) external;
+    function addReward(uint256 _amount) external returns (bool);
 
     function getUser(address user) external returns (UserInfo memory userInfo);
 

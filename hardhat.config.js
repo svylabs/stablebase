@@ -1,6 +1,7 @@
 /** @type import('hardhat/config').HardhatUserConfig */
 require("@nomicfoundation/hardhat-toolbox");
 require("@nomiclabs/hardhat-solhint");
+require("hardhat-gas-reporter");
 
 module.exports = {
   solidity: {
@@ -21,4 +22,7 @@ module.exports = {
       },
     },
   },
+  gasReporter: {
+    enabled: false
+  }
 };

@@ -1,7 +1,7 @@
 const { ethers } = require("hardhat");
 
-async function takeODLLSnapshot(address, id) {
-    const odll = await ethers.getContractAt("OrderedDoublyLinkedList", address);
+async function takeODLLSnapshot(odll, id) {
+    //const odll = await ethers.getContractAt("OrderedDoublyLinkedList", address);
     let head = await odll.getHead();
     let tail = await odll.getTail();
     const snapshot = {
@@ -9,104 +9,229 @@ async function takeODLLSnapshot(address, id) {
         tail
     };
     if (id) {
-      let value = await odll.get(id);
-      snapshot.value = value;
+      let node = await odll.getNode(id);
+      snapshot.node = node;
     }
-    snapshot.address = address;
+    snapshot.address = odll.target;
+    snapshot.all = [];
+    let safeId = head;
+    do {
+        const data = await odll.getNode(safeId);
+        snapshot.all.push({data, safeId});
+        safeId = data.next;
+    } while (safeId != BigInt(0));
     return snapshot;
 }
 
-async function takeContractSnapshots(stableBaseCDP, sbdToken, collateralToken, safeId, userdetails) {
+async function takeCDPSnapshot(contracts, safeId) {
     const snapshot = {};
-    // 1. Take a snapshot of the reserve pool (stake for safeId, totalTokensInPool)
-    const rateGovernorsAddress = await stableBaseCDP.rateGovernors();
-    const rateGovernors = await ethers.getContractAt("RateGovernors", rateGovernorsAddress);
-    const rateGovernorsSnapshot = await rateGovernors.getStake(safeId);
-    snapshot.rateGovernors = {
-        balance: await sbdToken.balanceOf(rateGovernorsAddress),
-        stake: rateGovernorsSnapshot,
-    };
-
-    // 2. Take a snapshot of the target shielding rate list (head, tail, SafeId)
-    const targetShieldingRateListAddress = await stableBaseCDP.orderedTargetShieldedRates();
-    snapshot.targetShieldingRateList = await takeODLLSnapshot(targetShieldingRateListAddress, safeId);
-    // 3. Take a snapshot of the reserve ratio list (head, tail, SafeId)
-    const reserveRatioListAddress = await stableBaseCDP.orderedReserveRatios();
-    snapshot.reserveRatioList = await takeODLLSnapshot(reserveRatioListAddress, safeId);
-
-    // 4. Take a snapshot of the total supply of SBD tokens
-    snapshot.sbdToken = {
-       totalSupply: await sbdToken.totalSupply()
-    }
-    // 5. Safe
-    snapshot.safe = await stableBaseCDP.safes(safeId);
-
-    // 6. Total eth or collateral of the address
-    snapshot.user = {
-        eth: await ethers.provider.getBalance(userdetails.address),
-        sbd: await sbdToken.balanceOf(userdetails.address),
-    };
-    // 7. SBD token balance of the address
-    if (userdetails.collateral) {
-        snapshot.user.collateral = await collateralToken.balanceOf(userdetails.address);
-    }
-
-    // 8. Reference shielding rate
-    snapshot.referenceShieldingRate = await stableBaseCDP.referenceShieldingRate();
-
-    // 9. Expired Safe list
-    const shieldedSafesAddress = await stableBaseCDP.shieldedSafes();
-    snapshot.shieldedSafes = await takeODLLSnapshot(shieldedSafesAddress, safeId);
-    snapshot.safeId = safeId;
-
+    snapshot.ethBalance = await ethers.provider.getBalance(contracts.stableBaseCDP.target);
+    snapshot.sbdBalance = await contracts.sbdToken.balanceOf(contracts.stabilityPool.target);
+    snapshot.cumulativeDebtPerUnitCollateral = await contracts.stableBaseCDP.cumulativeDebtPerUnitCollateral();
+    snapshot.cumulativeCollateralPerUnitCollateral = await contracts.stableBaseCDP.cumulativeCollateralPerUnitCollateral();
+    snapshot.totalCollateral = await contracts.stableBaseCDP.totalCollateral();
+    snapshot.totalDebt = await contracts.stableBaseCDP.totalDebt();
+    snapshot.redemptionQueue = await takeODLLSnapshot(contracts.redemptionQueue, safeId);
+    snapshot.liquidationQueue = await takeODLLSnapshot(contracts.liquidationQueue, safeId);
+    snapshot.liquidationSnapshotForSafe = await contracts.stableBaseCDP.liquidationSnapshots(safeId);
     return snapshot;
 }
 
-async function setupUserSafe(user, safeParams, system) {
-    const depositAmount = ethers.parseEther(safeParams.depositAmount + "");
-    const tokenAddress = safeParams.collateralToken ? mockToken.address : ethers.ZeroAddress;
-    const safeId = ethers.toBigInt(ethers.solidityPackedKeccak256(["address", "address"], [user.address, tokenAddress]));
-    const borrowAmount = ((depositAmount * BigInt(system.price)) * BigInt(safeParams.borrowAmount || 50)) / BigInt(100);
-    //const result = await utils.openSafe({ stableBaseCDP, sbdToken, mockToken }, user, safeParams, { depositAmount, reserveRatio, targetShieldingRate, nearestSpotForReserveRatio, nearestSpotForTargetShieldingRate });
-    await system.contracts.stableBaseCDP.connect(user).openSafe(safeId, tokenAddress, depositAmount, { value: depositAmount });
-    const result = await borrow(system.contracts, user, safeId, borrowAmount, safeParams);
-    return result;
+async function takeStabilityPoolSnapshot(contracts) {
+    const snapshot = {};
+    snapshot.ethBalance = await ethers.provider.getBalance(contracts.stabilityPool.target);
+    snapshot.sbdBalance = await contracts.sbdToken.balanceOf(contracts.stabilityPool.target);
+    snapshot.totalStakedRaw = await contracts.stabilityPool.totalStakedRaw();
+    snapshot.stakeResetCount = await contracts.stabilityPool.stakeResetCount();
+    snapshot.stakeScalingFactor = await contracts.stabilityPool.stakeScalingFactor();
+    snapshot.totalRewardPerToken = await contracts.stabilityPool.totalRewardPerToken();
+    snapshot.totalCollateralPerToken = await contracts.stabilityPool.totalCollateralPerToken();
+    snapshot.totalSBRPerToken = await contracts.stabilityPool.totalSbrRewardPerToken();
+    return snapshot;
 }
 
-async function borrow(contracts, user, safeId, borrowAmount, borrowParams) {
-    const contractSnapshotBeforeBorrow = await takeContractSnapshots(contracts.stableBaseCDP, contracts.sbdToken, contracts.mockToken, safeId, { address: user.address, collateral: true });
-    let _borrowParams;
-    if (borrowParams.reserveRatio) {
-        const _nearestSpotForReserveRatio = borrowParams.nearestSpotForReserveRatio | ethers.ZeroHash;
-        const _nearestSpotForTargetShieldingRate = borrowParams.nearestSpotForTargetShieldingRate | ethers.ZeroHash;
-        const reserveRatioEnabled = 1;
-        const reserveRatio = borrowParams.reserveRatio * 100// 5%
-        const targetShieldingRate = borrowParams.targetShieldingRate * 100; // 8%
-        const targetShieldingRateEnabled = 1;
-        // 1- reserve ratio, 5- reserve ratio value, 1- target shielding rate, 8- target shielding rate value 
-        // targetShieldingRate(14 bits) | targetShieldingRateEnabled(2 bits) | reserveRatio(14 bits) | reserveRatioEnabled(2 bits)
-        const _compressedRate = reserveRatioEnabled | (reserveRatio << 2) | (targetShieldingRateEnabled << 16) | (targetShieldingRate << 18); 
-       //console.log(_compressedRate.toString(16), _compressedRate.toString(2), _nearestSpotForReserveRatio);
-        _borrowParams = ethers.solidityPacked(["uint32", "uint256", "uint256"], [BigInt(_compressedRate), BigInt(_nearestSpotForReserveRatio), BigInt(_nearestSpotForTargetShieldingRate)]);
-    } else if (borrowParams.shieldingRate !== undefined) {
-        const _nearestSpotInShieldedSafe = borrowParams.nearestSpotInShieldedSafe | ethers.ZeroHash;
-        const reserveRatioEnabled = 0;
-        const shieldingRate = borrowParams.shieldingRate * 100; // 5%
-        // 1- shielding rate, 5- shielding rate value
-        // shieldingRate(14 bits) | shieldingRateEnabled(2 bits)
-        const _compressedRate = reserveRatioEnabled | (shieldingRate << 2);
-        console.log(_compressedRate.toString(16), _compressedRate.toString(2), _nearestSpotInShieldedSafe);
-        _borrowParams = ethers.solidityPacked(["uint32", "uint256"], [BigInt(_compressedRate), BigInt(_nearestSpotInShieldedSafe)]);
-        console.log(_borrowParams);
-    }
-    let collateralAddress = ethers.ZeroAddress;
-    if (borrowParams.collateral) {
-        collateralAddress = contracts.mockToken.address;
-    }
-    console.log(_borrowParams);
-    await contracts.stableBaseCDP.connect(user).borrow(safeId, borrowAmount, _borrowParams);
-    const contractSnapshotAfterBorrow = await takeContractSnapshots(contracts.stableBaseCDP, contracts.sbdToken, contracts.mockToken, safeId, { address: user.address, collateral: true });
-    return { safeId, contractSnapshotBeforeBorrow, contractSnapshotAfterBorrow };
+async function takeSBDSnapshot(contracts) {
+    const snapshot = {};
+    snapshot.totalSupply = await contracts.sbdToken.totalSupply();
+    return snapshot;
 }
 
-module.exports = { takeODLLSnapshot, takeContractSnapshots, borrow, setupUserSafe };
+async function takeSBRSnapshot(contracts) {
+    const snapshot = {};
+    snapshot.totalSupply = await contracts.sbrToken.totalSupply();
+    return snapshot;
+}
+
+async function takeSBRStakingSnapshot(contracts) {
+    const snapshot = {};
+    snapshot.totalStaked = await contracts.sbrStaking.totalStake();
+    snapshot.totalRewardPerToken = await contracts.sbrStaking.totalRewardPerToken();
+    snapshot.totalCollateralPerToken = await contracts.sbrStaking.totalCollateralPerToken();
+    return snapshot;
+}
+
+async function takeUserSnapshots(contracts, safeId, user) {
+    const snapshots = {};
+    snapshots.sbdBalance = await contracts.sbdToken.balanceOf(user.address);
+    snapshots.sbrBalance = await contracts.sbrToken.balanceOf(user.address);
+    snapshots.sbrStake = await contracts.sbrStaking.stakes(user.address);
+    snapshots.ethBalance = await ethers.provider.getBalance(user.address);
+    const rewards = await contracts.stabilityPool.userPendingRewardAndCollateral(user.address);
+    snapshots.stabilityPool = {
+        stake: await contracts.stabilityPool.getUser(user.address),
+        reward: rewards[0],
+        collateral: rewards[1],
+        sbrReward: rewards[2]
+    }
+    return snapshots;
+}
+
+async function takeContractSnapshots(contracts, safeId, user) {
+    const snapshots = {};
+    //console.log(contracts.stableBaseCDP);
+    snapshots.stableBaseCDP = await takeCDPSnapshot(contracts, safeId);
+    snapshots.stabilityPool = await takeStabilityPoolSnapshot(contracts);
+    snapshots.sbdToken = await takeSBDSnapshot(contracts);
+    snapshots.sbrToken = await takeSBRSnapshot(contracts);
+    snapshots.sbrStaking = await takeSBRStakingSnapshot(contracts);
+    snapshots.safe = await contracts.stableBaseCDP.safes(safeId);
+    snapshots.user = await takeUserSnapshots(contracts, safeId, user);
+    return snapshots;
+}
+
+async function borrow(user, safeId, collateral, borrowAmount, shieldingRate, contracts) {
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    const existingSafe = await contracts.stableBaseCDP.safes(safeId);
+    //console.log(existingSafe, safeId, existingSafe.borrowedAmount, existingSafe.collateralAmount);
+    if (existingSafe.borrowedAmount == BigInt(0) && existingSafe.collateralAmount == BigInt(0)) {
+        //console.log("Opening safe");
+        await contracts.stableBaseCDP.connect(user).openSafe(safeId, collateral, { value: collateral });
+    }
+    const fee = borrowAmount * shieldingRate;
+    const tx = await contracts.stableBaseCDP.connect(user).borrow(safeId, borrowAmount, shieldingRate, BigInt(0), BigInt(0));
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSafe = await contracts.stableBaseCDP.safes(safeId);
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        safeId,
+        gasPaid,
+        borrowAmount,
+        fee,
+        existingSafe,
+        newSafe,
+        existingSnapshot,
+        newSnapshot
+    }
+}
+
+async function feeTopup(user, safeId, feeRate, contracts) {
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    const totalFee = (existingSnapshot.safe.borrowedAmount * feeRate ) / BigInt(10000);
+    await contracts.sbdToken.connect(user).approve(contracts.stableBaseCDP.target, totalFee);
+    const tx = await contracts.stableBaseCDP.connect(user).feeTopup(safeId, feeRate, BigInt(0));
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        safeId,
+        gasPaid,
+        feeRate,
+        existingSnapshot,
+        newSnapshot
+    }
+}
+
+async function repay(user, safeId, repayAmount, contracts) {
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    await contracts.sbdToken.connect(user).approve(contracts.stableBaseCDP.target, repayAmount);
+    const tx = await contracts.stableBaseCDP.connect(user).repay(safeId, repayAmount, BigInt(0));
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        safeId,
+        gasPaid,
+        repayAmount,
+        existingSnapshot,
+        newSnapshot
+    }
+}
+
+async function addCollateral(user, safeId, additionalCollateral, contracts) {
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    const tx = await contracts.stableBaseCDP.connect(user).addCollateral(safeId, additionalCollateral, BigInt(0), { value: additionalCollateral });
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        safeId,
+        gasPaid,
+        additionalCollateral,
+        existingSnapshot,
+        newSnapshot
+    }
+}
+
+async function withdrawCollateral(user, safeId, withdrawCollateral, contracts) {
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    const tx = await contracts.stableBaseCDP.connect(user).withdrawCollateral(safeId, withdrawCollateral, BigInt(0));
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        safeId,
+        gasPaid,
+        withdrawCollateral,
+        existingSnapshot,
+        newSnapshot
+    }
+}
+
+async function liquidate(user, contracts) {
+    const safeId = await contracts.liquidationQueue.getTail();
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    const tx = await contracts.stableBaseCDP.connect(user).liquidate();
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        safeId,
+        existingSnapshot,
+        newSnapshot,
+        gasPaid,
+        gasUsed: receipt.gasUsed
+    }
+}
+
+async function adjustPosition(user, safeId, contracts) {
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    const tx = await contracts.stableBaseCDP.connect(user).adjustPosition(safeId);
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        safeId,
+        existingSnapshot,
+        newSnapshot,
+        gasPaid,
+        gasUsed: receipt.gasUsed
+    }
+}
+
+async function stakeSBD(user, safeId, amount, contracts) {
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    await contracts.sbdToken.connect(user).approve(contracts.stabilityPool.target, amount);
+    const tx = await contracts.stabilityPool.connect(user).stake(amount);
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        existingSnapshot,
+        newSnapshot,
+        gasPaid,
+        gasUsed: receipt.gasUsed
+    }
+}
+
+module.exports = { borrow, feeTopup, repay, addCollateral, adjustPosition, liquidate, stakeSBD, takeContractSnapshots, takeUserSnapshots, withdrawCollateral};

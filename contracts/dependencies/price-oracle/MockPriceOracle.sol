@@ -1,13 +1,17 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
 import "../../interfaces/IPriceOracle.sol";
 
 contract MockPriceOracle is IPriceOracle {
+    uint256 public price;
 
-    // function getPrice() external view override returns (uint256) {
-    function getPrice() external pure override returns (uint256) {
-        return 1000;
+    constructor() {}
+
+    function setPrice(uint256 _price) external {
+        price = _price;
     }
 
+    function getPrice() external view override returns (uint256) {
+        return price;
+    }
 }

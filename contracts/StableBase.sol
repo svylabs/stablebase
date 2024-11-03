@@ -12,14 +12,15 @@ import "./library/Rate.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "./interfaces/IStabilityPool.sol";
 import "./interfaces/ISBRStaking.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract StableBase is IStableBase, ERC721 {
-    uint256 internal liquidationRatio = 110; // 110% liquidation ratio
+abstract contract StableBase is IStableBase, ERC721, Ownable {
+    uint256 internal liquidationRatio = 11000; // 110% liquidation ratio
     uint256 internal constant BASIS_POINTS_DIVISOR = 10000;
     uint256
         internal constant FIRST_TIME_BORROW_BASIS_POINTS_DISCOUNT_THRESHOLD =
         20;
-    using RateLib for Math.Rate;
+    uint256 public constant MINIMUM_DEBT = 2000 * 10 ** 18;
     uint256 internal constant PRECISION = 10 ** 18;
 
     IDoublyLinkedList public safesOrderedForLiquidation;
@@ -40,15 +41,20 @@ abstract contract StableBase is IStableBase, ERC721 {
 
     ISBRStaking public sbrTokenStaking;
 
-    uint256 public constant SBR_FEE_REWARD = 10; // 10% of the fee goes to SBR Stakers
+    uint256 public constant SBR_FEE_REWARD = 1000; // 10% of the fee goes to SBR Stakers
 
-    uint256 public constant REDEMPTION_LIQUIDATION_FEE = 75; // 0.5%;
+    uint256 public constant REDEMPTION_LIQUIDATION_FEE = 75; // 0.75%;
 
     uint256 public cumulativeDebtPerUnitCollateral;
 
     uint256 public cumulativeCollateralPerUnitCollateral;
 
     uint256 public totalCollateral;
+
+    uint256 public totalDebt;
+
+    SBStructs.Mode public PROTOCOL_MODE = SBStructs.Mode.BOOTSTRAP;
+    uint256 public constant BOOTSTRAP_MODE_DEBT_THRESHOLD = 5000000 * 10 ** 18; // 5 million SBD
 
     struct LiquidationSnapshot {
         uint256 collateralPerCollateralSnapshot;
@@ -57,52 +63,76 @@ abstract contract StableBase is IStableBase, ERC721 {
 
     mapping(uint256 => LiquidationSnapshot) public liquidationSnapshots;
 
-    constructor(
+    constructor() Ownable(msg.sender) ERC721("StableBase Safe", "SBSafe") {}
+
+    function setAddresses(
         address _sbdToken,
         address _priceOracle,
         address _stabilityPool,
-        address _sbrTokenStaking
-    ) ERC721("StableBase Safe", "SBSafe") {
+        address _sbrTokenStaking,
+        address _safesOrderedForLiquidation,
+        address _safesOrderedForRedemption
+    ) external onlyOwner {
         sbdToken = SBDToken(_sbdToken);
         priceOracle = IPriceOracle(_priceOracle);
         stabilityPool = IStabilityPool(_stabilityPool);
         sbrTokenStaking = ISBRStaking(_sbrTokenStaking);
+        // Initialize the contract
+        safesOrderedForLiquidation = IDoublyLinkedList(
+            _safesOrderedForLiquidation
+        );
+        safesOrderedForRedemption = IDoublyLinkedList(
+            _safesOrderedForRedemption
+        );
+        sbdToken.approve(address(sbrTokenStaking), type(uint256).max);
+        sbdToken.approve(address(stabilityPool), type(uint256).max);
+        renounceOwnership();
     }
 
     function handleBorrow(
         uint256 safeId,
-        SBStructs.Safe memory safe,
+        SBStructs.Safe storage safe,
         uint256 amount,
         uint256 shieldingRate,
         uint256 nearestSpotInLiquidationQueue,
         uint256 nearestSpotInRedemptionQueue
-    ) internal returns (SBStructs.Safe memory) {
+    ) internal {
         // SBStructs.Safe storage currentSafe = safes[_safeId];
-        require(ownerOf(safeId) == msg.sender, "Only the NFT owner can borrow");
+        require(
+            ownerOf(safeId) == msg.sender,
+            "Only the Safe owner can borrow"
+        );
         uint256 _shieldingFee = (amount * shieldingRate) / BASIS_POINTS_DIVISOR;
+        uint256 _minFeeWeightNode = safesOrderedForRedemption.getHead();
         // Is first time borrowing
         if (safe.borrowedAmount == 0) {
-            uint256 _minRateNode = safesOrderedForRedemption.getHead();
-            uint256 _minRatePaid = safesOrderedForRedemption
-                .get(_minRateNode)
-                .value;
-            // Adjust the fee percentage based on the minimum value, so the new borrowers don't start from the beginning.
-            // This is to keep it fair for new borrowers, and is only an accounting trick.
-            if (
-                shieldingRate <=
-                FIRST_TIME_BORROW_BASIS_POINTS_DISCOUNT_THRESHOLD
-            ) {
-                safe.paidFeePercentage = _minRatePaid + shieldingRate;
+            if (_minFeeWeightNode == 0) {
+                // There are no existing borrowings, so the fee is the minimum rate
+                safe.weight = shieldingRate;
             } else {
-                safe.paidFeePercentage = shieldingRate;
+                uint256 _minFeeWeight = safesOrderedForRedemption
+                    .get(_minFeeWeightNode)
+                    .value;
+                // Adjust the fee percentage based on the minimum value, so the new borrowers don't start from the beginning.
+                // This is to keep it fair for new borrowers, and is only an accounting trick.
+                // Fee for new borrowers is in relation to the minimum rate paid by the existing borrowers
+                safe.weight = _minFeeWeight + shieldingRate;
             }
         } else {
-            // There is an existing borrowing, so pay this rate for the existing borrowing as well
-            _shieldingFee +=
-                (safe.borrowedAmount * shieldingRate) /
+            uint256 _minFeeWeight = safesOrderedForRedemption
+                .get(_minFeeWeightNode)
+                .value;
+            // ShieldingRate is always in relation to the minimum rate paid by the existing borrowers
+            uint256 diff = safe.weight - _minFeeWeight;
+            uint256 weightedDiff = (diff * safe.borrowedAmount) /
                 BASIS_POINTS_DIVISOR;
+
+            uint256 newFeeWeight = ((_shieldingFee + weightedDiff) *
+                BASIS_POINTS_DIVISOR) / (safe.borrowedAmount + amount);
+
+            // No need to charge the already borrowed amount as it has already been charged, just update the relative rate.
             if (shieldingRate > 0) {
-                safe.paidFeePercentage += shieldingRate;
+                safe.weight = _minFeeWeight + newFeeWeight;
             }
         }
         if (amount < _shieldingFee) {
@@ -112,16 +142,13 @@ abstract contract StableBase is IStableBase, ERC721 {
         safe.borrowedAmount += amount;
 
         // Calculate the ratio (borrowAmount per unit collateral)
-        uint256 ratio = (safe.borrowedAmount * PRECISION) /
-            safe.collateralAmount;
+        uint256 ratio = (safe.borrowedAmount) / safe.collateralAmount;
 
-        if (shieldingRate > 0) {
-            safesOrderedForRedemption.upsert(
-                safeId,
-                safe.paidFeePercentage,
-                nearestSpotInRedemptionQueue
-            );
-        }
+        safesOrderedForRedemption.upsert(
+            safeId,
+            safe.weight,
+            nearestSpotInRedemptionQueue
+        );
 
         safesOrderedForLiquidation.upsert(
             safeId,
@@ -129,12 +156,18 @@ abstract contract StableBase is IStableBase, ERC721 {
             nearestSpotInLiquidationQueue
         );
 
+        uint256 feePaid;
+        uint256 canRefund;
+        if (_shieldingFee > 0) {
+            (feePaid, canRefund) = distributeFees(_shieldingFee, true);
+        }
+        if (canRefund > 0) {
+            _amountToBorrow += canRefund;
+            emit BorrowFeeRefund(safeId, canRefund);
+        }
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amountToBorrow);
-
-        distributeFees(_shieldingFee, true);
-
-        return safe;
+        _updateTotalDebt(totalDebt, amount, true);
     }
 
     function _redeemNode(
@@ -158,8 +191,8 @@ abstract contract StableBase is IStableBase, ERC721 {
             _safesOrderedForLiquidation.remove(_safeId);
         } else {
             // update with new collateral ratio
-            uint256 _newRatio = ((safe.borrowedAmount - amountToRedeem) *
-                PRECISION) / safe.collateralAmount;
+            uint256 _newRatio = ((safe.borrowedAmount - amountToRedeem)) /
+                safe.collateralAmount;
             safesOrderedForLiquidation.upsert(
                 _safeId,
                 _newRatio,
@@ -223,36 +256,52 @@ abstract contract StableBase is IStableBase, ERC721 {
         redemption.collateralAmount += amountInCollateral;
         redemption.redeemedAmount += amountToRedeem;
         if (safe.borrowedAmount == 0) {
-            // TODO: SEE WHAT TO DO WITH THE SAFE
             safesOrderedForRedemption.remove(_safeId);
+            safesOrderedForLiquidation.remove(_safeId);
+            // Should not delete or burn NFT as the safe contains some left over collateral that user can withdraw
         }
         safes[_safeId] = safe;
         return (safe, redemption);
     }
 
-    function distributeFees(uint fee, bool mint) internal {
+    function distributeFees(
+        uint fee,
+        bool mint
+    ) internal returns (uint256 feePaid, uint256 canRefund) {
         if (mint) {
             sbdToken.mint(address(this), fee);
         }
-        uint256 sbrStakersFee = (fee * SBR_FEE_REWARD) / 100;
-        uint256 stabilityPoolFee = fee - sbrStakersFee;
-        sbdToken.approve(address(stabilityPool), stabilityPoolFee);
-        stabilityPool.addReward(stabilityPoolFee);
-        sbdToken.approve(address(sbrTokenStaking), sbrStakersFee);
-        sbrTokenStaking.addReward(sbrStakersFee);
+        uint256 sbrStakersFee = (fee * SBR_FEE_REWARD) / 10000;
+        uint256 stabilityPoolFee = fee;
+        canRefund = fee;
+        bool feeAdded1 = sbrTokenStaking.addReward(sbrStakersFee);
+        if (feeAdded1) {
+            stabilityPoolFee = fee - sbrStakersFee;
+            feePaid = fee;
+            canRefund -= sbrStakersFee;
+        }
+        bool feeAdded2 = stabilityPool.addReward(stabilityPoolFee);
+        if (feeAdded2) {
+            feePaid += stabilityPoolFee;
+            canRefund -= stabilityPoolFee;
+        }
+        require(canRefund <= fee, "Invalid refund amount");
+        if (canRefund > 0 && mint) {
+            sbdToken.burn(address(this), canRefund);
+        }
     }
 
     function distributeDebtAndCollateral(
         uint256 debtAmount,
-        uint256 collateralAmount
+        uint256 collateralAmount,
+        uint256 totalCollateralAfterLiquidation
     ) internal {
-        totalCollateral -= collateralAmount;
         cumulativeCollateralPerUnitCollateral +=
             (collateralAmount * PRECISION) /
-            totalCollateral;
+            totalCollateralAfterLiquidation;
         cumulativeDebtPerUnitCollateral +=
             (debtAmount * PRECISION) /
-            totalCollateral;
+            totalCollateralAfterLiquidation;
     }
 
     // Internal function to update a safe's borrowed amount and deposited amount
@@ -281,7 +330,43 @@ abstract contract StableBase is IStableBase, ERC721 {
             .collateralPerCollateralSnapshot = cumulativeCollateralPerUnitCollateral;
 
         totalCollateral += collateralIncrease;
+        _updateTotalDebt(totalDebt, debtIncrease, true);
 
         return _safe;
+    }
+
+    function _updateTotalDebt(
+        uint256 currentDebt,
+        uint256 delta,
+        bool add
+    ) internal returns (uint256) {
+        uint256 debt = currentDebt;
+        if (add) {
+            debt = currentDebt + delta;
+        } else {
+            debt = currentDebt - delta;
+        }
+        // Bootstrap Mode to Normal mode only once, Normal mode to bootstrap mode is not possible
+        if (
+            debt > BOOTSTRAP_MODE_DEBT_THRESHOLD &&
+            PROTOCOL_MODE == SBStructs.Mode.BOOTSTRAP
+        ) {
+            PROTOCOL_MODE = SBStructs.Mode.NORMAL;
+        }
+        totalDebt = debt;
+        return debt;
+    }
+
+    modifier onlyInNormalMode() {
+        require(
+            PROTOCOL_MODE == SBStructs.Mode.NORMAL,
+            "Protocol in bootstrap mode"
+        );
+        _;
+    }
+
+    function _removeSafe(uint256 _safeId) internal {
+        delete safes[_safeId];
+        _burn(_safeId);
     }
 }

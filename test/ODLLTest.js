@@ -5,7 +5,7 @@ describe("OrderedDoublyLinkedListTest", function () {
     this.beforeEach(async function () {
         [owner, addr1] = await ethers.getSigners();
         const OrderedDoublyLinkedListFactory = await ethers.getContractFactory("OrderedDoublyLinkedList");
-        orderedDoublyLinkedList = await OrderedDoublyLinkedListFactory.deploy();
+        orderedDoublyLinkedList = await OrderedDoublyLinkedListFactory.connect(addr1).deploy();
         await orderedDoublyLinkedList.waitForDeployment(); // wait for deployment to complete
     });
 
@@ -414,6 +414,22 @@ describe("OrderedDoublyLinkedListTest", function () {
             expect(node.prev).to.equal(removeTest.updatedValues[i].prev);
             expect(node.next).to.equal(removeTest.updatedValues[i].next);
         }
+    });
+
+    it ("Should change ownership", async function() {
+        const id = 1;
+        const value = 1;
+        //await orderedDoublyLinkedList.connect(owner).upsert(1, 1, 0);
+        await expect(orderedDoublyLinkedList.connect(owner).upsert(1, 1, 0)).to.be.revertedWithCustomError(orderedDoublyLinkedList, "OwnableUnauthorizedAccount");
+        await orderedDoublyLinkedList.connect(addr1).setAddresses(owner.address);
+        await expect(orderedDoublyLinkedList.connect(addr1).upsert(1, 1, 0)).to.be.revertedWithCustomError(orderedDoublyLinkedList, "OwnableUnauthorizedAccount");
+        await orderedDoublyLinkedList.connect(owner).upsert(1, 1, 0);
+        const head = await orderedDoublyLinkedList.connect(owner).head();
+        expect(head).to.equal(id);
+        const tail = await orderedDoublyLinkedList.connect(owner).tail();
+        expect(tail).to.equal(id);
+        const node = await orderedDoublyLinkedList.connect(addr1).nodes(id);
+        expect(node.value).to.equal(value);
     });
 
 });
