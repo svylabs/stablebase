@@ -619,6 +619,11 @@ describe("Test the flow", function () {
               assert.fail("Alice safe should be removed from the liquidation queue");
            }
         });
+        aliceSnapshot2.newSnapshot.stableBaseCDP.redemptionQueue.all.forEach((node) => {
+          if (node.safeId == aliceSafeId) {
+             assert.fail("Alice safe should be removed from the redemption queue");
+          }
+        });
 
        });
 
