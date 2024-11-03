@@ -33,6 +33,7 @@ async function takeCDPSnapshot(contracts, safeId) {
     snapshot.totalDebt = await contracts.stableBaseCDP.totalDebt();
     snapshot.redemptionQueue = await takeODLLSnapshot(contracts.redemptionQueue, safeId);
     snapshot.liquidationQueue = await takeODLLSnapshot(contracts.liquidationQueue, safeId);
+    snapshot.liquidationSnapshotForSafe = await contracts.stableBaseCDP.liquidationSnapshots(safeId);
     return snapshot;
 }
 
@@ -187,4 +188,35 @@ async function withdrawCollateral(user, safeId, withdrawCollateral, contracts) {
     }
 }
 
-module.exports = { borrow, feeTopup, repay, addCollateral, takeContractSnapshots, withdrawCollateral};
+async function liquidate(user, contracts) {
+    const safeId = await contracts.liquidationQueue.getTail();
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    const tx = await contracts.stableBaseCDP.connect(user).liquidate();
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        safeId,
+        existingSnapshot,
+        newSnapshot,
+        gasPaid,
+        gasUsed: receipt.gasUsed
+    }
+}
+
+async function adjustPosition(user, safeId, contracts) {
+    const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    const tx = await contracts.stableBaseCDP.connect(user).adjustPosition(safeId);
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    return {
+        safeId,
+        existingSnapshot,
+        newSnapshot,
+        gasPaid,
+        gasUsed: receipt.gasUsed
+    }
+}
+
+module.exports = { borrow, feeTopup, repay, addCollateral, adjustPosition, liquidate, takeContractSnapshots, withdrawCollateral};

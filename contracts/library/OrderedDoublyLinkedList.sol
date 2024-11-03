@@ -152,6 +152,12 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList, Ownable {
     function remove(
         uint256 id
     ) external override onlyOwner returns (Node memory) {
+        if (
+            nodes[id].value == 0 && nodes[id].next == 0 && nodes[id].prev == 0
+        ) {
+            // Node doesn't exist
+            return Node(0, 0, 0);
+        }
         return _remove(id);
     }
 

@@ -23,6 +23,8 @@ contract StableBaseCDP is StableBase {
     function openSafe(uint256 _safeId, uint256 _amount) external payable {
         require(_amount > 0, "Amount must be greater than 0");
         require(msg.value == _amount, "Insufficient collateral");
+        require(_safeId > 0, "Invalid Safe ID"); // To avoid race conditions somewhere in the code
+        require(safes[_safeId].collateralAmount == 0, "Safe already exists");
 
         SBStructs.Safe memory safe = SBStructs.Safe({
             collateralAmount: _amount,
@@ -57,9 +59,7 @@ contract StableBaseCDP is StableBase {
         );
         uint256 collateralAmount = safe.collateralAmount;
         // Remove the Safe from the mapping
-        delete safes[safeId];
-
-        _burn(safeId); // burn the NFT Safe
+        _removeSafe(safeId);
         emit CloseSafe(safeId);
         payable(msg.sender).transfer(collateralAmount);
     }
@@ -269,57 +269,63 @@ contract StableBaseCDP is StableBase {
         uint256 _safeId = safesOrderedForLiquidation.getTail();
         SBStructs.Safe storage safe = safes[_safeId];
         _updateSafe(_safeId, safe);
+        uint256 borrowedAmount = safe.borrowedAmount;
+        uint256 collateralAmount = safe.collateralAmount;
         //require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
-        require(safe.collateralAmount > 0, "Safe does not exist");
+        require(collateralAmount > 0, "Safe does not exist");
         require(
-            safe.borrowedAmount > 0,
+            borrowedAmount > 0,
             "Cannot liquidate a Safe with no borrowed amount"
         );
 
         uint256 collateralPrice = priceOracle.getPrice();
-        uint256 collateralValue = safe.collateralAmount * collateralPrice;
-        uint256 collateralRatio = (collateralValue * 10000) /
-            safe.borrowedAmount;
+        uint256 collateralValue = collateralAmount * collateralPrice;
+        uint256 collateralRatio = (collateralValue * BASIS_POINTS_DIVISOR) /
+            borrowedAmount;
         // Check if the collateral is sufficient for liquidation
-        require(
-            collateralRatio < liquidationRatio * 100,
-            "Can't liquidate yet"
-        );
-        bool possible = stabilityPool.isLiquidationPossible(
-            safe.borrowedAmount
-        );
+        require(collateralRatio <= liquidationRatio, "Can't liquidate yet");
+        bool possible = stabilityPool.isLiquidationPossible(borrowedAmount);
 
         // Pay liquidation fee
-        uint256 liquidationFee = (safe.collateralAmount *
+        uint256 liquidationFee = (collateralAmount *
             REDEMPTION_LIQUIDATION_FEE) / BASIS_POINTS_DIVISOR;
 
         if (possible) {
             stabilityPool.performLiquidation(
-                safe.borrowedAmount,
-                safe.collateralAmount - liquidationFee
+                borrowedAmount,
+                collateralAmount - liquidationFee
             );
             // Burn the amount from stability pool
-            sbdToken.burn(address(stabilityPool), safe.borrowedAmount);
+            sbdToken.burn(address(stabilityPool), borrowedAmount);
             // Transfer the collateral to the liquidator
             payable(address(stabilityPool)).transfer(
-                safe.collateralAmount - liquidationFee
+                collateralAmount - liquidationFee
             );
         } else {
+            totalCollateral -= collateralAmount;
+            totalDebt -= borrowedAmount;
             // Liquidate by distributing the debt and collateral to the existing borrowers.
             distributeDebtAndCollateral(
-                safe.borrowedAmount,
-                safe.collateralAmount
+                borrowedAmount,
+                collateralAmount - liquidationFee,
+                totalCollateral
             );
         }
         safesOrderedForLiquidation.remove(_safeId);
         safesOrderedForRedemption.remove(_safeId);
 
         // Remove the Safe from the mapping
-        delete safes[_safeId];
+        _removeSafe(_safeId);
         // Send fee
         payable(msg.sender).transfer(liquidationFee);
-        totalCollateral -= safe.collateralAmount;
-        totalDebt -= safe.borrowedAmount;
+    }
+
+    function adjustPosition(uint256 safeId) external _onlyOwner(safeId) {
+        SBStructs.Safe storage safe = safes[safeId];
+        _updateSafe(safeId, safe);
+        require(safe.collateralAmount > 0, "Safe does not exist");
+        uint256 _newRatio = safe.borrowedAmount / safe.collateralAmount;
+        safesOrderedForLiquidation.upsert(safeId, _newRatio, 0);
     }
 
     modifier _onlyOwner(uint256 _tokenId) {

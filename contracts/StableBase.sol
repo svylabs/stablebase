@@ -253,8 +253,9 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         redemption.collateralAmount += amountInCollateral;
         redemption.redeemedAmount += amountToRedeem;
         if (safe.borrowedAmount == 0) {
-            // TODO: SEE WHAT TO DO WITH THE SAFE
             safesOrderedForRedemption.remove(_safeId);
+            safesOrderedForLiquidation.remove(_safeId);
+            // Should not delete or burn NFT as the safe contains some left over collateral that user can withdraw
         }
         safes[_safeId] = safe;
         return (safe, redemption);
@@ -289,15 +290,15 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
 
     function distributeDebtAndCollateral(
         uint256 debtAmount,
-        uint256 collateralAmount
+        uint256 collateralAmount,
+        uint256 totalCollateralAfterLiquidation
     ) internal {
-        totalCollateral -= collateralAmount;
         cumulativeCollateralPerUnitCollateral +=
             (collateralAmount * PRECISION) /
-            totalCollateral;
+            totalCollateralAfterLiquidation;
         cumulativeDebtPerUnitCollateral +=
             (debtAmount * PRECISION) /
-            totalCollateral;
+            totalCollateralAfterLiquidation;
     }
 
     // Internal function to update a safe's borrowed amount and deposited amount
@@ -329,5 +330,10 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         totalDebt += debtIncrease;
 
         return _safe;
+    }
+
+    function _removeSafe(uint256 _safeId) internal {
+        delete safes[_safeId];
+        _burn(_safeId);
     }
 }
