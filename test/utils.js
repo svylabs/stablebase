@@ -234,4 +234,4 @@ async function stakeSBD(user, safeId, amount, contracts) {
     }
 }
 
-module.exports = { borrow, feeTopup, repay, addCollateral, adjustPosition, liquidate, stakeSBD, takeContractSnapshots, withdrawCollateral};
+module.exports = { borrow, feeTopup, repay, addCollateral, adjustPosition, liquidate, stakeSBD, takeContractSnapshots, takeUserSnapshots, withdrawCollateral};

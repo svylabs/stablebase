@@ -130,6 +130,19 @@ describe("Test the flow", function () {
             expect(snapshots.newSnapshot.stableBaseCDP.totalDebt).equals(snapshots.existingSnapshot.stableBaseCDP.totalDebt - snapshots.existingSnapshot.safe.borrowedAmount);
             expect(snapshots.newSnapshot.stableBaseCDP.cumulativeCollateralPerUnitCollateral).equals(BigInt(0));
             expect(snapshots.newSnapshot.stableBaseCDP.cumulativeDebtPerUnitCollateral).equals(BigInt(0));
+
+            const liquidatedCollateral = snapshots.existingSnapshot.safe.collateralAmount - liquidationFee;
+            const totalStaked = snapshots.existingSnapshot.stabilityPool.totalStakedRaw;
+
+            expect(snapshots.newSnapshot.stabilityPool.totalCollateralPerToken).equals(liquidatedCollateral * BigInt(1e18) / totalStaked);
+
+            const aliceCollateral = snapshots.newSnapshot.stabilityPool.totalCollateralPerToken * aliceSnapshot.newSnapshot.user.stabilityPool.stake.stake / BigInt(1e18);
+            const bobCollateral = snapshots.newSnapshot.stabilityPool.totalCollateralPerToken * bobSnapshot.newSnapshot.user.stabilityPool.stake.stake / BigInt(1e18);
+
+            //console.log("Alice collateral: ", aliceCollateral.toString(), " Bob collateral: ", bobCollateral.toString());
+
+            expect((await stabilityPool.connect(alice).userPendingRewardAndCollateral(alice.address))[1]).to.equal(aliceCollateral);
+            expect((await stabilityPool.connect(bob).userPendingRewardAndCollateral(bob.address))[1]).to.equal(bobCollateral);
         })
 
     });
