@@ -271,6 +271,7 @@ contract StableBaseCDP is StableBase {
 
     function liquidate() external {
         uint256 _safeId = safesOrderedForLiquidation.getTail();
+        uint256 _last = safesOrderedForLiquidation.getHead();
         SBStructs.Safe storage safe = safes[_safeId];
         _updateSafe(_safeId, safe);
         uint256 borrowedAmount = safe.borrowedAmount;
@@ -309,6 +310,7 @@ contract StableBaseCDP is StableBase {
                 collateralAmount - liquidationFee
             );
         } else {
+            require(_safeId != _last, "Cannot liquidate the last Safe");
             // Liquidate by distributing the debt and collateral to the existing borrowers.
             distributeDebtAndCollateral(
                 borrowedAmount,
