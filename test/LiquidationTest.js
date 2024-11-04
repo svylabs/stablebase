@@ -290,8 +290,6 @@ describe("Test the flow", function () {
             expect(bobSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.head).equals(users.bob.safeId);
             expect(bobSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.head).equals(users.bob.safeId);
 
-
-
         });
     });
 

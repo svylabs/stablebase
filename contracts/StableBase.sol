@@ -175,7 +175,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         SBStructs.Redemption memory redemption,
         IDoublyLinkedList _safesOrderedForRedemption,
         IDoublyLinkedList _safesOrderedForLiquidation,
-        uint256 spotForUpdate
+        uint256 nearestSpotInLiquidationQueue
     ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
         // bytes32 _safeId = bytes32(_safeId);
         SBStructs.Safe storage safe = safes[_safeId];
@@ -190,13 +190,14 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
             _safesOrderedForRedemption.remove(_safeId);
             _safesOrderedForLiquidation.remove(_safeId);
         } else {
+            uint256 collateralToRedeem = amountToRedeem / redemption.price;
             // update with new collateral ratio
             uint256 _newRatio = ((safe.borrowedAmount - amountToRedeem)) /
-                safe.collateralAmount;
+                (safe.collateralAmount - collateralToRedeem);
             safesOrderedForLiquidation.upsert(
                 _safeId,
                 _newRatio,
-                spotForUpdate
+                nearestSpotInLiquidationQueue
             );
         }
         // update target shielding rate
@@ -205,20 +206,13 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
 
     function _redeemSafes(
         SBStructs.Redemption memory redemption,
-        bytes calldata redemptionParams,
+        uint256 nearestSpotInLiquidationQueue,
         IDoublyLinkedList _safesOrderedForRedemption,
         IDoublyLinkedList _safesOrderedForLiquidation
     ) internal returns (SBStructs.Redemption memory) {
         uint256 processedSpots = redemption.processedSpots;
         // Target within 1% = 100 points, 100% = 10000 points
         while (redemption.redeemedAmount < redemption.requestedAmount) {
-            uint256 spotForUpdate = uint256(
-                bytes32(
-                    redemptionParams[processedSpots * 32:processedSpots *
-                        32 +
-                        32]
-                )
-            );
             //uint256 spotForUpdate = 0;
             uint256 head = _safesOrderedForRedemption.getHead();
             (, redemption) = _redeemNode(
@@ -226,7 +220,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
                 redemption,
                 _safesOrderedForRedemption,
                 _safesOrderedForLiquidation,
-                spotForUpdate
+                nearestSpotInLiquidationQueue
             );
             processedSpots++;
         }
@@ -238,9 +232,11 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         // TODO: Distribute fees to SBR Stakers
         uint256 fee = (redemption.collateralAmount *
             REDEMPTION_LIQUIDATION_FEE) / BASIS_POINTS_DIVISOR;
-        payable(address(sbrTokenStaking)).transfer(fee);
-        sbrTokenStaking.addCollateralReward(fee);
-        payable(msg.sender).transfer(redemption.collateralAmount);
+        bool feeAdded = sbrTokenStaking.addCollateralReward{value: fee}(fee);
+        if (!feeAdded) {
+            fee = 0;
+        }
+        payable(msg.sender).transfer(redemption.collateralAmount - fee);
     }
 
     function redeemSafe(
@@ -250,16 +246,11 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         SBStructs.Redemption memory redemption
     ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
         //uint256 amountInCollateral = amountToRedeem /
-        uint256 amountInCollateral = amountToRedeem / priceOracle.getPrice();
+        uint256 amountInCollateral = amountToRedeem / redemption.price;
         safe.collateralAmount -= amountInCollateral;
         safe.borrowedAmount -= amountToRedeem;
         redemption.collateralAmount += amountInCollateral;
         redemption.redeemedAmount += amountToRedeem;
-        if (safe.borrowedAmount == 0) {
-            safesOrderedForRedemption.remove(_safeId);
-            safesOrderedForLiquidation.remove(_safeId);
-            // Should not delete or burn NFT as the safe contains some left over collateral that user can withdraw
-        }
         safes[_safeId] = safe;
         return (safe, redemption);
     }

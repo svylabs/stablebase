@@ -99,6 +99,16 @@ async function takeContractSnapshots(contracts, safeId, user) {
     return snapshots;
 }
 
+async function takeSafeSnapshots(contracts, safes) {
+    const snapshots = {};
+    for (let i = 0; i < safes.length; i++) {
+        const safeId = safes[i];
+        const snapshot = await contracts.stableBaseCDP.safes(safeId);
+        snapshots[safeId] = snapshot;
+    }
+    return snapshots;
+}
+
 async function borrow(user, safeId, collateral, borrowAmount, shieldingRate, contracts) {
     const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
     const existingSafe = await contracts.stableBaseCDP.safes(safeId);
@@ -234,4 +244,20 @@ async function stakeSBD(user, safeId, amount, contracts) {
     }
 }
 
-module.exports = { borrow, feeTopup, repay, addCollateral, adjustPosition, liquidate, stakeSBD, takeContractSnapshots, takeUserSnapshots, withdrawCollateral};
+async function redeem(user, amount, contracts, safes) {
+    const existingSnapshot = await takeContractSnapshots(contracts, BigInt(0), user);
+    existingSnapshot.safes = await takeSafeSnapshots(contracts, safes);
+    const tx = await contracts.stableBaseCDP.connect(user).redeem(amount, BigInt(0));
+    const receipt = await tx.wait();
+    const gasPaid = receipt.gasUsed * tx.gasPrice;
+    const newSnapshot = await takeContractSnapshots(contracts, BigInt(0), user);
+    newSnapshot.safes = await takeSafeSnapshots(contracts, safes);
+    return {
+        existingSnapshot,
+        newSnapshot,
+        gasPaid,
+        gasUsed: receipt.gasUsed
+    }
+}
+
+module.exports = { borrow, feeTopup, repay, addCollateral, adjustPosition, liquidate, stakeSBD, redeem, takeContractSnapshots, takeUserSnapshots, withdrawCollateral};

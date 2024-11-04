@@ -83,7 +83,10 @@ interface IStableBase {
         uint256 nearestSpotInLiquidationQueue
     ) external;
 
-    function redeem(uint256 _amount, bytes calldata redemptionParams) external;
+    function redeem(
+        uint256 _amount,
+        uint256 nearestSpotInLiquidationQueue
+    ) external;
 
     function feeTopup(
         uint256 safeId,

@@ -215,12 +215,14 @@ contract StableBaseCDP is StableBase {
 
     function redeem(
         uint256 amount,
-        bytes calldata redemptionParams
+        uint256 nearestSpotInLiquidationQueue
     ) external onlyInNormalMode {
         require(amount > 0, "Amount must be greater than 0");
         sbdToken.burn(msg.sender, amount);
+        uint256 price = priceOracle.getPrice();
         SBStructs.Redemption memory _redemption = SBStructs.Redemption({
             requestedAmount: amount,
+            price: price,
             redeemedAmount: 0,
             processedSpots: 0,
             collateralAmount: 0
@@ -228,7 +230,7 @@ contract StableBaseCDP is StableBase {
 
         _redemption = _redeemSafes(
             _redemption,
-            redemptionParams,
+            nearestSpotInLiquidationQueue,
             safesOrderedForRedemption,
             safesOrderedForLiquidation
         );
