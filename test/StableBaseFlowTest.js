@@ -662,4 +662,30 @@ describe("Test the flow", function () {
     });
 
 
+    describe("Redeem Tests", function() {
+       it("Should not redeem in bootstrap mode", async function() {
+          const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+          const bobSafeId = ethers.solidityPackedKeccak256(["address", "address"], [bob.address, ethers.ZeroAddress]);
+          const charlieSafeId = ethers.solidityPackedKeccak256(["address", "address"], [charlie.address, ethers.ZeroAddress]);
+  
+          const aliceCollateral = ethers.parseEther("2.0");
+          const bobCollateral = ethers.parseEther("2.0");
+          const charlieCollateral = ethers.parseEther("3.0");
+  
+          const aliceBorrowAmount = ethers.parseEther("5000");
+          const bobBorrowAmount = ethers.parseEther("4500");
+          const charlieBorrowAmount = ethers.parseEther("5700");
+  
+          priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+  
+          await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+          await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
+          await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
+
+          await sbdToken.connect(alice).approve(stableBaseCDP.target, aliceBorrowAmount);
+          await expect(stableBaseCDP.connect(alice).redeem(aliceBorrowAmount, BigInt(0))).to.be.revertedWith("Protocol in bootstrap mode");
+  
+       })
+    })
+
 });
