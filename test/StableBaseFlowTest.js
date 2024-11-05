@@ -1,7 +1,7 @@
 const { expect, assert} = require("chai");
 const { ethers } = require("hardhat");
 const utils = require("./utils");
-
+const { time } = require('@nomicfoundation/hardhat-network-helpers');
 /**
  * Test openSafe
  * Test borrow
@@ -661,5 +661,146 @@ describe("Test the flow", function () {
 
     });
 
+
+    describe("Redeem Tests", function() {
+       it("Should not redeem in bootstrap mode", async function() {
+          const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+          const bobSafeId = ethers.solidityPackedKeccak256(["address", "address"], [bob.address, ethers.ZeroAddress]);
+          const charlieSafeId = ethers.solidityPackedKeccak256(["address", "address"], [charlie.address, ethers.ZeroAddress]);
+  
+          const aliceCollateral = ethers.parseEther("2.0");
+          const bobCollateral = ethers.parseEther("2.0");
+          const charlieCollateral = ethers.parseEther("3.0");
+  
+          const aliceBorrowAmount = ethers.parseEther("5000");
+          const bobBorrowAmount = ethers.parseEther("4500");
+          const charlieBorrowAmount = ethers.parseEther("5700");
+  
+          priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+  
+          await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+          await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
+          await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
+
+          await sbdToken.connect(alice).approve(stableBaseCDP.target, aliceBorrowAmount);
+          await expect(stableBaseCDP.connect(alice).redeem(aliceBorrowAmount, BigInt(0))).to.be.revertedWith("Protocol in bootstrap mode");
+  
+       })
+    })
+
+
+    describe("Fee distribution", function() {
+      it("Fee should be distributed to SBRStaking contract during borrow", async function() {
+         const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+         const bobSafeId = ethers.solidityPackedKeccak256(["address", "address"], [bob.address, ethers.ZeroAddress]);
+         const charlieSafeId = ethers.solidityPackedKeccak256(["address", "address"], [charlie.address, ethers.ZeroAddress]);
+ 
+         const aliceCollateral = ethers.parseEther("2.0");
+         const bobCollateral = ethers.parseEther("2.0");
+         const charlieCollateral = ethers.parseEther("3.0");
+ 
+         const aliceBorrowAmount = ethers.parseEther("5000");
+         const bobBorrowAmount = ethers.parseEther("4500");
+         const charlieBorrowAmount = ethers.parseEther("5700");
+ 
+         priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+ 
+         await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+         await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
+
+         await sbdToken.connect(alice).approve(stabilityPool.target, aliceBorrowAmount);
+          await stabilityPool.connect(alice).stake(aliceBorrowAmount);
+          await sbdToken.connect(bob).approve(stabilityPool.target, bobBorrowAmount);
+          await stabilityPool.connect(bob).stake(bobBorrowAmount);
+
+          time.increase(86400 * 30);
+          await stabilityPool.connect(alice).claim();
+          await stabilityPool.connect(bob).claim();
+
+          const aliceSBRBalance = await sbrToken.balanceOf(alice.address);
+          const bobSBRBalance = await sbrToken.balanceOf(bob.address);
+
+          await sbrToken.connect(alice).approve(sbrStaking.target, aliceSBRBalance);
+          await sbrToken.connect(bob).approve(sbrStaking.target, bobSBRBalance);
+          await sbrStaking.connect(alice).stake(aliceSBRBalance);
+          await sbrStaking.connect(bob).stake(bobSBRBalance);
+
+         await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
+         const fee = (charlieBorrowAmount * BigInt(200)) / BigInt(10000);
+         expect(await sbdToken.balanceOf(charlie.address)).to.equal(charlieBorrowAmount - fee);
+         expect(await sbdToken.balanceOf(stabilityPool.target)  - await stabilityPool.totalStakedRaw() + await sbdToken.balanceOf(sbrStaking.target)).to.equal(fee);
+         expect(await sbdToken.balanceOf(sbrStaking.target)).to.equal((fee * BigInt(1000)) / BigInt(10000));
+ 
+      })
+   })
+
+   describe("Close Safe Tests", function() {
+       it("Close safe after borrow and repay should work too", async function() {
+          
+          await priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+          const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+          const aliceCollateral = ethers.parseEther("2.0");
+          const aliceBorrowAmount = ethers.parseEther("5000");
+
+          await stableBaseCDP.connect(alice).openSafe(aliceSafeId, aliceCollateral, {value: aliceCollateral});
+          utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+          const ethBalance = await ethers.provider.getBalance(alice.address);
+          utils.repay(alice, aliceSafeId, aliceBorrowAmount, contracts);
+          const txPromise = stableBaseCDP.connect(alice).closeSafe(aliceSafeId);
+          await expect(txPromise)
+          .to.emit(stableBaseCDP, "SafeClosed")
+          .withArgs(aliceSafeId, aliceCollateral);
+          const safe = await stableBaseCDP.safes(aliceSafeId);
+          expect(safe.collateralAmount).to.equal(0);
+          expect(safe.borrowedAmount).to.equal(0);
+          expect(safe.weight).to.equal(0);
+          expect(await ethers.provider.getBalance(alice.address)).to.be.closeTo(ethBalance + aliceCollateral, ethers.parseEther("0.01"));
+       });
+
+
+       it("Close safe after borrow but before repay should fail", async function() {
+          
+        await priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+        const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const aliceCollateral = ethers.parseEther("2.0");
+        const aliceBorrowAmount = ethers.parseEther("5000");
+
+        await stableBaseCDP.connect(alice).openSafe(aliceSafeId, aliceCollateral, {value: aliceCollateral});
+        await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+        let safe = await stableBaseCDP.safes(aliceSafeId);
+        //console.log(safe);
+        const ethBalance = await ethers.provider.getBalance(alice.address);
+        try {
+          await stableBaseCDP.connect(alice).closeSafe(aliceSafeId);
+          assert.fail("Close safe should fail");
+        } catch (ex) {
+          expect(ex.message).to.equal("VM Exception while processing transaction: reverted with reason string 'Cannot close Safe with borrowed amount'");
+        }
+        safe = await stableBaseCDP.safes(aliceSafeId);
+        //console.log(safe);
+        expect(safe.collateralAmount).to.equal(aliceCollateral);
+        expect(safe.borrowedAmount).to.equal(aliceBorrowAmount);
+     });
+
+       it("Close safe should work", async function() {
+          
+        await priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+        const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const aliceCollateral = ethers.parseEther("2.0");
+        const aliceBorrowAmount = ethers.parseEther("5000");
+
+        await stableBaseCDP.connect(alice).openSafe(aliceSafeId, aliceCollateral, {value: aliceCollateral});
+        const ethBalance = await ethers.provider.getBalance(alice.address);
+        const txPromise = stableBaseCDP.connect(alice).closeSafe(aliceSafeId);
+        await expect(txPromise)
+        .to.emit(stableBaseCDP, "SafeClosed")
+        .withArgs(aliceSafeId, aliceCollateral);
+        const safe = await stableBaseCDP.safes(aliceSafeId);
+        expect(safe.collateralAmount).to.equal(0);
+        expect(safe.borrowedAmount).to.equal(0);
+        expect(safe.weight).to.equal(0);
+        expect(await ethers.provider.getBalance(alice.address)).to.be.closeTo(ethBalance + aliceCollateral, ethers.parseEther("0.01"));
+     });
+   });
 
 });

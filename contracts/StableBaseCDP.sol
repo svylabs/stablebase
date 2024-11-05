@@ -60,7 +60,7 @@ contract StableBaseCDP is StableBase {
         uint256 collateralAmount = safe.collateralAmount;
         // Remove the Safe from the mapping
         _removeSafe(safeId);
-        emit CloseSafe(safeId);
+        emit SafeClosed(safeId, collateralAmount);
         payable(msg.sender).transfer(collateralAmount);
     }
 
@@ -215,12 +215,14 @@ contract StableBaseCDP is StableBase {
 
     function redeem(
         uint256 amount,
-        bytes calldata redemptionParams
+        uint256 nearestSpotInLiquidationQueue
     ) external onlyInNormalMode {
         require(amount > 0, "Amount must be greater than 0");
         sbdToken.burn(msg.sender, amount);
+        uint256 price = priceOracle.getPrice();
         SBStructs.Redemption memory _redemption = SBStructs.Redemption({
             requestedAmount: amount,
+            price: price,
             redeemedAmount: 0,
             processedSpots: 0,
             collateralAmount: 0
@@ -228,7 +230,7 @@ contract StableBaseCDP is StableBase {
 
         _redemption = _redeemSafes(
             _redemption,
-            redemptionParams,
+            nearestSpotInLiquidationQueue,
             safesOrderedForRedemption,
             safesOrderedForLiquidation
         );
@@ -271,6 +273,7 @@ contract StableBaseCDP is StableBase {
 
     function liquidate() external {
         uint256 _safeId = safesOrderedForLiquidation.getTail();
+        uint256 _last = safesOrderedForLiquidation.getHead();
         SBStructs.Safe storage safe = safes[_safeId];
         _updateSafe(_safeId, safe);
         uint256 borrowedAmount = safe.borrowedAmount;
@@ -309,6 +312,7 @@ contract StableBaseCDP is StableBase {
                 collateralAmount - liquidationFee
             );
         } else {
+            require(_safeId != _last, "Cannot liquidate the last Safe");
             // Liquidate by distributing the debt and collateral to the existing borrowers.
             distributeDebtAndCollateral(
                 borrowedAmount,

@@ -74,15 +74,23 @@ contract SBRStaking is ISBRStaking, Ownable {
         }
     }
 
-    function addCollateralReward(uint256 _amount) external payable {
+    function addCollateralReward(
+        uint256 _amount
+    ) external payable returns (bool) {
         //collateralToken.transferFrom(msg.sender, address(this), _amount);
         require(
             msg.sender == stableBaseContract,
             "Only stableBase contract can add collateral rewards"
         );
-        require(msg.value == _amount, "Invalid collateral reward amount");
-        totalCollateralPerToken += (_amount * PRECISION) / totalStake;
-        emit CollateralRewardAdded(_amount);
+        uint _totalStake = totalStake;
+        if (_totalStake == 0) {
+            return false;
+        } else {
+            require(msg.value == _amount, "Invalid collateral reward amount");
+            totalCollateralPerToken += (_amount * PRECISION) / _totalStake;
+            emit CollateralRewardAdded(_amount);
+            return true;
+        }
     }
 
     function _claim(Stake storage user) internal {
@@ -115,10 +123,13 @@ contract SBRStaking is ISBRStaking, Ownable {
 
     function userPendingReward(
         address user
-    ) external view override returns (uint256) {
+    ) external view override returns (uint256, uint256) {
         Stake memory _stake = stakes[user];
-        return
+        return (
             ((totalRewardPerToken - _stake.rewardSnapshot) * _stake.stake) /
-            PRECISION;
+                PRECISION,
+            ((totalCollateralPerToken - _stake.collateralSnapshot) *
+                _stake.stake) / PRECISION
+        );
     }
 }

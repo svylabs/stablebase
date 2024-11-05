@@ -7,7 +7,7 @@ interface IStableBase {
         uint256 amount
     );
     event Borrow(uint256 indexed safeId, uint256 amount, uint256 weight);
-    event CloseSafe(uint256 indexed safeId);
+    event SafeClosed(uint256 indexed safeId, uint256 refundedCollateral);
     event BorrowFeeRefund(uint256 indexed safeId, uint256 amount);
     event AddedCollateral(uint256 indexed safeId, uint256 amount);
     event WithdrawnCollateral(uint256 indexed safeId, uint256 amount);
@@ -83,7 +83,10 @@ interface IStableBase {
         uint256 nearestSpotInLiquidationQueue
     ) external;
 
-    function redeem(uint256 _amount, bytes calldata redemptionParams) external;
+    function redeem(
+        uint256 _amount,
+        uint256 nearestSpotInLiquidationQueue
+    ) external;
 
     function feeTopup(
         uint256 safeId,
