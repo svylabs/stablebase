@@ -1,7 +1,7 @@
 const { expect, assert} = require("chai");
 const { ethers } = require("hardhat");
 const utils = require("./utils");
-
+const { time } = require('@nomicfoundation/hardhat-network-helpers');
 /**
  * Test openSafe
  * Test borrow
@@ -687,5 +687,51 @@ describe("Test the flow", function () {
   
        })
     })
+
+
+    describe("Fee distribution", function() {
+      it("Fee should be distributed to SBRStaking contract during borrow", async function() {
+         const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+         const bobSafeId = ethers.solidityPackedKeccak256(["address", "address"], [bob.address, ethers.ZeroAddress]);
+         const charlieSafeId = ethers.solidityPackedKeccak256(["address", "address"], [charlie.address, ethers.ZeroAddress]);
+ 
+         const aliceCollateral = ethers.parseEther("2.0");
+         const bobCollateral = ethers.parseEther("2.0");
+         const charlieCollateral = ethers.parseEther("3.0");
+ 
+         const aliceBorrowAmount = ethers.parseEther("5000");
+         const bobBorrowAmount = ethers.parseEther("4500");
+         const charlieBorrowAmount = ethers.parseEther("5700");
+ 
+         priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+ 
+         await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+         await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
+
+         await sbdToken.connect(alice).approve(stabilityPool.target, aliceBorrowAmount);
+          await stabilityPool.connect(alice).stake(aliceBorrowAmount);
+          await sbdToken.connect(bob).approve(stabilityPool.target, bobBorrowAmount);
+          await stabilityPool.connect(bob).stake(bobBorrowAmount);
+
+          time.increase(86400 * 30);
+          await stabilityPool.connect(alice).claim();
+          await stabilityPool.connect(bob).claim();
+
+          const aliceSBRBalance = await sbrToken.balanceOf(alice.address);
+          const bobSBRBalance = await sbrToken.balanceOf(bob.address);
+
+          await sbrToken.connect(alice).approve(sbrStaking.target, aliceSBRBalance);
+          await sbrToken.connect(bob).approve(sbrStaking.target, bobSBRBalance);
+          await sbrStaking.connect(alice).stake(aliceSBRBalance);
+          await sbrStaking.connect(bob).stake(bobSBRBalance);
+
+         await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
+         const fee = (charlieBorrowAmount * BigInt(200)) / BigInt(10000);
+         expect(await sbdToken.balanceOf(charlie.address)).to.equal(charlieBorrowAmount - fee);
+         expect(await sbdToken.balanceOf(stabilityPool.target)  - await stabilityPool.totalStakedRaw() + await sbdToken.balanceOf(sbrStaking.target)).to.equal(fee);
+         expect(await sbdToken.balanceOf(sbrStaking.target)).to.equal((fee * BigInt(1000)) / BigInt(10000));
+ 
+      })
+   })
 
 });
