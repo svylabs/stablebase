@@ -21,7 +21,9 @@ interface ISBRStaking {
 
     function getStake(address user) external view returns (Stake memory stake);
 
-    function userPendingReward(address user) external view returns (uint256);
+    function userPendingReward(
+        address user
+    ) external view returns (uint256, uint256);
 
     // Events
     event Staked(address indexed user, uint256 amount);

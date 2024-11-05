@@ -67,7 +67,8 @@ describe("Test the flow", function () {
       await sbrToken.setAddresses(stabilityPool.target);
       //await stabilityPool.setAddresses(sbdToken.target, stableBaseCDP.target, sbrToken.target);
       await stabilityPool.setAddresses(sbdToken.target, owner.address, sbrToken.target); // using owner for debt contract
-      await sbrStaking.setAddresses(sbrToken.target, sbdToken.target, stableBaseCDP.target);
+      //await sbrStaking.setAddresses(sbrToken.target, sbdToken.target, stableBaseCDP.target);
+      await sbrStaking.setAddresses(sbrToken.target, sbdToken.target, owner.address);
       await redemptionQueue.setAddresses(stableBaseCDP.target);
       await liquidationQueue.setAddresses(stableBaseCDP.target);
       await stableBaseCDP.setAddresses(sbdToken.target, priceOracle.target, stabilityPool.target, sbrStaking.target, liquidationQueue.target, redemptionQueue.target);
@@ -110,6 +111,7 @@ describe("Test the flow", function () {
       await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
       await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
       await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(0), contracts);
+
     });
 
     describe("Test SBRIssuance And Staking", function() {
@@ -163,4 +165,5 @@ describe("Test the flow", function () {
 
         });
     });
+
 });

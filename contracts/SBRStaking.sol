@@ -123,10 +123,13 @@ contract SBRStaking is ISBRStaking, Ownable {
 
     function userPendingReward(
         address user
-    ) external view override returns (uint256) {
+    ) external view override returns (uint256, uint256) {
         Stake memory _stake = stakes[user];
-        return
+        return (
             ((totalRewardPerToken - _stake.rewardSnapshot) * _stake.stake) /
-            PRECISION;
+                PRECISION,
+            ((totalCollateralPerToken - _stake.collateralSnapshot) *
+                _stake.stake) / PRECISION
+        );
     }
 }

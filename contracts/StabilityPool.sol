@@ -148,19 +148,6 @@ contract StabilityPool is IStabilityPool, Ownable {
         }
     }
 
-    function _claimSBRTokens(UserInfo storage user) internal {
-        if (user.cumulativeProductScalingFactor != 0) {
-            uint256 totalSBRRewards = ((((totalSbrRewardPerToken -
-                sbrRewardSnapshots[msg.sender]) * user.stake) * precision) /
-                user.cumulativeProductScalingFactor) / precision;
-            if (totalSBRRewards > 0) {
-                sbrToken.mint(msg.sender, totalSBRRewards);
-                emit SBRRewardClaimed(msg.sender, totalSBRRewards);
-            }
-        }
-        sbrRewardSnapshots[msg.sender] = totalSbrRewardPerToken;
-    }
-
     // Claim accumulated rewards
     function claim() external {
         UserInfo storage user = users[msg.sender];
