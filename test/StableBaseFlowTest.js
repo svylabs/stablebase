@@ -734,4 +734,73 @@ describe("Test the flow", function () {
       })
    })
 
+   describe("Close Safe Tests", function() {
+       it("Close safe after borrow and repay should work too", async function() {
+          
+          await priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+          const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+          const aliceCollateral = ethers.parseEther("2.0");
+          const aliceBorrowAmount = ethers.parseEther("5000");
+
+          await stableBaseCDP.connect(alice).openSafe(aliceSafeId, aliceCollateral, {value: aliceCollateral});
+          utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+          const ethBalance = await ethers.provider.getBalance(alice.address);
+          utils.repay(alice, aliceSafeId, aliceBorrowAmount, contracts);
+          const txPromise = stableBaseCDP.connect(alice).closeSafe(aliceSafeId);
+          await expect(txPromise)
+          .to.emit(stableBaseCDP, "SafeClosed")
+          .withArgs(aliceSafeId, aliceCollateral);
+          const safe = await stableBaseCDP.safes(aliceSafeId);
+          expect(safe.collateralAmount).to.equal(0);
+          expect(safe.borrowedAmount).to.equal(0);
+          expect(safe.weight).to.equal(0);
+          expect(await ethers.provider.getBalance(alice.address)).to.be.closeTo(ethBalance + aliceCollateral, ethers.parseEther("0.01"));
+       });
+
+
+       it("Close safe after borrow but before repay should fail", async function() {
+          
+        await priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+        const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const aliceCollateral = ethers.parseEther("2.0");
+        const aliceBorrowAmount = ethers.parseEther("5000");
+
+        await stableBaseCDP.connect(alice).openSafe(aliceSafeId, aliceCollateral, {value: aliceCollateral});
+        await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+        let safe = await stableBaseCDP.safes(aliceSafeId);
+        //console.log(safe);
+        const ethBalance = await ethers.provider.getBalance(alice.address);
+        try {
+          await stableBaseCDP.connect(alice).closeSafe(aliceSafeId);
+          assert.fail("Close safe should fail");
+        } catch (ex) {
+          expect(ex.message).to.equal("VM Exception while processing transaction: reverted with reason string 'Cannot close Safe with borrowed amount'");
+        }
+        safe = await stableBaseCDP.safes(aliceSafeId);
+        //console.log(safe);
+        expect(safe.collateralAmount).to.equal(aliceCollateral);
+        expect(safe.borrowedAmount).to.equal(aliceBorrowAmount);
+     });
+
+       it("Close safe should work", async function() {
+          
+        await priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
+        const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const aliceCollateral = ethers.parseEther("2.0");
+        const aliceBorrowAmount = ethers.parseEther("5000");
+
+        await stableBaseCDP.connect(alice).openSafe(aliceSafeId, aliceCollateral, {value: aliceCollateral});
+        const ethBalance = await ethers.provider.getBalance(alice.address);
+        const txPromise = stableBaseCDP.connect(alice).closeSafe(aliceSafeId);
+        await expect(txPromise)
+        .to.emit(stableBaseCDP, "SafeClosed")
+        .withArgs(aliceSafeId, aliceCollateral);
+        const safe = await stableBaseCDP.safes(aliceSafeId);
+        expect(safe.collateralAmount).to.equal(0);
+        expect(safe.borrowedAmount).to.equal(0);
+        expect(safe.weight).to.equal(0);
+        expect(await ethers.provider.getBalance(alice.address)).to.be.closeTo(ethBalance + aliceCollateral, ethers.parseEther("0.01"));
+     });
+   });
+
 });

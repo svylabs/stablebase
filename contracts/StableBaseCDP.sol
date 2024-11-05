@@ -60,7 +60,7 @@ contract StableBaseCDP is StableBase {
         uint256 collateralAmount = safe.collateralAmount;
         // Remove the Safe from the mapping
         _removeSafe(safeId);
-        emit CloseSafe(safeId);
+        emit SafeClosed(safeId, collateralAmount);
         payable(msg.sender).transfer(collateralAmount);
     }
 
