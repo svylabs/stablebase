@@ -3,7 +3,7 @@
 
 # Abstract
 
-This whitepaper presents StableBase, a minimalist's stablecoin protocol that employs a pay-as-you-go model to maintain price stability while offering users efficient collateral management. Built on Collateralized Debt Positions (CDPs) without interest rates or origination fees, the protocol introduces an innovative redemption mechanism for stability while utilizing a familiar liquidation mechanism. Users can dynamically protect their positions through market-driven fees, aligning incentives and enhancing system stability. A Stability Pool and a token incentive program further encourage participation and robustness.
+This whitepaper presents StableBase, a minimalist's stablecoin protocol that employs a pay-as-you-go model to maintain price stability while offering users efficient collateral management. Built on Collateralized Debt Positions (CDPs) without interest rates or origination fees, the protocol introduces an innovative redemption mechanism for stability while utilizing a familiar liquidation mechanism. Users can dynamically protect their positions through market-driven pre-paid fees, aligning incentives and enhancing system stability. A Stability Pool and a token incentive program further encourage participation and robustness.
 
 # Introduction
 
@@ -110,12 +110,12 @@ While there are no ongoing fees or upfront fees charged, stability of the stable
 
 - **0% Interest Rate**: Users are not charged ongoing interest rates on borrowed stablecoins, allowing them to hold positions indefinitely without accruing additional debt over time.
 - **0% Origination Fee**: There are no fees charged when opening a CDP, encouraging users to participate without the burden of upfront costs.
-- **Pay-as-You-Go Model**: Users pay fees only when there is a need to protect their positions, providing flexibility and cost efficiency.
+- **Pay-as-You-Go Model**: Users pay fees only when there is a need to protect their positions and jump the redemption queue, providing flexibility and cost efficiency.
 - **Single Collateral:** The protocol exclusively supports a single collateral type, simplifying the system and reducing complexity.
 - **Governance-Free:** StableBase operates without governance tokens or mechanisms, minimizing potential points of centralization and complexity.
 - **90% of Fees to Stability Pool Stakers:** A majority of the fees collected from users are distributed to Stability Pool stakers, incentivizing system support.
 - **10% of Fees to SBR Stakers:** A portion of the fees is allocated to SBR token stakers, encouraging long-term commitment.
-- **SBR Token Issuance for 1 Year with 0 Initial Supply:** SBR tokens are issued over one year with zero initial supply, distributed proportionally based on users' stakes.
+- **SBR Token Issuance for 1 Year with 0 Initial Supply:** SBR tokens are issued over one year at the rate of 1 token per second, with zero initial supply, distributed proportionally based on users' stakes in stability pool.
 
 # Conclusion
 
