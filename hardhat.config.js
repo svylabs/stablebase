@@ -15,6 +15,11 @@ module.exports = {
     },
   },
   networks: {
+    citreatestnet: {
+      url: "https://rpc.testnet.citrea.xyz",
+      chainId: 5115,
+      accounts: [`0x${process.env.PRIVATE_KEY}`]
+    },
     localhost: {
       url: "http://127.0.0.1:8545",  // URL of the local Ethereum node
       accounts: {
