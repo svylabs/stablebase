@@ -4,14 +4,66 @@ interface IStableBase {
     event OpenSafe(
         uint256 indexed safeId,
         address indexed owner,
-        uint256 amount
+        uint256 amount,
+        uint256 totalCollateral,
+        uint256 totalDebt
     );
-    event Borrow(uint256 indexed safeId, uint256 amount, uint256 weight);
-    event SafeClosed(uint256 indexed safeId, uint256 refundedCollateral);
+    event Borrowed(
+        uint256 indexed safeId,
+        uint256 amount,
+        uint256 weight,
+        uint256 totalCollateral,
+        uint256 totalDebt
+    );
+    event SafeClosed(
+        uint256 indexed safeId,
+        uint256 refundedCollateral,
+        uint256 totalCollateral,
+        uint256 totalDebt
+    );
     event BorrowFeeRefund(uint256 indexed safeId, uint256 amount);
-    event AddedCollateral(uint256 indexed safeId, uint256 amount);
-    event WithdrawnCollateral(uint256 indexed safeId, uint256 amount);
-    event Repay(uint256 indexed safeId, uint256 amount);
+    event AddedCollateral(
+        uint256 indexed safeId,
+        uint256 amount,
+        uint256 newRatio,
+        uint256 totalCollateral,
+        uint256 totalDebt
+    );
+    event WithdrawnCollateral(
+        uint256 indexed safeId,
+        uint256 amount,
+        uint256 newRatio,
+        uint256 totalCollateral,
+        uint256 totalDebt
+    );
+    event Repaid(
+        uint256 indexed safeId,
+        uint256 amount,
+        uint256 newRatio,
+        uint256 totalCollateral,
+        uint256 totalDebt
+    );
+    event Redeemed(
+        uint256 indexed safeId,
+        uint256 amount,
+        uint256 collateral,
+        uint256 totalCollateral,
+        uint256 totalDebt
+    );
+    event LiquidatedUsingStabilityPool(
+        uint256 indexed safeId,
+        uint256 borrowAmount,
+        uint256 collateral,
+        uint256 totalCollateral,
+        uint256 totalDebt
+    );
+    event LiquidatedUsingSecondaryMechanism(
+        uint256 indexed safeId,
+        uint256 borrowAmount,
+        uint256 collateral,
+        uint256 totalCollateral,
+        uint256 totalDebt
+    );
 
     event FeeTopup(
         uint256 indexed safeId,

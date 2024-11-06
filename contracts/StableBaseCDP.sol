@@ -41,7 +41,7 @@ contract StableBaseCDP is StableBase {
         totalCollateral += _amount;
 
         _mint(msg.sender, _safeId); // mint the NFT Safe to the owner
-        emit OpenSafe(_safeId, msg.sender, _amount);
+        emit OpenSafe(_safeId, msg.sender, _amount, totalCollateral, totalDebt);
     }
 
     /**
@@ -60,7 +60,7 @@ contract StableBaseCDP is StableBase {
         uint256 collateralAmount = safe.collateralAmount;
         // Remove the Safe from the mapping
         _removeSafe(safeId);
-        emit SafeClosed(safeId, collateralAmount);
+        emit SafeClosed(safeId, collateralAmount, totalCollateral, totalDebt);
         payable(msg.sender).transfer(collateralAmount);
     }
 
@@ -107,7 +107,7 @@ contract StableBaseCDP is StableBase {
         );
 
         // Emit the Borrow event
-        emit Borrow(safeId, amount, safe.weight);
+        emit Borrowed(safeId, amount, safe.weight, totalCollateral, totalDebt);
     }
 
     // Repay function
@@ -145,6 +145,7 @@ contract StableBaseCDP is StableBase {
             safesOrderedForRedemption.remove(safeId);
         }
         _updateTotalDebt(totalDebt, amount, false);
+        emit Repaid(safeId, amount, _newRatio, totalCollateral, totalDebt);
     }
 
     function addCollateral(
@@ -167,7 +168,13 @@ contract StableBaseCDP is StableBase {
             nearestSpotInLiquidationQueue
         );
 
-        emit AddedCollateral(safeId, amount);
+        emit AddedCollateral(
+            safeId,
+            amount,
+            _newRatio,
+            totalCollateral,
+            totalDebt
+        );
     }
 
     // Withdraw collateral function
@@ -196,11 +203,25 @@ contract StableBaseCDP is StableBase {
                 _newRatio,
                 nearestSpotInLiquidationQueue
             );
+            emit WithdrawnCollateral(
+                safeId,
+                amount,
+                _newRatio,
+                totalCollateral,
+                totalDebt
+            );
         } else {
             // If there's no borrowed amount, ensure the withdrawal does not exceed deposited collateral
             require(amount <= safe.collateralAmount, "Insufficient collateral");
             safesOrderedForLiquidation.remove(safeId);
             safesOrderedForRedemption.remove(safeId);
+            emit WithdrawnCollateral(
+                safeId,
+                amount,
+                0,
+                totalCollateral,
+                totalDebt
+            );
         }
 
         // Update the Safe's deposited amount
@@ -311,6 +332,13 @@ contract StableBaseCDP is StableBase {
             payable(address(stabilityPool)).transfer(
                 collateralAmount - liquidationFee
             );
+            emit LiquidatedUsingStabilityPool(
+                _safeId,
+                borrowedAmount,
+                collateralAmount,
+                totalCollateral,
+                totalDebt
+            );
         } else {
             require(_safeId != _last, "Cannot liquidate the last Safe");
             // Liquidate by distributing the debt and collateral to the existing borrowers.
@@ -319,12 +347,20 @@ contract StableBaseCDP is StableBase {
                 collateralAmount - liquidationFee,
                 totalCollateral
             );
+            emit LiquidatedUsingSecondaryMechanism(
+                _safeId,
+                borrowedAmount,
+                collateralAmount,
+                totalCollateral,
+                totalDebt
+            );
         }
         safesOrderedForLiquidation.remove(_safeId);
         safesOrderedForRedemption.remove(_safeId);
 
         // Remove the Safe from the mapping
         _removeSafe(_safeId);
+
         // Send fee
         payable(msg.sender).transfer(liquidationFee);
     }

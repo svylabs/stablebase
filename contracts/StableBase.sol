@@ -252,6 +252,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         redemption.collateralAmount += amountInCollateral;
         redemption.redeemedAmount += amountToRedeem;
         safes[_safeId] = safe;
+        emit Redeemed(_safeId, amountToRedeem, amountInCollateral);
         return (safe, redemption);
     }
 
