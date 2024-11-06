@@ -10,14 +10,6 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList, Ownable {
 
     mapping(uint256 => Node) public nodes;
 
-    struct Moved {
-        uint256 id;
-        Node node;
-    }
-
-    // Cache of the last moved nodes
-    Moved public moved;
-
     constructor() Ownable(msg.sender) {
         head = 0;
         tail = 0;
@@ -146,7 +138,6 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList, Ownable {
         uint256 _nearestSpot
     ) internal returns (Node memory) {
         Node memory node = _remove(id);
-        moved = Moved(id, node);
         node.value = value;
         node.prev = 0;
         node.next = 0;
