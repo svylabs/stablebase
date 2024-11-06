@@ -51,8 +51,11 @@ interface IStabilityPool {
     );
     event CollateralClaimed(address indexed user, uint256 amount);
     event LiquidationPerformed(
-        uint256 amountStaked,
-        uint256 collateralReceived
+        uint256 amount,
+        uint256 collateralReceived,
+        uint256 totalStaked,
+        uint256 stakeScalingFactor,
+        uint256 totalCollateralPerToken
     );
     event ScalingFactorReset(
         uint256 indexed stakeResetCount,

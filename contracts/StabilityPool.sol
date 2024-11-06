@@ -232,12 +232,19 @@ contract StabilityPool is IStabilityPool, Ownable {
                 totalStakedRaw) /
             precision;
 
+        emit LiquidationPerformed(
+            amount,
+            collateral,
+            totalStakedRaw,
+            stakeScalingFactor,
+            totalCollateralPerToken
+        );
+
         totalStakedRaw -= amount;
 
         if (cumulativeProductScalingFactor < minimumScalingFactor) {
-            uint256 scalingFactor = cumulativeProductScalingFactor;
             StakeResetSnapshot memory resetSnapshot = StakeResetSnapshot({
-                scalingFactor: scalingFactor,
+                scalingFactor: cumulativeProductScalingFactor,
                 totalRewardPerToken: totalRewardPerToken,
                 totalCollateralPerToken: totalCollateralPerToken,
                 totalSBRRewardPerToken: totalSbrRewardPerToken
@@ -250,8 +257,6 @@ contract StabilityPool is IStabilityPool, Ownable {
             stakeResetCount++;
             emit ScalingFactorReset(stakeResetCount - 1, resetSnapshot);
         }
-
-        emit LiquidationPerformed(amount, collateral);
         return true;
     }
 
