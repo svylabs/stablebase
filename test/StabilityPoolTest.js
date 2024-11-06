@@ -780,7 +780,7 @@ pool.liquidate(Uint.unscaled(500), Uint.unscaled(1))
     
         // === Check pending rewards ===
         alicePendingReward = await stabilityPool.userPendingReward(alice.address);
-        expect(alicePendingReward).to.be.closeTo(userRewards[alice.address], ethers.parseEther("0.000001"));
+        expect(alicePendingReward).to.be.closeTo(userRewards[alice.address], ethers.parseEther("0.0000001"));
         userRewards[charlie.address] = userRewards[charlie.address] + (rewardAmount2 * userStakes[charlie.address]) / totalStaked;
         userRewards[david.address] = userRewards[david.address] + (rewardAmount2 * userStakes[david.address]) / totalStaked;
         await checkStates(userStakes, userRewards, userCollateralGain, totalStaked, [alice, bob, charlie, david], stabilityPool);

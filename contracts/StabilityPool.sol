@@ -17,6 +17,9 @@ contract StabilityPool is IStabilityPool, Ownable {
     uint256 public totalRewardPerToken; // Accumulated rewards per token staked
     uint256 public totalCollateralPerToken; // Accumulated collateral per token staked
 
+    uint256 public rewardLoss;
+    uint256 public collateralLoss;
+
     mapping(uint256 => StakeResetSnapshot) public stakeResetSnapshots; // Cumulative product of scaling factors at each reset
 
     // Maintaining a separate mapping for sbrRewardSnapshots instead of in userInfo to avoid potential gas costs later on
@@ -27,6 +30,7 @@ contract StabilityPool is IStabilityPool, Ownable {
     mapping(address => SBRRewardClaim) public sbrRewardSnapshots;
 
     uint256 public totalSbrRewardPerToken = 0;
+    uint256 public sbrRewardLoss = 0;
 
     uint256 public constant precision = 1e18; // Precision for fixed-point calculations
     uint256 public constant minimumScalingFactor = 1e9; // Minimum scaling factor before reset
@@ -140,10 +144,17 @@ contract StabilityPool is IStabilityPool, Ownable {
             }
             uint256 sbrReward = timeElapsed * sbrDistributionRate;
             if (totalStakedRaw > 0) {
-                totalSbrRewardPerToken +=
-                    ((sbrReward * stakeScalingFactor * precision) /
-                        totalStakedRaw) /
+                uint256 _sbrReward = sbrReward + sbrRewardLoss;
+                uint256 _totalSbrRewardPerToken = ((_sbrReward *
+                    stakeScalingFactor *
+                    precision) / totalStakedRaw) / precision;
+                totalSbrRewardPerToken += _totalSbrRewardPerToken;
+                sbrRewardLoss =
+                    _sbrReward -
+                    ((_totalSbrRewardPerToken * totalStakedRaw * precision) /
+                        stakeScalingFactor) /
                     precision;
+
                 emit SBRRewardsAdded(
                     lastSBRRewardDistributedTime,
                     block.timestamp,
@@ -180,9 +191,17 @@ contract StabilityPool is IStabilityPool, Ownable {
         }
         stakingToken.transferFrom(msg.sender, address(this), _amount);
 
-        totalRewardPerToken +=
-            ((_amount * stakeScalingFactor * precision) / _totalStakedRaw) /
-            precision;
+        uint256 _totalAmount = _amount + rewardLoss;
+        uint256 _rewardPerToken = ((_totalAmount *
+            stakeScalingFactor *
+            precision) / _totalStakedRaw) / precision;
+
+        totalRewardPerToken += _rewardPerToken;
+
+        rewardLoss =
+            _totalAmount -
+            (((_rewardPerToken * _totalStakedRaw * precision) /
+                stakeScalingFactor) / precision);
 
         if (sbrRewardDistributionStatus != SBRRewardDistribution.ENDED) {
             _addSBRRewards();
@@ -226,10 +245,18 @@ contract StabilityPool is IStabilityPool, Ownable {
 
         stakeScalingFactor = cumulativeProductScalingFactor;
 
+        uint256 _collateral = collateral + collateralLoss;
+
+        uint256 _totalCollateralPerToken = ((_collateral *
+            previousScalingFactor *
+            precision) / totalStakedRaw) / precision;
+
         // Update total collateral per token
-        totalCollateralPerToken +=
-            ((collateral * previousScalingFactor * precision) /
-                totalStakedRaw) /
+        totalCollateralPerToken += _totalCollateralPerToken;
+        collateralLoss =
+            _collateral -
+            ((_totalCollateralPerToken * totalStakedRaw * precision) /
+                previousScalingFactor) /
             precision;
 
         emit LiquidationPerformed(
