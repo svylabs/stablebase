@@ -248,7 +248,8 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         SBStructs.Redemption memory redemption
     ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
         //uint256 amountInCollateral = amountToRedeem /
-        uint256 amountInCollateral = (amountToRedeem * PRECISION) / redemption.price;
+        uint256 amountInCollateral = (amountToRedeem * PRECISION) /
+            redemption.price;
         safe.collateralAmount -= amountInCollateral;
         safe.borrowedAmount -= amountToRedeem;
         redemption.collateralAmount += amountInCollateral;
