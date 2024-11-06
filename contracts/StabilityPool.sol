@@ -136,8 +136,7 @@ contract StabilityPool is IStabilityPool, Ownable {
                 sbrRewardDistributionStatus = SBRRewardDistribution.ENDED;
                 timeElapsed =
                     sbrRewardDistributionEndTime -
-                    lastSBRRewardDistributedTime +
-                    1;
+                    lastSBRRewardDistributedTime;
             }
             uint256 sbrReward = timeElapsed * sbrDistributionRate;
             if (totalStakedRaw > 0) {
