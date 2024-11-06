@@ -304,24 +304,29 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         LiquidationSnapshot storage liquidationSnapshot = liquidationSnapshots[
             _safeId
         ];
-        uint debtIncrease = (_safe.collateralAmount *
-            (cumulativeDebtPerUnitCollateral -
-                liquidationSnapshot.debtPerCollateralSnapshot)) / PRECISION;
-        _safe.borrowedAmount += debtIncrease;
-        liquidationSnapshot
-            .debtPerCollateralSnapshot = cumulativeDebtPerUnitCollateral;
+        if (
+            liquidationSnapshot.collateralPerCollateralSnapshot !=
+            cumulativeCollateralPerUnitCollateral
+        ) {
+            uint debtIncrease = (_safe.collateralAmount *
+                (cumulativeDebtPerUnitCollateral -
+                    liquidationSnapshot.debtPerCollateralSnapshot)) / PRECISION;
+            _safe.borrowedAmount += debtIncrease;
+            liquidationSnapshot
+                .debtPerCollateralSnapshot = cumulativeDebtPerUnitCollateral;
 
-        // Update deposited amount
-        uint collateralIncrease = (_safe.collateralAmount *
-            (cumulativeCollateralPerUnitCollateral -
-                liquidationSnapshot.collateralPerCollateralSnapshot)) /
-            PRECISION;
-        _safe.collateralAmount += collateralIncrease;
-        liquidationSnapshot
-            .collateralPerCollateralSnapshot = cumulativeCollateralPerUnitCollateral;
+            // Update deposited amount
+            uint collateralIncrease = (_safe.collateralAmount *
+                (cumulativeCollateralPerUnitCollateral -
+                    liquidationSnapshot.collateralPerCollateralSnapshot)) /
+                PRECISION;
+            _safe.collateralAmount += collateralIncrease;
+            liquidationSnapshot
+                .collateralPerCollateralSnapshot = cumulativeCollateralPerUnitCollateral;
 
-        totalCollateral += collateralIncrease;
-        _updateTotalDebt(totalDebt, debtIncrease, true);
+            totalCollateral += collateralIncrease;
+            _updateTotalDebt(totalDebt, debtIncrease, true);
+        }
 
         return _safe;
     }
