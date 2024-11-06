@@ -20,7 +20,11 @@ contract StabilityPool is IStabilityPool, Ownable {
     mapping(uint256 => StakeResetSnapshot) public stakeResetSnapshots; // Cumulative product of scaling factors at each reset
 
     // Maintaining a separate mapping for sbrRewardSnapshots instead of in userInfo to avoid potential gas costs later on
-    mapping(address => uint256) public sbrRewardSnapshots;
+    struct SBRRewardClaim {
+        uint256 rewardSnapshot;
+        SBRRewardDistribution status;
+    }
+    mapping(address => SBRRewardClaim) public sbrRewardSnapshots;
 
     uint256 public totalSbrRewardPerToken = 0;
 
@@ -52,7 +56,12 @@ contract StabilityPool is IStabilityPool, Ownable {
     */
     uint256 public sbrDistributionRate = 1e18; // 1 SBR per second
     IMintableToken public sbrToken;
-    event SBRRewardsAdded(uint256 rewardAmount, uint256 totalRewardPerToken);
+    event SBRRewardsAdded(
+        uint256 lastTime,
+        uint256 currentTime,
+        uint256 rewardAmount,
+        uint256 totalRewardPerToken
+    );
     event SBRRewardClaimed(address indexed user, uint256 rewardAmount);
 
     mapping(address => UserInfo) public users;
@@ -136,7 +145,12 @@ contract StabilityPool is IStabilityPool, Ownable {
                     ((sbrReward * stakeScalingFactor * precision) /
                         totalStakedRaw) /
                     precision;
-                emit SBRRewardsAdded(sbrReward, totalSbrRewardPerToken);
+                emit SBRRewardsAdded(
+                    lastSBRRewardDistributedTime,
+                    block.timestamp,
+                    sbrReward,
+                    totalSbrRewardPerToken
+                );
             }
             lastSBRRewardDistributedTime = block.timestamp;
         } else if (
@@ -275,7 +289,16 @@ contract StabilityPool is IStabilityPool, Ownable {
 
         user.rewardSnapshot = totalRewardPerToken;
         user.collateralSnapshot = totalCollateralPerToken;
-        sbrRewardSnapshots[msg.sender] = totalSbrRewardPerToken;
+        if (sbrRewardDistributionStatus != SBRRewardDistribution.ENDED) {
+            sbrRewardSnapshots[msg.sender]
+                .rewardSnapshot = totalSbrRewardPerToken;
+        } else if (
+            sbrRewardSnapshots[msg.sender].status !=
+            SBRRewardDistribution.CLAIMED
+        ) {
+            sbrRewardSnapshots[msg.sender].status = SBRRewardDistribution
+                .CLAIMED;
+        }
 
         if (pendingReward != 0) {
             stakingToken.transfer(msg.sender, pendingReward);
@@ -299,6 +322,13 @@ contract StabilityPool is IStabilityPool, Ownable {
             uint256 pendingSbrRewards
         )
     {
+        bool calculateSbrRewards = true;
+        if (
+            sbrRewardSnapshots[msg.sender].status ==
+            SBRRewardDistribution.CLAIMED
+        ) {
+            calculateSbrRewards = false;
+        }
         if (user.stakeResetCount == stakeResetCount) {
             pendingReward =
                 ((((totalRewardPerToken - user.rewardSnapshot) * user.stake) *
@@ -309,11 +339,14 @@ contract StabilityPool is IStabilityPool, Ownable {
                     user.stake) * precision) /
                     user.cumulativeProductScalingFactor) /
                 precision;
-            pendingSbrRewards =
-                ((((totalSbrRewardPerToken - sbrRewardSnapshots[msg.sender]) *
-                    user.stake) * precision) /
-                    user.cumulativeProductScalingFactor) /
-                precision;
+            if (calculateSbrRewards) {
+                pendingSbrRewards =
+                    ((((totalSbrRewardPerToken -
+                        sbrRewardSnapshots[msg.sender].rewardSnapshot) *
+                        user.stake) * precision) /
+                        user.cumulativeProductScalingFactor) /
+                    precision;
+            }
         } else {
             StakeResetSnapshot memory snapshot = stakeResetSnapshots[
                 user.stakeResetCount
@@ -330,11 +363,14 @@ contract StabilityPool is IStabilityPool, Ownable {
                     user.cumulativeProductScalingFactor) /
                 precision;
 
-            pendingSbrRewards =
-                ((((snapshot.totalSBRRewardPerToken -
-                    sbrRewardSnapshots[msg.sender]) * user.stake) * precision) /
-                    user.cumulativeProductScalingFactor) /
-                precision;
+            if (calculateSbrRewards) {
+                pendingSbrRewards =
+                    ((((snapshot.totalSBRRewardPerToken -
+                        sbrRewardSnapshots[msg.sender].rewardSnapshot) *
+                        user.stake) * precision) /
+                        user.cumulativeProductScalingFactor) /
+                    precision;
+            }
 
             // Calculate the user stake at reset snapshot
             uint256 userStake = ((user.stake *
@@ -349,17 +385,21 @@ contract StabilityPool is IStabilityPool, Ownable {
                 pendingCollateral +=
                     (snapshot.totalCollateralPerToken * userStake) /
                     precision;
-                pendingSbrRewards +=
-                    (snapshot.totalSBRRewardPerToken * userStake) /
-                    precision;
+                if (calculateSbrRewards) {
+                    pendingSbrRewards +=
+                        (snapshot.totalSBRRewardPerToken * userStake) /
+                        precision;
+                }
             } else {
                 pendingReward += (totalRewardPerToken * userStake) / precision;
                 pendingCollateral +=
                     (totalCollateralPerToken * userStake) /
                     precision;
-                pendingSbrRewards +=
-                    (totalSbrRewardPerToken * userStake) /
-                    precision;
+                if (calculateSbrRewards) {
+                    pendingSbrRewards +=
+                        (totalSbrRewardPerToken * userStake) /
+                        precision;
+                }
             }
         }
     }
