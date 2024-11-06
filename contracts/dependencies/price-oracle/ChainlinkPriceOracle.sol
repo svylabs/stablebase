@@ -19,14 +19,9 @@ contract ChainlinkPriceOracle is IPriceOracle {
      * @dev Returns the latest price from the Chainlink price feed.
      * @return The price as a uint256.
      */
-    function getPrice() external view override returns (uint256) {
-        (
-            /*uint80 roundID*/,
-            int price,
-            /*uint startedAt*/,
-            /*uint timeStamp*/,
-            /*uint80 answeredInRound*/
-        ) = priceFeed.latestRoundData();
+    function fetchPrice() external view override returns (uint256) {
+        (, /*uint80 roundID*/ int price, , , ) = /*uint startedAt*/ /*uint timeStamp*/ /*uint80 answeredInRound*/
+        priceFeed.latestRoundData();
         // (, int256 price, , , ) = priceFeed.latestRoundData();
         require(price > 0, "Invalid price");
         return uint256(price);

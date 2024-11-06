@@ -58,6 +58,7 @@ contract StableBaseCDP is StableBase {
             "Cannot close Safe with borrowed amount"
         );
         uint256 collateralAmount = safe.collateralAmount;
+        totalCollateral -= collateralAmount; // Should we need this or not
         // Remove the Safe from the mapping
         _removeSafe(safeId);
         emit SafeClosed(safeId, collateralAmount, totalCollateral, totalDebt);
@@ -80,12 +81,12 @@ contract StableBaseCDP is StableBase {
         require(safe.collateralAmount > 0, "Safe does not exist");
 
         // Fetch the price of the collateral from the oracle
-        uint256 price = priceOracle.getPrice();
+        uint256 price = priceOracle.fetchPrice();
 
         // Calculate the maximum borrowable amount
-        uint256 maxBorrowAmount = (safe.collateralAmount *
-            price *
-            BASIS_POINTS_DIVISOR) / liquidationRatio;
+        uint256 maxBorrowAmount = ((
+            (safe.collateralAmount * price * BASIS_POINTS_DIVISOR)
+        ) / liquidationRatio) / PRECISION;
 
         // Check if the requested amount is within the maximum borrowable limits
         require(
@@ -105,9 +106,6 @@ contract StableBaseCDP is StableBase {
             nearestSpotInLiquidationQueue,
             nearestSpotInRedemptionQueue
         );
-
-        // Emit the Borrow event
-        emit Borrowed(safeId, amount, safe.weight, totalCollateral, totalDebt);
     }
 
     // Repay function
@@ -135,14 +133,11 @@ contract StableBaseCDP is StableBase {
         _safe.borrowedAmount -= amount;
         uint256 _newRatio = _safe.borrowedAmount / _safe.collateralAmount;
         if (_newRatio != 0) {
-            safesOrderedForLiquidation.upsert(
-                safeId,
-                _newRatio,
-                nearestSpotInLiquidationQueue
-            );
+            IDoublyLinkedList.Node memory node = safesOrderedForLiquidation
+                .upsert(safeId, _newRatio, nearestSpotInLiquidationQueue);
+            emit LiquidationQueueUpdated(safeId, _newRatio, node.next);
         } else {
-            safesOrderedForLiquidation.remove(safeId);
-            safesOrderedForRedemption.remove(safeId);
+            _removeSafeFromBothQueues(safeId);
         }
         _updateTotalDebt(totalDebt, amount, false);
         emit Repaid(safeId, amount, _newRatio, totalCollateral, totalDebt);
@@ -162,11 +157,12 @@ contract StableBaseCDP is StableBase {
         totalCollateral += amount;
 
         uint256 _newRatio = safe.borrowedAmount / safe.collateralAmount;
-        safesOrderedForLiquidation.upsert(
+        IDoublyLinkedList.Node memory node = safesOrderedForLiquidation.upsert(
             safeId,
             _newRatio,
             nearestSpotInLiquidationQueue
         );
+        emit LiquidationQueueUpdated(safeId, _newRatio, node.next);
 
         emit AddedCollateral(
             safeId,
@@ -189,44 +185,28 @@ contract StableBaseCDP is StableBase {
 
         if (safe.borrowedAmount > 0) {
             // Calculate the price of the collateral
-            uint256 price = priceOracle.getPrice();
+            uint256 price = priceOracle.fetchPrice();
 
             // Calculate the maximum withdrawal amount that maintains the liquidation ratio
             uint256 maxWithdrawal = safe.collateralAmount -
-                (safe.borrowedAmount * liquidationRatio) /
+                (safe.borrowedAmount * liquidationRatio * PRECISION) /
                 (price * BASIS_POINTS_DIVISOR);
             require(amount <= maxWithdrawal, "Insufficient collateral");
             uint256 _newRatio = safe.borrowedAmount /
                 (safe.collateralAmount - amount);
-            safesOrderedForLiquidation.upsert(
-                safeId,
-                _newRatio,
-                nearestSpotInLiquidationQueue
-            );
-            emit WithdrawnCollateral(
-                safeId,
-                amount,
-                _newRatio,
-                totalCollateral,
-                totalDebt
-            );
+            IDoublyLinkedList.Node memory node = safesOrderedForLiquidation
+                .upsert(safeId, _newRatio, nearestSpotInLiquidationQueue);
+            emit LiquidationQueueUpdated(safeId, _newRatio, node.next);
         } else {
             // If there's no borrowed amount, ensure the withdrawal does not exceed deposited collateral
             require(amount <= safe.collateralAmount, "Insufficient collateral");
-            safesOrderedForLiquidation.remove(safeId);
-            safesOrderedForRedemption.remove(safeId);
-            emit WithdrawnCollateral(
-                safeId,
-                amount,
-                0,
-                totalCollateral,
-                totalDebt
-            );
+            _removeSafeFromBothQueues(safeId);
         }
 
         // Update the Safe's deposited amount
         safe.collateralAmount -= amount;
         totalCollateral -= amount;
+        emit WithdrawnCollateral(safeId, amount, totalCollateral, totalDebt);
 
         // Withdraw ETH or ERC20 token using SBUtils library
         payable(msg.sender).transfer(amount);
@@ -240,7 +220,7 @@ contract StableBaseCDP is StableBase {
     ) external onlyInNormalMode {
         require(amount > 0, "Amount must be greater than 0");
         sbdToken.burn(msg.sender, amount);
-        uint256 price = priceOracle.getPrice();
+        uint256 price = priceOracle.fetchPrice();
         SBStructs.Redemption memory _redemption = SBStructs.Redemption({
             requestedAmount: amount,
             price: price,
@@ -249,16 +229,17 @@ contract StableBaseCDP is StableBase {
             collateralAmount: 0
         });
 
-        _redemption = _redeemSafes(
-            _redemption,
-            nearestSpotInLiquidationQueue,
-            safesOrderedForRedemption,
-            safesOrderedForLiquidation
-        );
+        _redemption = _redeemSafes(_redemption, nearestSpotInLiquidationQueue);
         _redeemToUser(_redemption);
         totalCollateral -= _redemption.collateralAmount;
         //totalDebt -= _redemption.redeemedAmount;
         _updateTotalDebt(totalDebt, _redemption.redeemedAmount, false);
+        emit RedeemedBatch(
+            amount,
+            _redemption.collateralAmount,
+            totalCollateral,
+            totalDebt
+        );
         // Return a success status
         return;
     }
@@ -279,12 +260,13 @@ contract StableBaseCDP is StableBase {
         safe.weight += topupRate;
         sbdToken.transferFrom(msg.sender, address(this), fee);
         // Jump to the correct position in the redemption queue
-        safesOrderedForRedemption.upsert(
+        IDoublyLinkedList.Node memory node = safesOrderedForRedemption.upsert(
             safeId,
             safe.weight,
             nearestSpotInRedemptionQueue
         );
-        (, uint256 refundFee) = distributeFees(fee, false);
+        emit RedemptionQueueUpdated(safeId, safe.weight, node.prev);
+        (, uint256 refundFee) = distributeFees(safeId, fee, false);
         if (refundFee > 0) {
             // Refund undistributed fee back to the user
             sbdToken.transfer(msg.sender, refundFee);
@@ -306,8 +288,9 @@ contract StableBaseCDP is StableBase {
             "Cannot liquidate a Safe with no borrowed amount"
         );
 
-        uint256 collateralPrice = priceOracle.getPrice();
-        uint256 collateralValue = collateralAmount * collateralPrice;
+        uint256 collateralPrice = priceOracle.fetchPrice();
+        uint256 collateralValue = (collateralAmount * collateralPrice) /
+            PRECISION;
         uint256 collateralRatio = (collateralValue * BASIS_POINTS_DIVISOR) /
             borrowedAmount;
         // Check if the collateral is sufficient for liquidation
@@ -355,8 +338,7 @@ contract StableBaseCDP is StableBase {
                 totalDebt
             );
         }
-        safesOrderedForLiquidation.remove(_safeId);
-        safesOrderedForRedemption.remove(_safeId);
+        _removeSafeFromBothQueues(_safeId);
 
         // Remove the Safe from the mapping
         _removeSafe(_safeId);
@@ -370,7 +352,12 @@ contract StableBaseCDP is StableBase {
         _updateSafe(safeId, safe);
         require(safe.collateralAmount > 0, "Safe does not exist");
         uint256 _newRatio = safe.borrowedAmount / safe.collateralAmount;
-        safesOrderedForLiquidation.upsert(safeId, _newRatio, 0);
+        IDoublyLinkedList.Node memory node = safesOrderedForLiquidation.upsert(
+            safeId,
+            _newRatio,
+            0
+        );
+        emit LiquidationQueueUpdated(safeId, _newRatio, node.next);
     }
 
     modifier _onlyOwner(uint256 _tokenId) {

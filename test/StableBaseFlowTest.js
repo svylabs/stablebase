@@ -749,7 +749,7 @@ describe("Test the flow", function () {
           const txPromise = stableBaseCDP.connect(alice).closeSafe(aliceSafeId);
           await expect(txPromise)
           .to.emit(stableBaseCDP, "SafeClosed")
-          .withArgs(aliceSafeId, aliceCollateral);
+          .withArgs(aliceSafeId, aliceCollateral, BigInt(0), BigInt(0));
           const safe = await stableBaseCDP.safes(aliceSafeId);
           expect(safe.collateralAmount).to.equal(0);
           expect(safe.borrowedAmount).to.equal(0);
@@ -768,7 +768,7 @@ describe("Test the flow", function () {
         await stableBaseCDP.connect(alice).openSafe(aliceSafeId, aliceCollateral, {value: aliceCollateral});
         await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
         let safe = await stableBaseCDP.safes(aliceSafeId);
-        //console.log(safe);
+        console.log(safe);
         const ethBalance = await ethers.provider.getBalance(alice.address);
         try {
           await stableBaseCDP.connect(alice).closeSafe(aliceSafeId);
@@ -777,7 +777,7 @@ describe("Test the flow", function () {
           expect(ex.message).to.equal("VM Exception while processing transaction: reverted with reason string 'Cannot close Safe with borrowed amount'");
         }
         safe = await stableBaseCDP.safes(aliceSafeId);
-        //console.log(safe);
+        console.log(safe);
         expect(safe.collateralAmount).to.equal(aliceCollateral);
         expect(safe.borrowedAmount).to.equal(aliceBorrowAmount);
      });
@@ -794,7 +794,7 @@ describe("Test the flow", function () {
         const txPromise = stableBaseCDP.connect(alice).closeSafe(aliceSafeId);
         await expect(txPromise)
         .to.emit(stableBaseCDP, "SafeClosed")
-        .withArgs(aliceSafeId, aliceCollateral);
+        .withArgs(aliceSafeId, aliceCollateral, BigInt(0), BigInt(0));
         const safe = await stableBaseCDP.safes(aliceSafeId);
         expect(safe.collateralAmount).to.equal(0);
         expect(safe.borrowedAmount).to.equal(0);

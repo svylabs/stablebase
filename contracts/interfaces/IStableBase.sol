@@ -13,7 +13,9 @@ interface IStableBase {
         uint256 amount,
         uint256 weight,
         uint256 totalCollateral,
-        uint256 totalDebt
+        uint256 totalDebt,
+        uint256 nearestSpotInRedemptionQueue,
+        uint256 nearestSpotInLiquidationQueue
     );
     event SafeClosed(
         uint256 indexed safeId,
@@ -32,7 +34,6 @@ interface IStableBase {
     event WithdrawnCollateral(
         uint256 indexed safeId,
         uint256 amount,
-        uint256 newRatio,
         uint256 totalCollateral,
         uint256 totalDebt
     );
@@ -43,10 +44,10 @@ interface IStableBase {
         uint256 totalCollateral,
         uint256 totalDebt
     );
-    event Redeemed(
-        uint256 indexed safeId,
+    event Redeemed(uint256 indexed safeId, uint256 amount, uint256 collateral);
+    event RedeemedBatch(
         uint256 amount,
-        uint256 collateral,
+        uint256 redeemedCollateral,
         uint256 totalCollateral,
         uint256 totalDebt
     );
@@ -70,6 +71,26 @@ interface IStableBase {
         uint256 topupRate,
         uint256 feePaid,
         uint256 newWeight
+    );
+    event LiquidationQueueUpdated(
+        uint256 safeId,
+        uint256 newRatio,
+        uint256 nextNode
+    );
+    event SafeRemovedFromLiquidationQueue(uint256 safeId);
+    event RedemptionQueueUpdated(
+        uint256 safeId,
+        uint256 newWeight,
+        uint256 prevNode
+    );
+    event SafeRemovedFromRedemptionQueue(uint256 safeId);
+    event FeeDistributed(
+        uint256 indexed safeId,
+        uint256 fee,
+        bool mint,
+        uint256 sbrStakersFee,
+        uint256 stabilityPoolFee,
+        uint256 canRefund
     );
 
     function openSafe(uint256 _safeId, uint256 _amount) external payable;
