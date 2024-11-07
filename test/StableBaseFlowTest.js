@@ -99,12 +99,26 @@ describe("Test the flow", function () {
           const safe = await stableBaseCDP.safes(safeId);
           expect(safe.collateralAmount).to.equal(amount);
           expect(safe.borrowedAmount).to.equal(0);
+          expect(await stableBaseCDP.totalCollateral()).to.equal(amount);
       });
 
       it("Open safe should fail if not enough collateral", async function() {
           const safeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
           const amount = ethers.parseEther("1.0");
           await expect(stableBaseCDP.connect(alice).openSafe(safeId, amount, {value: ethers.parseEther("0.5")})).to.be.revertedWith("Insufficient collateral");
+          expect(await stableBaseCDP.totalCollateral()).to.equal(0);
+      });
+
+      it("Open safe should fail if there is an existing safe", async function() {
+        const safeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const amount = ethers.parseEther("1.0");
+        await stableBaseCDP.connect(alice).openSafe(safeId, amount, {value: amount});
+        expect(await stableBaseCDP.totalCollateral()).to.equal(amount);
+
+        const safeId2 = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
+        const amount2 = ethers.parseEther("1.0");
+        await expect(stableBaseCDP.connect(alice).openSafe(safeId2, amount2, {value: amount2})).to.be.revertedWith("Safe already exists");
+        expect(await stableBaseCDP.totalCollateral()).to.equal(amount);
       });
     });
 

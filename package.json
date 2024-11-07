@@ -36,5 +36,9 @@
     "@typechain/hardhat": "^9.1.0",
     "bignumber.js": "^9.1.2"
   },
-  "keywords": []
+  "keywords": [],
+  "directories": {
+    "doc": "docs",
+    "test": "test"
+  }
 }
