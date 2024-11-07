@@ -1,4 +1,0 @@
-mesa
-numpy
-ape-hardhat
-eth-ape
