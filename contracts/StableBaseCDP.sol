@@ -26,6 +26,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         require(msg.value == _amount, "Insufficient collateral");
         require(_safeId > 0, "Invalid Safe ID"); // To avoid race conditions somewhere in the code
         require(safes[_safeId].collateralAmount == 0, "Safe already exists");
+        require(_ownerOf(_safeId) == address(0), "Safe already exists");
 
         Safe memory safe = Safe({
             collateralAmount: _amount,
@@ -273,6 +274,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         if (refundFee > 0) {
             // Refund undistributed fee back to the user
             sbdToken.transfer(msg.sender, refundFee);
+            emit FeeRefund(safeId, refundFee);
         }
         emit FeeTopup(safeId, topupRate, fee, safe.weight);
     }

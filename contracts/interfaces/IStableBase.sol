@@ -23,7 +23,7 @@ interface IStableBase {
         uint256 totalCollateral,
         uint256 totalDebt
     );
-    event BorrowFeeRefund(uint256 indexed safeId, uint256 amount);
+    event FeeRefund(uint256 indexed safeId, uint256 amount);
     event AddedCollateral(
         uint256 indexed safeId,
         uint256 amount,

@@ -161,7 +161,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         }
         if (canRefund > 0) {
             _amountToBorrow += canRefund;
-            emit BorrowFeeRefund(safeId, canRefund);
+            emit FeeRefund(safeId, canRefund);
         }
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amountToBorrow);

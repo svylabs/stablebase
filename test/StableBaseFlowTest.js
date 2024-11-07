@@ -163,7 +163,7 @@ describe("Test the flow", function () {
           const feePercent = BigInt(100); // 1%
           const fee = (borrowAmount * feePercent) / BigInt(10000);
           await expect(stableBaseCDP.connect(alice).borrow(safeId, borrowAmount, feePercent, BigInt(0), BigInt(0)))
-            .to.emit(stableBaseCDP, "BorrowFeeRefund")
+            .to.emit(stableBaseCDP, "FeeRefund")
             .withArgs(safeId, fee);
           const safe = await stableBaseCDP.safes(safeId);
           const actualBorrowAmount = borrowAmount - fee; // but fee is refunded to the borrower because there are no stakers
