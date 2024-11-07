@@ -99,7 +99,6 @@ describe("Test the flow", function () {
           const safe = await stableBaseCDP.safes(safeId);
           expect(safe.collateralAmount).to.equal(amount);
           expect(safe.borrowedAmount).to.equal(0);
-          
       });
 
       it("Open safe should fail if not enough collateral", async function() {

@@ -8,8 +8,9 @@ import "./SBDToken.sol";
 import "./library/OrderedDoublyLinkedList.sol";
 import "./interfaces/IDoublyLinkedList.sol";
 import "./StableBase.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract StableBaseCDP is StableBase {
+contract StableBaseCDP is StableBase, ReentrancyGuard {
     constructor() StableBase() {}
 
     /**
@@ -26,11 +27,11 @@ contract StableBaseCDP is StableBase {
         require(_safeId > 0, "Invalid Safe ID"); // To avoid race conditions somewhere in the code
         require(safes[_safeId].collateralAmount == 0, "Safe already exists");
 
-        SBStructs.Safe memory safe = SBStructs.Safe({
+        Safe memory safe = Safe({
             collateralAmount: _amount,
             borrowedAmount: 0,
             weight: 0,
-            totalFeePaid: 0
+            status: SafeStatus.OPEN
         });
         LiquidationSnapshot memory liquidationSnapshot = LiquidationSnapshot({
             debtPerCollateralSnapshot: cumulativeDebtPerUnitCollateral,
@@ -50,8 +51,10 @@ contract StableBaseCDP is StableBase {
      * Return back the collateral
      * @param safeId The ID of the Safe to close
      */
-    function closeSafe(uint256 safeId) external _onlyOwner(safeId) {
-        SBStructs.Safe storage safe = safes[safeId];
+    function closeSafe(
+        uint256 safeId
+    ) external _onlyOwner(safeId) nonReentrant {
+        Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
         require(
             safe.borrowedAmount == 0,
@@ -76,7 +79,7 @@ contract StableBaseCDP is StableBase {
         uint256 nearestSpotInLiquidationQueue,
         uint256 nearestSpotInRedemptionQueue
     ) external _onlyOwner(safeId) {
-        SBStructs.Safe storage safe = safes[safeId];
+        Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
         require(safe.collateralAmount > 0, "Safe does not exist");
 
@@ -114,7 +117,7 @@ contract StableBaseCDP is StableBase {
         uint256 amount,
         uint256 nearestSpotInLiquidationQueue
     ) external _onlyOwner(safeId) {
-        SBStructs.Safe storage _safe = safes[safeId];
+        Safe storage _safe = safes[safeId];
         _updateSafe(safeId, _safe);
         require(_safe.borrowedAmount > 0, "No borrowed amount to repay");
         require(sbdToken.balanceOf(msg.sender) >= amount, "Insufficient SBD");
@@ -148,7 +151,7 @@ contract StableBaseCDP is StableBase {
         uint256 amount,
         uint256 nearestSpotInLiquidationQueue
     ) external payable _onlyOwner(safeId) {
-        SBStructs.Safe storage safe = safes[safeId];
+        Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
         require(safe.collateralAmount > 0, "Safe does not exist");
         require(msg.value == amount, "Invalid amount");
@@ -178,8 +181,8 @@ contract StableBaseCDP is StableBase {
         uint256 safeId,
         uint256 amount,
         uint256 nearestSpotInLiquidationQueue
-    ) external _onlyOwner(safeId) {
-        SBStructs.Safe storage safe = safes[safeId];
+    ) external _onlyOwner(safeId) nonReentrant {
+        Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
         require(safe.collateralAmount > 0, "No collateral to withdraw");
 
@@ -249,7 +252,7 @@ contract StableBaseCDP is StableBase {
         uint256 topupRate,
         uint256 nearestSpotInRedemptionQueue
     ) external _onlyOwner(safeId) {
-        SBStructs.Safe storage safe = safes[safeId];
+        Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
         //TODO:  Check if the required fee is paid
         require(topupRate > 0, "Fee rate must be greater than 0");
@@ -274,10 +277,10 @@ contract StableBaseCDP is StableBase {
         emit FeeTopup(safeId, topupRate, fee, safe.weight);
     }
 
-    function liquidate() external {
+    function liquidate() external nonReentrant {
         uint256 _safeId = safesOrderedForLiquidation.getTail();
         uint256 _last = safesOrderedForLiquidation.getHead();
-        SBStructs.Safe storage safe = safes[_safeId];
+        Safe storage safe = safes[_safeId];
         _updateSafe(_safeId, safe);
         uint256 borrowedAmount = safe.borrowedAmount;
         uint256 collateralAmount = safe.collateralAmount;
@@ -347,15 +350,18 @@ contract StableBaseCDP is StableBase {
         payable(msg.sender).transfer(liquidationFee);
     }
 
-    function adjustPosition(uint256 safeId) external _onlyOwner(safeId) {
-        SBStructs.Safe storage safe = safes[safeId];
+    function adjustPosition(
+        uint256 safeId,
+        uint256 nearestSpotInLiquidationQueue
+    ) external _onlyOwner(safeId) {
+        Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
         require(safe.collateralAmount > 0, "Safe does not exist");
         uint256 _newRatio = safe.borrowedAmount / safe.collateralAmount;
         IDoublyLinkedList.Node memory node = safesOrderedForLiquidation.upsert(
             safeId,
             _newRatio,
-            0
+            nearestSpotInLiquidationQueue
         );
         emit LiquidationQueueUpdated(safeId, _newRatio, node.next);
     }
@@ -364,5 +370,21 @@ contract StableBaseCDP is StableBase {
         address owner = ownerOf(_tokenId);
         require(msg.sender == owner, "Not the owner");
         _;
+    }
+
+    function updateTokenURI(
+        uint256 tokenId,
+        string memory newTokenURI
+    ) external {
+        require(_isApprovedOrOwner(msg.sender, tokenId), "Not authorized");
+        _setTokenURI(tokenId, newTokenURI);
+    }
+
+    function _isApprovedOrOwner(
+        address spender,
+        uint256 tokenId
+    ) internal view returns (bool) {
+        address owner = ownerOf(tokenId);
+        return (spender == owner || getApproved(tokenId) == spender);
     }
 }

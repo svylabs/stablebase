@@ -36,7 +36,10 @@ contract SBRStaking is ISBRStaking, Ownable {
         Stake storage user = stakes[msg.sender];
         _claim(user);
 
-        stakingToken.transferFrom(msg.sender, address(this), _amount);
+        require(
+            stakingToken.transferFrom(msg.sender, address(this), _amount),
+            "Transfer tokens failed"
+        );
 
         user.stake += _amount;
         totalStake += _amount;
@@ -53,7 +56,10 @@ contract SBRStaking is ISBRStaking, Ownable {
 
         user.stake -= _amount;
         totalStake -= _amount;
-        stakingToken.transfer(msg.sender, _amount);
+        require(
+            stakingToken.transfer(msg.sender, _amount),
+            "Transfer tokens failed"
+        );
 
         emit Unstaked(msg.sender, _amount);
     }
@@ -67,7 +73,10 @@ contract SBRStaking is ISBRStaking, Ownable {
         if (_totalStake == 0) {
             return false;
         } else {
-            rewardToken.transferFrom(msg.sender, address(this), _amount);
+            require(
+                rewardToken.transferFrom(msg.sender, address(this), _amount),
+                "Transfer tokens failed"
+            );
             totalRewardPerToken += (_amount * PRECISION) / _totalStake;
             emit RewardAdded(_amount);
             return true;

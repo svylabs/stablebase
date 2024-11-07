@@ -9,12 +9,12 @@ import "./SBDToken.sol";
 import "./Utilities.sol";
 import "./interfaces/IStableBase.sol";
 import "./library/Rate.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "./interfaces/IStabilityPool.sol";
 import "./interfaces/ISBRStaking.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract StableBase is IStableBase, ERC721, Ownable {
+abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
     uint256 internal liquidationRatio = 11000; // 110% liquidation ratio
     uint256 internal constant BASIS_POINTS_DIVISOR = 10000;
     uint256
@@ -28,8 +28,8 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
     IDoublyLinkedList public safesOrderedForRedemption;
 
     // Mapping to track Safe balances
-    // mapping(bytes32 => SBStructs.Safe) public safes;
-    mapping(uint256 => SBStructs.Safe) public safes;
+    // mapping(bytes32 => Safe) public safes;
+    mapping(uint256 => Safe) public safes;
 
     SBStructs.Mode public mode = SBStructs.Mode.BOOTSTRAP;
 
@@ -91,13 +91,13 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
 
     function handleBorrow(
         uint256 safeId,
-        SBStructs.Safe storage safe,
+        Safe storage safe,
         uint256 amount,
         uint256 shieldingRate,
         uint256 nearestSpotInLiquidationQueue,
         uint256 nearestSpotInRedemptionQueue
     ) internal {
-        // SBStructs.Safe storage currentSafe = safes[_safeId];
+        // Safe storage currentSafe = safes[_safeId];
         require(
             ownerOf(safeId) == msg.sender,
             "Only the Safe owner can borrow"
@@ -182,9 +182,9 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         uint256 _safeId,
         SBStructs.Redemption memory redemption,
         uint256 nearestSpotInLiquidationQueue
-    ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
+    ) internal returns (Safe memory, SBStructs.Redemption memory) {
         // bytes32 _safeId = bytes32(_safeId);
-        SBStructs.Safe storage safe = safes[_safeId];
+        Safe storage safe = safes[_safeId];
         _updateSafe(_safeId, safe);
         uint256 amountToRedeem = redemption.requestedAmount -
             redemption.redeemedAmount;
@@ -244,9 +244,9 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
     function redeemSafe(
         uint256 _safeId,
         uint256 amountToRedeem,
-        SBStructs.Safe memory safe,
+        Safe memory safe,
         SBStructs.Redemption memory redemption
-    ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
+    ) internal returns (Safe memory, SBStructs.Redemption memory) {
         //uint256 amountInCollateral = amountToRedeem /
         uint256 amountInCollateral = (amountToRedeem * PRECISION) /
             redemption.price;
@@ -311,8 +311,8 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
     // Internal function to update a safe's borrowed amount and deposited amount
     function _updateSafe(
         uint _safeId,
-        SBStructs.Safe storage _safe
-    ) internal returns (SBStructs.Safe memory) {
+        Safe storage _safe
+    ) internal returns (Safe memory) {
         // Update borrowed amount
         LiquidationSnapshot storage liquidationSnapshot = liquidationSnapshots[
             _safeId
@@ -375,6 +375,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
     }
 
     function _removeSafe(uint256 _safeId) internal {
+        //safes[_safeId].status = SafeStatus.CLOSED;
         delete safes[_safeId];
         _burn(_safeId);
     }

@@ -2,28 +2,12 @@
 pragma solidity ^0.8.19;
 
 import "./library/Math.sol";
+import "./interfaces/IStableBase.sol";
 
 library SBStructs {
-    struct Safe {
-        uint256 collateralAmount;
-        uint256 borrowedAmount;
-        uint256 weight;
-        uint256 totalFeePaid;
-    }
-
-    struct WhitelistedToken {
-        address priceOracle;
-        uint256 collateralRatio;
-    }
-
     enum Mode {
         BOOTSTRAP,
         NORMAL
-    }
-
-    struct GlobalVars {
-        uint256 totalMintedSBD;
-        Math.Rate referenceOriginationFeeRate;
     }
 
     struct Redemption {
