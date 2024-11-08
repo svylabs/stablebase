@@ -2,33 +2,110 @@ const { Environment, Agent } = require("flocc");
 const { time } = require('@nomicfoundation/hardhat-network-helpers');
 const { ethers } = require("hardhat");
 const { deployContract } = require("@nomicfoundation/hardhat-ethers/types");
+const { assert, expect } = require("chai");
 
-class Borrower extends Agent {
-    constructor(account, initialBalance, contracts) {
+const numBorrowers = 100;
+const numBots = 5;
+const numThirdpartyStablecoinHolders = 300;
+
+function getRandomInRange(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+class Actor extends Agent {
+    constructor(account, initialBalance, contracts, market, tracker) {
         super();
         this.account = account;
         this.contracts = contracts;
         this.ethBalance = initialBalance;
-        this.sbdBalance = 0;
-        this.sbrBalance = 0;
-        this.safe = {
-            collateral: 0,
-            debt: 0
-        }
+        this.sbdBalance = BigInt(0);
+        this.sbrBalance = BigInt(0);
+        this.market = market;
+        this.tracker = tracker;
         this.stabilityPool = {
-
+            stake: BigInt(0),
+            unclaimedRewards: {
+                sbd: BigInt(0),
+                eth: BigInt(0),
+                sbr: BigInt(0)
+            }
         }
         this.sbrStaking = {
-
+            stake: BigInt(0),
+            unclaimedRewards: {
+                sbd: BigInt(0),
+                eth: BigInt(0),
+                sbr: BigInt(0)
+            }
         }
+    }
+    async distributeCollateralGain(gain) {
+        this.stabilityPool.unclaimedRewards.eth += gain;
+    }
+    async distributeSbdRewards(reward) {
+        this.stabilityPool.unclaimedRewards.sbd += reward;
+    }
+    async distributeSbrRewards(reward) {
+        this.stabilityPool.unclaimedRewards.sbr += reward;
+    }
+    async distributeSbrStakingRewards(reward) {
+        this.sbrStaking.unclaimedRewards.sbr += reward;
+    }
+    async distributeSbrStakingEthRewards(reward) {
+        this.sbrStaking.unclaimedRewards.eth += reward;
+    }
+    async step() {
+        this.ethBalance = await this.account.provider.getBalance(this.account.address);
+    }
+}
+
+class Borrower extends Actor {
+    constructor(account, initialBalance, contracts, market, tracker) {
+        super(account, initialBalance, contracts, market, tracker);
+        this.safeId = ethers.solidityPackedKeccak256(["address", "address"], [account.address, ethers.ZeroAddress]);
+        this.safe = {
+            collateral: BigInt(0),
+            debt: BigInt(0)
+        }
+        this.riskProfile = getRandomInRange(0.0001, 0.002); // lower this number, higher the risk
+        this.shieldingRate = BigInt(Math.floor(this.riskProfile * 1000)); // 0.01 * 1000 = 10 basis points
     }
 
     async openSafe() {
-
+        console.log("Opening safe for ", this.safeId, this.id);
+        ///console.log("Account balance: ", this.account, );
+        let collateralAmount = (this.ethBalance * BigInt(Math.floor(getRandomInRange(0.001, 0.01) * 1000)) / BigInt(1000));
+        console.log("OPening safe with collateral ", collateralAmount);
+        const tx = await this.contracts.stableBaseCDP.connect(this.account).openSafe(this.safeId, collateralAmount, { value: collateralAmount });
+        await tx.wait();
+        this.safe.collateral = collateralAmount;
+        this.tracker.addBorrower(this);
     }
 
     async borrow() {
-
+        if (this.safe.collateral == BigInt(0)) {
+            await this.openSafe();
+        }
+        const borrowAmount = (this.safe.collateral * this.market.collateralPrice * BigInt(Math.floor(getRandomInRange(0.1, 0.8) * 1000)) / BigInt(1000));
+        console.log("Borrowing  ", borrowAmount);
+        if (this.safe.debt + borrowAmount > ((this.safe.collateral * this.market.collateralPrice * BigInt(909)) / BigInt(1000))) {
+            // this should fail
+            try {
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).borrow(this.safeId, borrowAmount, this.shieldingRate, BigInt(0), BigInt(0));
+                assert.fail("Borrow should have failed");
+            } catch (error) {
+                console.log("Borrow failed as expected");
+            }
+        } else {
+            const tx = await this.contracts.stableBaseCDP.connect(this.account).borrow(this.safeId, borrowAmount, this.shieldingRate, BigInt(0), BigInt(0));
+            const detail = await tx.wait();
+            this.safe.debt += borrowAmount;
+            const shieldingFee = borrowAmount * this.shieldingRate / BigInt(10000);
+            this.sbdBalance += borrowAmount - shieldingFee;
+            const refund = this.tracker.distributeShieldingFee(shieldingFee);
+            this.sbdBalance += refund;
+            // Check fees refund, fee paid to stability pool, fee paid to SBR stakers, debt and collateral in contract
+        }
     }
 
     async repay() {
@@ -67,18 +144,41 @@ class Borrower extends Agent {
     }
 
     async step() {
-
+        await super.step();
+        if (Math.random() < 0.03) {
+            await this.borrow();
+            return;
+        }
+        if (Math.random() < 0.03) {
+            await this.repay();
+            return;
+        }
+        if (Math.random() < 0.03) {
+            await this.withdrawCollateral();
+            return;
+        }
+        if (Math.random() < 0.03) {
+            await this.addCollateral();
+            return;
+        }
+        if (Math.random() < 0.03) {
+            await this.topupFee();
+            return;
+        }
+        if (Math.random() < 0.5) {
+            await this.stakeSBD();
+            return;
+        }
+        if (Math.random() < 0.1) {
+            await this.unstakeSBD();
+            return;
+        }
     }
 }
 
-class Bot extends Agent {
-    constructor(account, initialBalance, contracts) {
-        super();
-        this.ethBalance = initialBalance;
-        this.account = account;
-        this.contracts = contracts;
-        this.sbdBalance = 0;
-        this.sbrBalance = 0;
+class Bot extends Actor {
+    constructor(account, initialBalance, contracts, market, tracker) {
+        super(account, initialBalance, contracts, market, tracker);
     }
     async liquidate() {
 
@@ -91,14 +191,9 @@ class Bot extends Agent {
     }
 }
 
-class ThirdpartyStablecoinHolder extends Agent {
-    constructor(account, initialBalance, contracts) {
-        super();
-        this.account = account;
-        this.contracts = contracts;
-        this.ethBalance = initialBalance;
-        this.sbdBalance = 0;
-        this.sbrBalance = 0;
+class ThirdpartyStablecoinHolder extends Actor {
+    constructor(account, initialBalance, contracts, market, tracker) {
+        super(account, initialBalance, contracts, market, tracker);
     }
     async stakeSBD() {
     }
@@ -123,14 +218,15 @@ class ThirdpartyStablecoinHolder extends Agent {
 
 // Market agent to simulate collateral price fluctuations
 class Market extends Agent {
-    constructor(account, initialBalance, contracts) {
+    constructor(account, initialBalance, contracts, tracker) {
       super();
       this.contracts = contracts;
       this.account = account;
       this.ethBalance = initialBalance;
       console.log("Market initial balance: ", this.ethBalance);
-      this.collateralPrice = 3000; // Starting price for collateral (e.g., ETH)
+      this.collateralPrice = BigInt(3000); // Starting price for collateral (e.g., ETH)
       this.sbdPrice = 1;
+      this.tracker = tracker;
     }
 
     async buyETH(amount, buyer) {
@@ -139,10 +235,10 @@ class Market extends Agent {
         }
         this.ethBalance -= amount;
         this.sbdBalance += amount;
-        this.collateralPrice = this.collateralPrice * (1 + Math.random() * 0.02); // ±4% fluctuation
-        this.sbdPrice = this.sbdPrice * (1 - Math.random() * 0.01); // ±4% fluctuation
+        this.collateralPrice = this.collateralPrice * (1 + Math.random() * 0.02); // ±2% fluctuation
+        this.sbdPrice = this.sbdPrice * (1 - Math.random() * 0.01); // ±2% fluctuation
         const tx = await account.sendTransaction({
-            to: accounts[i + 1].address,
+            to: buyer.address,
             value: amount // Send 1 ETH
           });
         await tx.wait();
@@ -153,60 +249,84 @@ class Market extends Agent {
         if (this.sbdBalance < amount) {
             return false;
         }
-        this.sbdPrice = this.sbdPrice * (1 + Math.random() * 0.01); // ±4% fluctuation
-        this.collateralPrice = this.collateralPrice * (1 - Math.random() * 0.02); // ±4% fluctuation
+        this.sbdPrice = this.sbdPrice * (1 + Math.random() * 0.01); // ±2% fluctuation
+        this.collateralPrice = this.collateralPrice * (1 - Math.random() * 0.02); // ±2% fluctuation
         this.ethBalance += amount;
         this.sbdBalance -= amount;
         const tx = await this.contracts.sbdToken.connect(this.account).tranfser(buyer.address, amount);
         await tx.wait();
         return true;
     }
+
+    async fluctuateCollateralPrice() {
+        this.collateralPrice = this.collateralPrice * (1 + Math.random() * 0.02); // ±2% fluctuation
+    }
   
     async step() {
-       // Do nothing
+       //await this.fluctuateCollateralPrice();
+       await this.contracts.priceOracle.setPrice(this.collateralPrice);
     }
   }
-  
-  
 
-// Stability Pool agent to collect fees and distribute rewards
-class StabilityPool extends Agent {
-  constructor() {
-    super();
-    this.stakedSBD = 0; // Amount of stablecoin staked
-    this.collateralGains = 0; // Collateral gains from liquidations
-  }
-
-  // Method to add fees from CDP top-ups
-  addFees(fee) {
-    this.stakedSBD += fee * 0.9; // 90% goes to the Stability Pool
-    console.log(`Stability Pool staked SBD: ${this.stakedSBD.toFixed(2)}`);
-  }
-}
-
-// CDP agent representing a collateralized debt position
+// A tracker agent to compute and verify the protocol's state offline, used to ensure protocol works as expected
 class OfflineProtocolTracker extends Agent {
-  constructor(contracts) {
+  constructor(contracts, market) {
     super();
     this.contracts = contracts;
-    this.borrowers = [];
-    this.totalCollateral = 0; // Collateral value
-    this.totalDebt = 0; // Debt in stablecoin (SBD)
+    this.borrowers = {};
+    this.totalCollateral = BigInt(0); // Collateral value
+    this.totalDebt = BigInt(0); // Debt in stablecoin (SBD)
+    this.market = market;
+    this.stabilityPool = {
+        stakers: [],
+        totalStake: BigInt(0),
+        totalRewards: {
+            sbd: BigInt(0),
+            eth: BigInt(0),
+            sbr: BigInt(0)
+        }
+    }
+    this.sbrStaking = {
+        totalStake: 0,
+        stakers: [],
+        totalRewards: {
+            sbd: BigInt(0),
+            eth: BigInt(0)
+        }
+    }
   }
 
   async addBorrower(borrowerAgent) {
-    this.borrowers.push(borrowerAgent);
+    this.borrowers[borrowerAgent.id] = borrowerAgent;
   }
 
   async removeBorrower(borrowerAgent) {
-    this.borrowers = this.borrowers.filter(borrower => borrower.id !== borrowerAgent.id);
+    delete this.borrowers[borrowerAgent.id];
   }
 
-  async distributeShieldingFee() {
-
+  async distributeShieldingFee(fee) {
+     let totalStake = this.stabilityPool.totalStake;
+     let distributed = BigInt(0);
+     for (let i = 0; i< this.stabilityPool.stakers.length ; i++) {
+        const staker= this.stabilityPool.stakers[i];
+         const share = (fee * staker.stabilityPool.stake * BigInt(9000))  / (totalStake * BigInt(10000));
+         staker.distributeSbdRewards(share);
+         distributed += share;
+     }
+     let sbrTotalStake = this.sbrStaking.totalStake;
+     let distributedToSbrStakers = BigInt(0);
+     for (let i = 0; i< this.sbrStaking.stakers.length ; i++) {
+         const staker = this.sbrStaking.stakers[i];
+         const share = (fee * staker.stake * BigInt(1000))  / (sbrTotalStake * BigInt(10000));
+         staker.distributeSbrStakingRewards(share);
+         distributedToSbrStakers += share;
+     }
+     this.stabilityPool.totalRewards.sbd += distributed;
+     this.sbrStaking.totalRewards.sbd += distributedToSbrStakers;
+     return fee - distributed - distributedToSbrStakers; // return refund
   }
 
-  async distributeCollateralGains() {
+  async distributeCollateralGains(collateral) {
 
   }
 
@@ -218,8 +338,23 @@ class OfflineProtocolTracker extends Agent {
 
   }
 
-  step(collateralPrice) {
+  async validateDebtAndCollateral() {
+    let totalCollateral = BigInt(0);
+    let totalDebt = BigInt(0);
+
+    for (const borrowerId of Object.keys(this.borrowers)) {
+        //console.log("Checking..", borrowerId);
+        const borrower = this.borrowers[borrowerId];
+        totalCollateral += borrower.safe.collateral;
+        totalDebt += borrower.safe.debt;
+    }
+    expect(totalCollateral).to.equal(await this.contracts.stableBaseCDP.totalCollateral(), "Total collateral mismatch");
+    expect(totalDebt).to.equal(await this.contracts.stableBaseCDP.totalDebt(), "Total debt mismatch");
+  }
+
+  async step() {
     //this.checkForLiquidation(collateralPrice);
+    await this.validateDebtAndCollateral();
   }
 }
 
@@ -317,11 +452,14 @@ async function main() {
     const env = new Environment();
 
     const contracts = await deployContracts();
-    console.log(contracts);
+    //console.log(contracts);
 
     // Initialize the Market agent
     const market = new Market(marketAccount, marketAccount.balance, contracts);
     env.addAgent(market);
+
+    const tracker = new OfflineProtocolTracker(contracts);
+    env.addAgent(tracker);
 
     // Initialize CDP agents with random collateral and debt values
     /*
@@ -333,6 +471,30 @@ async function main() {
     }
     */
 
+    let addressIndex = 0;
+    for (let i = 0; i < numBorrowers; i++) {
+        const borrower = new Borrower(addrs[addressIndex], addrs[addressIndex].balance, contracts, market, tracker);
+        borrower.ethBalance = await addrs[addressIndex].provider.getBalance(addrs[addressIndex].address);
+        env.addAgent(borrower);
+        addressIndex++;
+    }
+    for (let i = 0; i < numBots; i++) {
+        const bot = new Bot(addrs[addressIndex], addrs[addressIndex].balance, contracts, market, tracker);
+        bot.ethBalance = await addrs[addressIndex].provider.getBalance(addrs[addressIndex].address);
+        env.addAgent(bot);
+        addressIndex++;
+    }
+    for (let i = 0; i < numThirdpartyStablecoinHolders; i++) {
+        const thirdpartyStablecoinHolder = new ThirdpartyStablecoinHolder(addrs[addressIndex], addrs[addressIndex].balance, contracts, market, tracker);
+        thirdpartyStablecoinHolder.ethBalance = await addrs[addressIndex].provider.getBalance(addrs[addressIndex].address);
+        env.addAgent(thirdpartyStablecoinHolder);
+        addressIndex++;
+    }
+
+    // Update each CDP based on the new collateral price
+    const actors = env.getAgents()
+    .filter(agent => agent instanceof Actor);
+
     // Main simulation loop
     for (let i = 0; i < 100; i++) {
         console.log(`--- Simulation Step ${i + 1} ---`);
@@ -340,14 +502,14 @@ async function main() {
         // Get the updated collateral price from the market
        await market.step();
         
-        // Update each CDP based on the new collateral price
-        /*
-        env.getAgents()
-            .filter(agent => agent instanceof CDP)
-            .forEach(cdp => cdp.step(collateralPrice));
-        */
+        for (const actor of actors) {
+            await actor.step();
+        }
+        
         console.log(); // Blank line for readability between steps
+        await tracker.step();
     }
+    console.log("Simulation completed without errors");
 }
 
 main()
