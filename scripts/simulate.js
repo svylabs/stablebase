@@ -85,10 +85,15 @@ class Borrower extends Actor {
     }
 
     async borrow() {
-        if (this.safe.collateral == BigInt(0)) {
+        if (this.safe.collateral == BigInt(0) && Math.random() < 0.5) {
+            // doing this only 50% of the time
             await this.openSafe();
         }
-        const borrowAmount = (this.safe.collateral * this.market.collateralPrice * BigInt(Math.floor(getRandomInRange(0.1, 0.8) * 1000)) / BigInt(1000));
+        let borrowAmount = (this.safe.collateral * this.market.collateralPrice * BigInt(Math.floor(getRandomInRange(0.1, 0.8) * 1000)) / BigInt(1000));
+        if (this.safe.collateral == BigInt(0)) {
+            borrowAmount = BigInt(10000);
+            // this should fail as there is no safe
+        }
         console.log("Borrowing  ", borrowAmount);
         if (this.safe.debt + borrowAmount > ((this.safe.collateral * this.market.collateralPrice * BigInt(909)) / BigInt(1000))) {
             // this should fail
@@ -142,14 +147,11 @@ class Borrower extends Actor {
     }
 
     async withdrawCollateral() {
-        if (this.safe.collateral == BigInt(0)) {
-            return;
-        }
         const withdrawAmount = (this.safe.collateral * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) / BigInt(1000));
         console.log("Withdrawing collateral ", withdrawAmount);
         const collateralValue = this.safe.collateral * this.market.collateralPrice;
         const withdrawValue = withdrawAmount * this.market.collateralPrice;
-        if ((collateralValue - withdrawValue) < (this.safe.debt * BigInt(1100) / BigInt(1000))) {
+        if ((this.safe.collateral == BigInt(0)) || (collateralValue - withdrawValue) < (this.safe.debt * BigInt(1100) / BigInt(1000))) {
             // this should fail
             try {
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).withdrawCollateral(this.safeId, withdrawAmount, BigInt(0));
@@ -168,11 +170,49 @@ class Borrower extends Actor {
     }
 
     async addCollateral() {
-
+        const addAmount = (this.ethBalance * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) / BigInt(1000));
+        console.log("Adding collateral ", addAmount);
+        if (this.safe.collateral == BigInt(0)) {
+            try {
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).addCollateral(this.safeId, addAmount, BigInt(0), { value: addAmount });
+                assert.fail("Add collateral should have failed");
+            } catch (ex) {
+                console.log("Add collateral failed as expected");
+            }
+        } else {
+            const tx = await this.contracts.stableBaseCDP.connect(this.account).addCollateral(this.safeId, addAmount, BigInt(0), { value: addAmount });
+            const detail = await tx.wait();
+            const gas = detail.gasUsed * tx.gasPrice;
+            this.safe.collateral += addAmount;
+            expect(this.ethBalance - addAmount - gas).to.equal(await this.account.provider.getBalance(this.account.address));
+        }
+        // Check collateral in
     }
 
     async topupFee() {
-
+        const topupFee = (this.safe.debt * this.shieldingRate) / BigInt(10000);
+        console.log("Paying topup fee ", topupFee, this.safe.debt, this.sbdBalance);
+        if (this.safe.collateral == BigInt(0) || this.sbdBalance < topupFee || topupFee == BigInt(0)) {
+            try {
+                await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, topupFee);
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, BigInt(0));
+                assert.fail("Topup fee should have failed");
+            } catch (error) {
+                console.log("Topup fee failed as expected");
+            }
+        } else {
+            try {
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, BigInt(0));
+                assert.fail("This should have failed");
+            } catch (ex) {
+                await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, topupFee);
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, BigInt(0));
+                const detail = await tx.wait();
+                const refund = await this.tracker.distributeShieldingFee(topupFee);
+                this.sbdBalance = this.sbdBalance - topupFee + refund;
+            }
+            // Check debt in contract
+        }
     }
 
     async stakeSBD() {
