@@ -74,6 +74,17 @@ async function main() {
     console.log("Setting SBDToken, PriceOracle, StabilityPool, SBRStaking, LiquidationQueue, and RedemptionQueue addresses to StableBaseCDP...");
     tx = await stableBaseCDP.setAddresses(sbdToken.target, priceOracle.target, stabilityPool.target, sbrStaking.target, liquidationQueue.target, redemptionQueue.target);
     await tx.wait();
+
+    return {
+        sbdToken,
+        sbrToken,
+        stabilityPool,
+        priceOracle,
+        stableBaseCDP,
+        sbrStaking,
+        redemptionQueue,
+        liquidationQueue
+    }
 }
 
 main()

@@ -3,14 +3,9 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Structures.sol";
-import "./Utilities.sol";
-import "./SBDToken.sol";
-import "./library/OrderedDoublyLinkedList.sol";
-import "./interfaces/IDoublyLinkedList.sol";
 import "./StableBase.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract StableBaseCDP is StableBase, ReentrancyGuard {
+contract StableBaseCDP is StableBase {
     constructor() StableBase() {}
 
     /**
@@ -52,9 +47,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
      * Return back the collateral
      * @param safeId The ID of the Safe to close
      */
-    function closeSafe(
-        uint256 safeId
-    ) external _onlyOwner(safeId) nonReentrant {
+    function closeSafe(uint256 safeId) external _onlyOwner(safeId) {
         Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
         require(
@@ -182,7 +175,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         uint256 safeId,
         uint256 amount,
         uint256 nearestSpotInLiquidationQueue
-    ) external _onlyOwner(safeId) nonReentrant {
+    ) external _onlyOwner(safeId) {
         Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
         require(safe.collateralAmount > 0, "No collateral to withdraw");
@@ -279,7 +272,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         emit FeeTopup(safeId, topupRate, fee, safe.weight);
     }
 
-    function liquidate() external nonReentrant {
+    function liquidate() external {
         uint256 _safeId = safesOrderedForLiquidation.getTail();
         uint256 _last = safesOrderedForLiquidation.getHead();
         Safe storage safe = safes[_safeId];

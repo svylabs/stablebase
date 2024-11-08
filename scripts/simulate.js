@@ -1,14 +1,25 @@
 const { Environment, Agent } = require("flocc");
+const { time } = require('@nomicfoundation/hardhat-network-helpers');
+const { ethers } = require("hardhat");
+const { deployContract } = require("@nomicfoundation/hardhat-ethers/types");
 
 class Borrower extends Agent {
-    constructor(account, initialBalance) {
+    constructor(account, initialBalance, contracts) {
         super();
+        this.account = account;
+        this.contracts = contracts;
         this.ethBalance = initialBalance;
         this.sbdBalance = 0;
         this.sbrBalance = 0;
         this.safe = {
             collateral: 0,
             debt: 0
+        }
+        this.stabilityPool = {
+
+        }
+        this.sbrStaking = {
+
         }
     }
 
@@ -61,9 +72,11 @@ class Borrower extends Agent {
 }
 
 class Bot extends Agent {
-    constructor(account, initialBalance) {
+    constructor(account, initialBalance, contracts) {
         super();
         this.ethBalance = initialBalance;
+        this.account = account;
+        this.contracts = contracts;
         this.sbdBalance = 0;
         this.sbrBalance = 0;
     }
@@ -79,8 +92,10 @@ class Bot extends Agent {
 }
 
 class ThirdpartyStablecoinHolder extends Agent {
-    constructor(account, initialBalance) {
+    constructor(account, initialBalance, contracts) {
         super();
+        this.account = account;
+        this.contracts = contracts;
         this.ethBalance = initialBalance;
         this.sbdBalance = 0;
         this.sbrBalance = 0;
@@ -108,21 +123,47 @@ class ThirdpartyStablecoinHolder extends Agent {
 
 // Market agent to simulate collateral price fluctuations
 class Market extends Agent {
-    constructor() {
+    constructor(account, initialBalance, contracts) {
       super();
+      this.contracts = contracts;
+      this.account = account;
+      this.ethBalance = initialBalance;
+      console.log("Market initial balance: ", this.ethBalance);
       this.collateralPrice = 3000; // Starting price for collateral (e.g., ETH)
       this.sbdPrice = 1;
     }
-  
-    // Method to fluctuate collateral price
-    async fluctuatePrice() {
-      this.collateralPrice *= (0.98 + Math.random() * 0.04); // ±2% fluctuation
+
+    async buyETH(amount, buyer) {
+        if (this.ethBalance < amount) {
+            return false;
+        }
+        this.ethBalance -= amount;
+        this.sbdBalance += amount;
+        this.collateralPrice = this.collateralPrice * (1 + Math.random() * 0.02); // ±4% fluctuation
+        this.sbdPrice = this.sbdPrice * (1 - Math.random() * 0.01); // ±4% fluctuation
+        const tx = await account.sendTransaction({
+            to: accounts[i + 1].address,
+            value: amount // Send 1 ETH
+          });
+        await tx.wait();
+        return true;
+    }
+
+    async buySBD(amount, buyer) {
+        if (this.sbdBalance < amount) {
+            return false;
+        }
+        this.sbdPrice = this.sbdPrice * (1 + Math.random() * 0.01); // ±4% fluctuation
+        this.collateralPrice = this.collateralPrice * (1 - Math.random() * 0.02); // ±4% fluctuation
+        this.ethBalance += amount;
+        this.sbdBalance -= amount;
+        const tx = await this.contracts.sbdToken.connect(this.account).tranfser(buyer.address, amount);
+        await tx.wait();
+        return true;
     }
   
     async step() {
-      await this.fluctuatePrice();
-      console.log(`Market collateral price updated to: ${this.collateralPrice.toFixed(2)}`);
-      return this.collateralPrice;
+       // Do nothing
     }
   }
   
@@ -144,9 +185,10 @@ class StabilityPool extends Agent {
 }
 
 // CDP agent representing a collateralized debt position
-class Protocol extends Agent {
-  constructor() {
+class OfflineProtocolTracker extends Agent {
+  constructor(contracts) {
     super();
+    this.contracts = contracts;
     this.borrowers = [];
     this.totalCollateral = 0; // Collateral value
     this.totalDebt = 0; // Debt in stablecoin (SBD)
@@ -176,64 +218,141 @@ class Protocol extends Agent {
 
   }
 
-  // Top-up fee method to prevent redemption
-  topUpFee(amount) {
-    this.stabilityPoolContribution += amount;
-    this.redemptionQueuePriority += amount / this.debt;
-    this.stabilityPool.addFees(amount);
-  }
-
-  // Method to check if this CDP is below the liquidation threshold
-  checkForLiquidation(collateralPrice) {
-    this.collateralizationRatio = (this.collateral * collateralPrice) / this.debt;
-    if (this.collateralizationRatio < 1.1) {
-      console.log(`Liquidating CDP with collateral: ${this.collateral}, debt: ${this.debt}`);
-      this.liquidate();
-    }
-  }
-
-  // Liquidate this CDP and distribute its collateral to the Stability Pool
-  liquidate() {
-    this.stabilityPool.addFees(this.collateral * 0.9); // Distribute 90% to the Stability Pool
-    this.collateral = 0;
-    this.debt = 0;
-  }
-
   step(collateralPrice) {
-    this.checkForLiquidation(collateralPrice);
+    //this.checkForLiquidation(collateralPrice);
   }
 }
 
-// Set up the environment
-const env = new Environment();
+async function deployContracts() {
+    // Get the deployer's wallet address
+    const [deployer] = await ethers.getSigners();
+    console.log("Deploying contracts with the account:", deployer.address);
+  
+    // Display the deployer's balance
+    const balance = await ethers.provider.getBalance(deployer.address);
+    console.log("Deployer balance:", balance);
+  
+    const SBDToken = await ethers.getContractFactory("SBDToken");
+      const sbdToken = await SBDToken.deploy();
+      await sbdToken.waitForDeployment();
+      console.log("Deployed SBDToken to:", sbdToken.target);
+    
+      const SBRToken = await ethers.getContractFactory("SBRToken");
+      const sbrToken = await SBRToken.deploy();
+      await sbrToken.waitForDeployment();
+      console.log("Deployed SBRToken to:", sbrToken.target);
+  
+      const StabilityPool = await ethers.getContractFactory("StabilityPool");
+      const stabilityPool = await StabilityPool.deploy();
+      await stabilityPool.waitForDeployment();
+      console.log("Deployed StabilityPool to:", stabilityPool.target);
+      
+      const PriceOracle = await ethers.getContractFactory("MockPriceOracle");
+      const priceOracle = await PriceOracle.deploy();
+      await priceOracle.waitForDeployment();
+      console.log("Deployed PriceOracle to:", priceOracle.target);
+  
+      const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
+      const stableBaseCDP = await StableBaseCDPFactory.deploy();
+      await stableBaseCDP.waitForDeployment();
+      console.log("Deployed StableBaseCDP to:", stableBaseCDP.target);
+  
+      const SBRStaking = await ethers.getContractFactory("SBRStaking");
+      const sbrStaking = await SBRStaking.deploy();
+      await sbrStaking.waitForDeployment();
+      console.log("Deployed SBRStaking to:", sbrStaking.target);
+  
+      const OrderedDoublyLinkedList = await ethers.getContractFactory("OrderedDoublyLinkedList");
+      const redemptionQueue = await OrderedDoublyLinkedList.deploy();
+      await redemptionQueue.waitForDeployment();
+      console.log("Deployed LiquidationQueue to:", redemptionQueue.target);
+  
+      
+  
+      const liquidationQueue = await OrderedDoublyLinkedList.deploy();
+      await liquidationQueue.waitForDeployment();
+      console.log("Deployed RedemptionQueue to:", liquidationQueue.target);
+  
+  
+  
+      console.log("Setting addresses...");
+      console.log("Setting StableBase address to SBDToken...");
+      let tx= await sbdToken.setAddresses(stableBaseCDP.target);
+      await tx.wait();
+      console.log("Setting StabilityPool address to SBRToken...");
+      tx = await sbrToken.setAddresses(stabilityPool.target);
+      await tx.wait();
+      console.log("Setting SBDToken, StableBaseCDP, and SBRToken addresses to StabilityPool...");
+      tx = await stabilityPool.setAddresses(sbdToken.target, stableBaseCDP.target, sbrToken.target);
+      await tx.wait();
+      console.log("Setting SBRToken, SBDToken, and StableBaseCDP addresses to SBRStaking...");
+      tx = await sbrStaking.setAddresses(sbrToken.target, sbdToken.target, stableBaseCDP.target);
+      await tx.wait();
+      console.log("Setting StableBaseCDP address to RedemptionQueue...");
+      tx = await redemptionQueue.setAddresses(stableBaseCDP.target);
+      await tx.wait();
+      console.log("Setting StableBaseCDP address to LiquidationQueue...");
+      tx = await liquidationQueue.setAddresses(stableBaseCDP.target);
+      await tx.wait();
+      console.log("Setting SBDToken, PriceOracle, StabilityPool, SBRStaking, LiquidationQueue, and RedemptionQueue addresses to StableBaseCDP...");
+      tx = await stableBaseCDP.setAddresses(sbdToken.target, priceOracle.target, stabilityPool.target, sbrStaking.target, liquidationQueue.target, redemptionQueue.target);
+      await tx.wait();
+  
+      return {
+          sbdToken,
+          sbrToken,
+          stabilityPool,
+          priceOracle,
+          stableBaseCDP,
+          sbrStaking,
+          redemptionQueue,
+          liquidationQueue
+      }
+  }
 
-// Initialize the Stability Pool
-const stabilityPool = new StabilityPool();
-env.addAgent(stabilityPool);
+async function main() {
 
-// Initialize the Market agent
-const market = new Market();
-env.addAgent(market);
+    const [deployer, marketAccount, ...addrs] = await ethers.getSigners();
 
-// Initialize CDP agents with random collateral and debt values
-for (let i = 0; i < 10; i++) {
-  const collateral = Math.random() * 100 + 10; // Collateral between 10 and 110
-  const debt = Math.random() * 50 + 10; // Debt between 10 and 60
-  const cdp = new CDP();
-  env.addAgent(cdp);
+    const env = new Environment();
+
+    const contracts = await deployContracts();
+    console.log(contracts);
+
+    // Initialize the Market agent
+    const market = new Market(marketAccount, marketAccount.balance, contracts);
+    env.addAgent(market);
+
+    // Initialize CDP agents with random collateral and debt values
+    /*
+    for (let i = 0; i < 10; i++) {
+    const collateral = Math.random() * 100 + 10; // Collateral between 10 and 110
+    const debt = Math.random() * 50 + 10; // Debt between 10 and 60
+    const cdp = new CDP();
+    env.addAgent(cdp);
+    }
+    */
+
+    // Main simulation loop
+    for (let i = 0; i < 100; i++) {
+        console.log(`--- Simulation Step ${i + 1} ---`);
+        
+        // Get the updated collateral price from the market
+       await market.step();
+        
+        // Update each CDP based on the new collateral price
+        /*
+        env.getAgents()
+            .filter(agent => agent instanceof CDP)
+            .forEach(cdp => cdp.step(collateralPrice));
+        */
+        console.log(); // Blank line for readability between steps
+    }
 }
 
-// Main simulation loop
-for (let i = 0; i < 100; i++) {
-  console.log(`--- Simulation Step ${i + 1} ---`);
-  
-  // Get the updated collateral price from the market
-  const collateralPrice = await market.step();
-  
-  // Update each CDP based on the new collateral price
-  env.getAgents()
-    .filter(agent => agent instanceof CDP)
-    .forEach(cdp => cdp.step(collateralPrice));
-  
-  console.log(); // Blank line for readability between steps
-}
+main()
+  .then(() => process.exit(0))
+  .catch(error => {
+    console.error(error);
+    process.exit(1);
+  });

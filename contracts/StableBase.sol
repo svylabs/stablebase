@@ -1,18 +1,20 @@
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "./library/Math.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IPriceOracle.sol";
 import "./Structures.sol";
 import "./interfaces/IDoublyLinkedList.sol";
-import "./SBDToken.sol";
-import "./Utilities.sol";
 import "./interfaces/IStableBase.sol";
-import "./library/Rate.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "./interfaces/IStabilityPool.sol";
 import "./interfaces/ISBRStaking.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+
+interface IMintableToken is IERC20 {
+    function mint(address to, uint256 amount) external;
+
+    function burn(address from, uint256 amount) external;
+}
 
 abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
     uint256 internal liquidationRatio = 11000; // 110% liquidation ratio
@@ -33,7 +35,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
 
     SBStructs.Mode public mode = SBStructs.Mode.BOOTSTRAP;
 
-    SBDToken public sbdToken;
+    IMintableToken public sbdToken;
 
     IPriceOracle public priceOracle;
 
@@ -73,7 +75,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         address _safesOrderedForLiquidation,
         address _safesOrderedForRedemption
     ) external onlyOwner {
-        sbdToken = SBDToken(_sbdToken);
+        sbdToken = IMintableToken(_sbdToken);
         priceOracle = IPriceOracle(_priceOracle);
         stabilityPool = IStabilityPool(_stabilityPool);
         sbrTokenStaking = ISBRStaking(_sbrTokenStaking);
