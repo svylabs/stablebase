@@ -6,7 +6,7 @@ import "./interfaces/IStabilityPool.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IMintableToken is IERC20 {
-    function mint(address to, uint256 amount) external;
+    function mint(address to, uint256 amount) external returns (bool);
 }
 
 contract StabilityPool is IStabilityPool, Ownable {
@@ -341,13 +341,20 @@ contract StabilityPool is IStabilityPool, Ownable {
         }
 
         if (pendingReward != 0) {
-            stakingToken.transfer(msg.sender, pendingReward);
+            require(
+                stakingToken.transfer(msg.sender, pendingReward),
+                "Reward transfer failed"
+            );
         }
         if (pendingCollateral != 0) {
-            payable(msg.sender).transfer(pendingCollateral);
+            (bool success, ) = msg.sender.call{value: pendingCollateral}("");
+            require(success, "Collateral transfer failed");
         }
         if (pendingSbrRewards != 0) {
-            sbrToken.mint(msg.sender, pendingSbrRewards);
+            require(
+                sbrToken.mint(msg.sender, pendingSbrRewards),
+                "Mint failed"
+            );
         }
     }
 
