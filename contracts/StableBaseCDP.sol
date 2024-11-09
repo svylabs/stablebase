@@ -303,9 +303,12 @@ contract StableBaseCDP is StableBase {
         _updateTotalDebt(totalDebt, borrowedAmount, false);
 
         if (possible) {
-            stabilityPool.performLiquidation(
-                borrowedAmount,
-                collateralAmount - liquidationFee
+            require(
+                stabilityPool.performLiquidation(
+                    borrowedAmount,
+                    collateralAmount - liquidationFee
+                ),
+                "Liquidation failed"
             );
             // Burn the amount from stability pool
             sbdToken.burn(address(stabilityPool), borrowedAmount);

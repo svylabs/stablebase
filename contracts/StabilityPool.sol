@@ -89,7 +89,7 @@ contract StabilityPool is IStabilityPool, Ownable {
         renounceOwnership();
     }
 
-    receive() external payable {
+    receive() external payable onlyDebtContract {
         emit Received(msg.sender, msg.value);
     }
 
@@ -99,7 +99,10 @@ contract StabilityPool is IStabilityPool, Ownable {
         UserInfo storage user = users[msg.sender];
         _claim(user);
 
-        stakingToken.transferFrom(msg.sender, address(this), _amount);
+        require(
+            stakingToken.transferFrom(msg.sender, address(this), _amount),
+            "Transfer tokens failed"
+        );
 
         user.stake += _amount;
         totalStakedRaw += _amount;
@@ -118,7 +121,10 @@ contract StabilityPool is IStabilityPool, Ownable {
         user.stake -= _amount;
         totalStakedRaw -= _amount;
 
-        stakingToken.transfer(msg.sender, _amount);
+        require(
+            stakingToken.transfer(msg.sender, _amount),
+            "Transfer tokens failed"
+        );
 
         emit Unstaked(msg.sender, _amount);
     }
@@ -189,7 +195,10 @@ contract StabilityPool is IStabilityPool, Ownable {
         if (_totalStakedRaw == 0) {
             return false;
         }
-        stakingToken.transferFrom(msg.sender, address(this), _amount);
+        require(
+            stakingToken.transferFrom(msg.sender, address(this), _amount),
+            "Transfer tokens failed"
+        );
 
         uint256 _totalAmount = _amount + rewardLoss;
         uint256 _rewardPerToken = ((_totalAmount *
