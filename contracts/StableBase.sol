@@ -240,7 +240,11 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         if (!feeAdded) {
             fee = 0;
         }
-        payable(msg.sender).transfer(redemption.collateralAmount - fee);
+
+        (bool success, ) = msg.sender.call{
+            value: redemption.collateralAmount - fee
+        }("");
+        require(success, "Transfer failed");
     }
 
     function redeemSafe(

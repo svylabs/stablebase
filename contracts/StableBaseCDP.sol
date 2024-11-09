@@ -59,7 +59,8 @@ contract StableBaseCDP is StableBase {
         // Remove the Safe from the mapping
         _removeSafe(safeId);
         emit SafeClosed(safeId, collateralAmount, totalCollateral, totalDebt);
-        payable(msg.sender).transfer(collateralAmount);
+        (bool success, ) = msg.sender.call{value: collateralAmount}("");
+        require(success, "Transfer failed");
     }
 
     /**
@@ -206,7 +207,8 @@ contract StableBaseCDP is StableBase {
         emit WithdrawnCollateral(safeId, amount, totalCollateral, totalDebt);
 
         // Withdraw ETH or ERC20 token using SBUtils library
-        payable(msg.sender).transfer(amount);
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed");
     }
 
     // Function to redeem SBD tokens for the underlying collateral
@@ -237,8 +239,6 @@ contract StableBaseCDP is StableBase {
             totalCollateral,
             totalDebt
         );
-        // Return a success status
-        return;
     }
 
     function feeTopup(
@@ -255,7 +255,10 @@ contract StableBaseCDP is StableBase {
         require(balance >= fee, "Insufficient Balance to pay fee");
         // Update the spot in the shieldedSafes list
         safe.weight += topupRate;
-        sbdToken.transferFrom(msg.sender, address(this), fee);
+        require(
+            sbdToken.transferFrom(msg.sender, address(this), fee),
+            "Transfering Tokens failed"
+        );
         // Jump to the correct position in the redemption queue
         IDoublyLinkedList.Node memory node = safesOrderedForRedemption.upsert(
             safeId,
@@ -266,7 +269,10 @@ contract StableBaseCDP is StableBase {
         (, uint256 refundFee) = distributeFees(safeId, fee, false);
         if (refundFee > 0) {
             // Refund undistributed fee back to the user
-            sbdToken.transfer(msg.sender, refundFee);
+            require(
+                sbdToken.transfer(msg.sender, refundFee),
+                "Transfer Refund failed"
+            );
             emit FeeRefund(safeId, refundFee);
         }
         emit FeeTopup(safeId, topupRate, fee, safe.weight);
@@ -311,11 +317,16 @@ contract StableBaseCDP is StableBase {
                 "Liquidation failed"
             );
             // Burn the amount from stability pool
-            sbdToken.burn(address(stabilityPool), borrowedAmount);
-            // Transfer the collateral to the liquidator
-            payable(address(stabilityPool)).transfer(
-                collateralAmount - liquidationFee
+            require(
+                sbdToken.burn(address(stabilityPool), borrowedAmount),
+                "Burn failed"
             );
+            // Transfer the collateral to the liquidator
+            (bool success, ) = address(stabilityPool).call{
+                value: collateralAmount - liquidationFee
+            }("");
+            require(success, "Collateral transfer failed");
+
             emit LiquidatedUsingStabilityPool(
                 _safeId,
                 borrowedAmount,
@@ -345,7 +356,8 @@ contract StableBaseCDP is StableBase {
         _removeSafe(_safeId);
 
         // Send fee
-        payable(msg.sender).transfer(liquidationFee);
+        (bool success, ) = msg.sender.call{value: liquidationFee}("");
+        require(success, "Fee transfer failed");
     }
 
     function adjustPosition(

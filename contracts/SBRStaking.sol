@@ -110,10 +110,14 @@ contract SBRStaking is ISBRStaking, Ownable {
             user.collateralSnapshot) * user.stake) / PRECISION;
         user.collateralSnapshot = totalCollateralPerToken;
         if (reward > 0) {
-            rewardToken.transfer(msg.sender, reward);
+            require(
+                rewardToken.transfer(msg.sender, reward),
+                "Transfer failed"
+            );
         }
         if (collateralReward > 0) {
-            payable(msg.sender).transfer(collateralReward);
+            (bool success, ) = msg.sender.call{value: collateralReward}("");
+            require(success, "Transfer failed");
         }
 
         emit Claimed(msg.sender, reward, collateralReward);
