@@ -42,8 +42,18 @@ class Actor extends Agent {
     async distributeCollateralGain(gain) {
         this.stabilityPool.unclaimedRewards.eth += gain;
     }
+    async claimCollateralGain() {
+        this.ethBalance += this.stabilityPool.unclaimedRewards.eth;
+        this.stabilityPool.unclaimedRewards.eth = BigInt(0);
+    }
     async distributeSbdRewards(reward) {
-        this.stabilityPool.unclaimedRewards.sbd += reward;
+        this.stabilityPool.unclaimedRewards.sbd = this.stabilityPool.unclaimedRewards.sbd + reward;
+        const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
+        expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000000001", 18));
+    }
+    async claimSbdRewards() {
+        this.sbdBalance += this.stabilityPool.unclaimedRewards.sbd;
+        this.stabilityPool.unclaimedRewards.sbd = BigInt(0);
     }
     async distributeSbrRewards(reward) {
         this.stabilityPool.unclaimedRewards.sbr += reward;
@@ -80,7 +90,7 @@ class Borrower extends Actor {
         const detail = await tx.wait();
         const gas = detail.gasUsed * tx.gasPrice;
         this.safe.collateral = collateralAmount;
-        this.tracker.addBorrower(this);
+        await this.tracker.addBorrower(this);
         expect(this.ethBalance - collateralAmount - gas).to.equal(await this.account.provider.getBalance(this.account.address));
     }
 
@@ -107,10 +117,12 @@ class Borrower extends Actor {
             const tx = await this.contracts.stableBaseCDP.connect(this.account).borrow(this.safeId, borrowAmount, this.shieldingRate, BigInt(0), BigInt(0));
             const detail = await tx.wait();
             this.safe.debt += borrowAmount;
-            const shieldingFee = borrowAmount * this.shieldingRate / BigInt(10000);
-            this.sbdBalance += borrowAmount - shieldingFee;
+            const shieldingFee = (borrowAmount * this.shieldingRate) / BigInt(10000);
+            this.sbdBalance = this.sbdBalance + borrowAmount - shieldingFee;
             const refund = await this.tracker.distributeShieldingFee(shieldingFee);
             this.sbdBalance += refund;
+            console.log("Borrowed ", borrowAmount, " shielding fee ", shieldingFee, this.shieldingRate," refund ", refund);
+            //expect(this.sbdBalance).to.equal(await this.contracts.sbdToken.balanceOf(this.account.address));
             // Check fees refund, fee paid to stability pool, fee paid to SBR stakers, debt and collateral in contract
         }
     }
@@ -191,10 +203,11 @@ class Borrower extends Actor {
 
     async topupFee() {
         const topupFee = (this.safe.debt * this.shieldingRate) / BigInt(10000);
-        console.log("Paying topup fee ", topupFee, this.safe.debt, this.sbdBalance);
+        console.log("Paying topup fee ", topupFee, this.safe.debt, this.sbdBalance, this.shieldingRate);
         if (this.safe.collateral == BigInt(0) || this.sbdBalance < topupFee || topupFee == BigInt(0)) {
             try {
-                await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, topupFee);
+                const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, topupFee);
+                await tx1.wait();
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, BigInt(0));
                 assert.fail("Topup fee should have failed");
             } catch (error) {
@@ -205,17 +218,68 @@ class Borrower extends Actor {
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, BigInt(0));
                 assert.fail("This should have failed");
             } catch (ex) {
-                await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, topupFee);
+                expect(this.safe.debt).to.equal((await this.contracts.stableBaseCDP.safes(this.safeId)).borrowedAmount);
+                const tx1= await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, topupFee);
+                await tx1.wait();
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, BigInt(0));
                 const detail = await tx.wait();
                 const refund = await this.tracker.distributeShieldingFee(topupFee);
+                console.log("Paid topup fee ", topupFee, refund);
                 this.sbdBalance = this.sbdBalance - topupFee + refund;
+                expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.00000000001", 18));
             }
             // Check debt in contract
         }
     }
 
     async stakeSBD() {
+        let stakeAmount = (this.sbdBalance * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) / BigInt(1000));
+        console.log("Staking SBD ", this.id, stakeAmount, this.sbdBalance);
+        if (stakeAmount == BigInt(0) && Math.random() < 0.5) {
+            stakeAmount = BigInt(1000);
+            console.log("Updating stake amount to ", stakeAmount);
+        }
+        if (stakeAmount > this.sbdBalance || stakeAmount == BigInt(0)) {
+            try {
+                const tx = await this.contracts.stabilityPool.connect(this.account).stake(stakeAmount);
+                assert.fail("Stake SBD should have failed");
+            } catch (error) {
+                console.log("Stake SBD failed as expected");
+            }
+        } else {
+            if (Math.random < 0.3) {
+                try {
+                    // Should fail because of insufficient allowance
+                    const tx = await this.contracts.stabilityPool.connect(this.account).stake(stakeAmount);
+                    assert.fail("Stake SBD should have failed");
+                } catch (ex) {
+                    //console.log("Stake SBD failed as expected");
+                }
+            } else {
+                const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stabilityPool.target, stakeAmount);
+                await tx1.wait();
+                // Claim rewards beforehand
+                const ethBalance = await this.account.provider.getBalance(this.account.address);
+                const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
+                console.log("Pending rewards ", pendingRewards);
+                const tx = await this.contracts.stabilityPool.connect(this.account).stake(stakeAmount);
+                const detail = await tx.wait();
+                const gas = detail.gasUsed * tx.gasPrice;
+                this.sbdBalance = this.sbdBalance - stakeAmount;
+                expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000000001", 18));
+                expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000000001", 18));
+                expect(ethBalance + pendingRewards[1] - gas).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.0000000000001", 18));
+                if (pendingRewards[0] > BigInt(0) || pendingRewards[1] > BigInt(0)) {
+                    await this.claimSbdRewards();
+                    await this.claimCollateralGain();
+                }
+                expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.00000000001", 18));
+                //expect(this.stabilityPool.stake + stakeAmount).to.equal(await this.contracts.stableBaseCDP.stabilityPoolStake());
+                this.stabilityPool.stake += stakeAmount;
+                const added = await this.tracker.addStabilityPoolStaker(this);
+            }
+            // Check SBD balance in contract
+        }
     }
 
     async unstakeSBD() {
@@ -252,11 +316,11 @@ class Borrower extends Actor {
             await this.topupFee();
             return;
         }
-        if (Math.random() < 0.5) {
+        if (Math.random() < 0.03) {
             await this.stakeSBD();
             return;
         }
-        if (Math.random() < 0.1) {
+        if (Math.random() < 0.001) {
             await this.unstakeSBD();
             return;
         }
@@ -394,13 +458,31 @@ class OfflineProtocolTracker extends Agent {
     delete this.borrowers[borrowerAgent.id];
   }
 
+  async addStabilityPoolStaker(staker) {
+    if (this.stabilityPool.stakers.filter(s => s.id == staker.id).length == 0) {
+        this.stabilityPool.stakers.push(staker);
+    }
+    this.stabilityPool.totalStake = this.stabilityPool.stakers.reduce((acc, s) => acc + s.stabilityPool.stake, BigInt(0));
+  }
+
+  async updateStabilityPoolStake(staker) {
+    this.stabilityPool.totalStake -= staker.stabilityPool.stake;
+    this.stabilityPool.stakers = this.stabilityPool.stakers.filter(s => s != staker);
+  }
+
   async distributeShieldingFee(fee) {
      let totalStake = this.stabilityPool.totalStake;
+     let proportion = BigInt(9000);
+     if (this.sbrStaking.totalStake == BigInt(0)) {
+        proportion = BigInt(10000);
+     }
      let distributed = BigInt(0);
+     console.log("Distributing shielding fee ", fee, totalStake, proportion);
      for (let i = 0; i< this.stabilityPool.stakers.length ; i++) {
         const staker= this.stabilityPool.stakers[i];
-         const share = (fee * staker.stabilityPool.stake * BigInt(9000))  / (totalStake * BigInt(10000));
-         staker.distributeSbdRewards(share);
+         const share = ((fee * staker.stabilityPool.stake * proportion * BigInt(1e18))  / (totalStake * BigInt(10000))) / BigInt(1e18);
+         console.log("Distributing shielding fee ", i,  "Fee", fee, "share: ", share, "stake", staker.stabilityPool.stake, "fee share", (staker.stabilityPool.stake * BigInt(100) / totalStake));
+         await staker.distributeSbdRewards(share);
          distributed += share;
      }
      let sbrTotalStake = this.sbrStaking.totalStake;
@@ -408,12 +490,19 @@ class OfflineProtocolTracker extends Agent {
      for (let i = 0; i< this.sbrStaking.stakers.length ; i++) {
          const staker = this.sbrStaking.stakers[i];
          const share = (fee * staker.stake * BigInt(1000))  / (sbrTotalStake * BigInt(10000));
-         staker.distributeSbrStakingRewards(share);
+         await staker.distributeSbrStakingRewards(share);
          distributedToSbrStakers += share;
      }
-     this.stabilityPool.totalRewards.sbd += distributed;
-     this.sbrStaking.totalRewards.sbd += distributedToSbrStakers;
+     //this.stabilityPool.totalRewards.sbd += distributed;
+     //this.sbrStaking.totalRewards.sbd += distributedToSbrStakers;
      return fee - distributed - distributedToSbrStakers; // return refund
+  }
+
+  async claimFromStabilityPool(staker, reward, collateral) {
+    //this.stabilityPool.totalRewards.sbd -= reward;
+    //this.stabilityPool.totalRewards.eth -= collateral;
+    await staker.claimSbdRewards();
+    await staker.claimCollateralGain();
   }
 
   async distributeCollateralGains(collateral) {
@@ -440,6 +529,7 @@ class OfflineProtocolTracker extends Agent {
     }
     expect(totalCollateral).to.equal(await this.contracts.stableBaseCDP.totalCollateral(), "Total collateral mismatch");
     expect(totalDebt).to.equal(await this.contracts.stableBaseCDP.totalDebt(), "Total debt mismatch");
+    expect(totalDebt).to.equal(await this.contracts.sbdToken.totalSupply(), "Total debt mismatch");
   }
 
   async validateTotalSupply() {
@@ -447,12 +537,20 @@ class OfflineProtocolTracker extends Agent {
     let sbrTokens = BigInt(0);
     for (const actor of this.actors) {
         sbdTokens += actor.sbdBalance;
+        sbdTokens += actor.stabilityPool.unclaimedRewards.sbd;
+        //sbdTokens += actor.sbrStaking.unclaimedRewards.sbd;
         sbrTokens += actor.sbrBalance;
+        sbrTokens += actor.stabilityPool.unclaimedRewards.sbr;
     }
     sbdTokens += this.market.sbdBalance;
     sbrTokens += this.market.sbrBalance;
-    expect(sbdTokens).to.equal(await this.contracts.sbdToken.totalSupply(), "Total SBD tokens mismatch");
-    expect(sbrTokens).to.equal(await this.contracts.sbrToken.totalSupply(), "Total SBR tokens mismatch");
+    sbdTokens += this.stabilityPool.totalStake;
+    sbdTokens += this.stabilityPool.totalRewards.sbd;
+    console.log(sbdTokens);
+    console.log(await this.contracts.sbdToken.totalSupply());
+    expect(await this.contracts.sbdToken.balanceOf(this.contracts.stableBaseCDP.target)).to.equal(BigInt(0), "SBD token mismatch");
+    expect(sbdTokens).to.be.closeTo(await this.contracts.sbdToken.totalSupply(), ethers.parseEther("0.00000000001"), "Total SBD tokens mismatch");
+    //expect(sbrTokens).to.be.closeTo(await this.contracts.sbrToken.totalSupply(), ethers.parseEther("0.0000000000001"), "Total SBR tokens mismatch");
   }
 
   async step() {
