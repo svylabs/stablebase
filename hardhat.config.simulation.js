@@ -26,4 +26,7 @@ module.exports = {
     runOnCompile: true, // Automatically display sizes after compile
     only: [], // Use an array of contract names if you want to limit the output
   },
+    gasReporter: {
+        enabled: true
+    }
 };

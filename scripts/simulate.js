@@ -388,11 +388,11 @@ class Borrower extends Actor {
             return;
         }
         if (Math.random() < 0.005) {
-            await this.buyETH();
+            //await this.buyETH();
             return;
         }
         if (Math.random() < 0.005) {
-            await this.buySBD();
+            //await this.buySBD();
             return;
         }
     }
@@ -485,6 +485,7 @@ class Market extends Agent {
     }
   
     async step() {
+        /*
         if (Math.random() < 0.1) {
             await this.fluctuateCollateralPrice(0.04);
         } else if (Math.random() < 0.01) {
@@ -493,7 +494,7 @@ class Market extends Agent {
             await this.fluctuateCollateralPrice(0.16);
         } else {
             await this.fluctuateCollateralPrice(0.015);
-        }
+        }*/
        //await this.fluctuateCollateralPrice();
        await this.contracts.priceOracle.setPrice(this.collateralPrice);
     }
@@ -803,12 +804,17 @@ async function main() {
     console.log("Total fee paid:", tracker.stabilityPool.totalRewards.sbd);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch(error => {
-    for (let i = 0;i<10;i++){
-        console.log((Math.floor(getRandomInRange(0.1, 0.8) * 1000)));
-    }
-    console.error(error);
-    process.exit(1);
-  });
+describe("Simulation", function() {
+    it("Should run the simulation without errors", async function() {
+    await main();
+    /*
+    .then(() => process.exit(0))
+    .catch(error => {
+        for (let i = 0;i<10;i++){
+            console.log((Math.floor(getRandomInRange(0.1, 0.8) * 1000)));
+        }
+        console.error(error);
+        process.exit(1);
+    });*/
+});
+});
