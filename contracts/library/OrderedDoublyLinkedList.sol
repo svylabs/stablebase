@@ -23,7 +23,7 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList, Ownable {
         uint256 id,
         Node memory node,
         uint256 _nearestSpot
-    ) internal {
+    ) internal returns (Node memory) {
         uint256 _head = head;
         if (_head == 0) {
             head = id;
@@ -104,11 +104,16 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList, Ownable {
             }
         }
         nodes[id] = node;
+        return node;
     }
 
-    function _insert(uint256 id, uint256 value, uint256 _nearestSpot) internal {
+    function _insert(
+        uint256 id,
+        uint256 value,
+        uint256 _nearestSpot
+    ) internal returns (Node memory) {
         Node memory node = Node(value, 0, 0);
-        _insert(id, node, _nearestSpot);
+        return _insert(id, node, _nearestSpot);
     }
 
     function _remove(uint256 id) internal returns (Node memory) {
@@ -127,25 +132,29 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList, Ownable {
         return node;
     }
 
-    function _update(uint256 id, uint256 value, uint256 _nearestSpot) internal {
+    function _update(
+        uint256 id,
+        uint256 value,
+        uint256 _nearestSpot
+    ) internal returns (Node memory) {
         Node memory node = _remove(id);
         node.value = value;
         node.prev = 0;
         node.next = 0;
-        _insert(id, node, _nearestSpot);
+        return _insert(id, node, _nearestSpot);
     }
 
     function upsert(
         uint256 id,
         uint256 value,
         uint256 _nearestSpot
-    ) external override onlyOwner {
+    ) external override onlyOwner returns (Node memory) {
         if (
             nodes[id].value == 0 && nodes[id].next == 0 && nodes[id].prev == 0
         ) {
-            _insert(id, value, _nearestSpot);
+            return _insert(id, value, _nearestSpot);
         } else {
-            _update(id, value, _nearestSpot);
+            return _update(id, value, _nearestSpot);
         }
     }
 

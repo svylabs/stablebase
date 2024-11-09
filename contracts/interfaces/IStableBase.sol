@@ -13,7 +13,9 @@ interface IStableBase {
         uint256 amount,
         uint256 weight,
         uint256 totalCollateral,
-        uint256 totalDebt
+        uint256 totalDebt,
+        uint256 nearestSpotInRedemptionQueue,
+        uint256 nearestSpotInLiquidationQueue
     );
     event SafeClosed(
         uint256 indexed safeId,
@@ -21,7 +23,7 @@ interface IStableBase {
         uint256 totalCollateral,
         uint256 totalDebt
     );
-    event BorrowFeeRefund(uint256 indexed safeId, uint256 amount);
+    event FeeRefund(uint256 indexed safeId, uint256 amount);
     event AddedCollateral(
         uint256 indexed safeId,
         uint256 amount,
@@ -32,7 +34,6 @@ interface IStableBase {
     event WithdrawnCollateral(
         uint256 indexed safeId,
         uint256 amount,
-        uint256 newRatio,
         uint256 totalCollateral,
         uint256 totalDebt
     );
@@ -43,10 +44,10 @@ interface IStableBase {
         uint256 totalCollateral,
         uint256 totalDebt
     );
-    event Redeemed(
-        uint256 indexed safeId,
+    event Redeemed(uint256 indexed safeId, uint256 amount, uint256 collateral);
+    event RedeemedBatch(
         uint256 amount,
-        uint256 collateral,
+        uint256 redeemedCollateral,
         uint256 totalCollateral,
         uint256 totalDebt
     );
@@ -71,6 +72,40 @@ interface IStableBase {
         uint256 feePaid,
         uint256 newWeight
     );
+    event LiquidationQueueUpdated(
+        uint256 safeId,
+        uint256 newRatio,
+        uint256 nextNode
+    );
+    event SafeRemovedFromLiquidationQueue(uint256 safeId);
+    event RedemptionQueueUpdated(
+        uint256 safeId,
+        uint256 newWeight,
+        uint256 prevNode
+    );
+    event SafeRemovedFromRedemptionQueue(uint256 safeId);
+    event FeeDistributed(
+        uint256 indexed safeId,
+        uint256 fee,
+        bool mint,
+        uint256 sbrStakersFee,
+        uint256 stabilityPoolFee,
+        uint256 canRefund
+    );
+
+    struct Safe {
+        uint256 collateralAmount;
+        uint256 borrowedAmount;
+        uint256 weight;
+        SafeStatus status;
+    }
+
+    enum SafeStatus {
+        OPEN,
+        CLOSED,
+        LIQUIDATED,
+        REDEEMED
+    }
 
     function openSafe(uint256 _safeId, uint256 _amount) external payable;
 
@@ -79,13 +114,13 @@ interface IStableBase {
     /**
      * Users can borrow Stablecoins from the system upto 90.9% of the lockedup collateral value.
      *
-     * The system will charge a fee based on the _shieldingRate the user wants to pay. The _shieldingRate is the percentage of the fee that the user wants to pay upfront.
+     * The system will charge a fee based on the _shieldingRate the user wants to pay. The _shieldingRate is the percentage of the borrowing that the user wants to pay upfront.
      *
      * Each safe goes into liquidation queue based on the LTV ratio.
      *
      * Each safe goes into redemption queue based on a weight calculated by the protocol based on the fee paid. Safe with lowest weight is redeemed first.
      *
-     * weight of the safe is calculated as follows:
+     * weight of the safe is calculated as follows: If the weight of the safe is the same, the redemption will prioritize Last In First Out.
      *
      * If no existing safes in redemption queue:
      *    safe.weight = shieldingRate

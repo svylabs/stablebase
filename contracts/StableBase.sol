@@ -1,20 +1,22 @@
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "./library/Math.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IPriceOracle.sol";
 import "./Structures.sol";
 import "./interfaces/IDoublyLinkedList.sol";
-import "./SBDToken.sol";
-import "./Utilities.sol";
 import "./interfaces/IStableBase.sol";
-import "./library/Rate.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "./interfaces/IStabilityPool.sol";
 import "./interfaces/ISBRStaking.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract StableBase is IStableBase, ERC721, Ownable {
+interface IMintableToken is IERC20 {
+    function mint(address to, uint256 amount) external;
+
+    function burn(address from, uint256 amount) external;
+}
+
+abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
     uint256 internal liquidationRatio = 11000; // 110% liquidation ratio
     uint256 internal constant BASIS_POINTS_DIVISOR = 10000;
     uint256
@@ -28,12 +30,12 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
     IDoublyLinkedList public safesOrderedForRedemption;
 
     // Mapping to track Safe balances
-    // mapping(bytes32 => SBStructs.Safe) public safes;
-    mapping(uint256 => SBStructs.Safe) public safes;
+    // mapping(bytes32 => Safe) public safes;
+    mapping(uint256 => Safe) public safes;
 
     SBStructs.Mode public mode = SBStructs.Mode.BOOTSTRAP;
 
-    SBDToken public sbdToken;
+    IMintableToken public sbdToken;
 
     IPriceOracle public priceOracle;
 
@@ -73,7 +75,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         address _safesOrderedForLiquidation,
         address _safesOrderedForRedemption
     ) external onlyOwner {
-        sbdToken = SBDToken(_sbdToken);
+        sbdToken = IMintableToken(_sbdToken);
         priceOracle = IPriceOracle(_priceOracle);
         stabilityPool = IStabilityPool(_stabilityPool);
         sbrTokenStaking = ISBRStaking(_sbrTokenStaking);
@@ -91,13 +93,13 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
 
     function handleBorrow(
         uint256 safeId,
-        SBStructs.Safe storage safe,
+        Safe storage safe,
         uint256 amount,
         uint256 shieldingRate,
         uint256 nearestSpotInLiquidationQueue,
         uint256 nearestSpotInRedemptionQueue
     ) internal {
-        // SBStructs.Safe storage currentSafe = safes[_safeId];
+        // Safe storage currentSafe = safes[_safeId];
         require(
             ownerOf(safeId) == msg.sender,
             "Only the Safe owner can borrow"
@@ -144,41 +146,47 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         // Calculate the ratio (borrowAmount per unit collateral)
         uint256 ratio = (safe.borrowedAmount) / safe.collateralAmount;
 
-        safesOrderedForRedemption.upsert(
-            safeId,
-            safe.weight,
-            nearestSpotInRedemptionQueue
-        );
+        IDoublyLinkedList.Node memory redemptionNode = safesOrderedForRedemption
+            .upsert(safeId, safe.weight, nearestSpotInRedemptionQueue);
 
-        safesOrderedForLiquidation.upsert(
-            safeId,
-            ratio,
-            nearestSpotInLiquidationQueue
-        );
+        IDoublyLinkedList.Node
+            memory liquidationNode = safesOrderedForLiquidation.upsert(
+                safeId,
+                ratio,
+                nearestSpotInLiquidationQueue
+            );
 
         uint256 feePaid;
         uint256 canRefund;
         if (_shieldingFee > 0) {
-            (feePaid, canRefund) = distributeFees(_shieldingFee, true);
+            (feePaid, canRefund) = distributeFees(safeId, _shieldingFee, true);
         }
         if (canRefund > 0) {
             _amountToBorrow += canRefund;
-            emit BorrowFeeRefund(safeId, canRefund);
+            emit FeeRefund(safeId, canRefund);
         }
         // Mint SBD tokens to the borrower
         sbdToken.mint(msg.sender, _amountToBorrow);
         _updateTotalDebt(totalDebt, amount, true);
+        // Emit the Borrow event
+        emit Borrowed(
+            safeId,
+            amount,
+            safe.weight,
+            totalCollateral,
+            totalDebt,
+            redemptionNode.prev,
+            liquidationNode.prev
+        );
     }
 
     function _redeemNode(
         uint256 _safeId,
         SBStructs.Redemption memory redemption,
-        IDoublyLinkedList _safesOrderedForRedemption,
-        IDoublyLinkedList _safesOrderedForLiquidation,
         uint256 nearestSpotInLiquidationQueue
-    ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
+    ) internal returns (Safe memory, SBStructs.Redemption memory) {
         // bytes32 _safeId = bytes32(_safeId);
-        SBStructs.Safe storage safe = safes[_safeId];
+        Safe storage safe = safes[_safeId];
         _updateSafe(_safeId, safe);
         uint256 amountToRedeem = redemption.requestedAmount -
             redemption.redeemedAmount;
@@ -187,10 +195,10 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         }
         if (amountToRedeem == safe.borrowedAmount) {
             // If the safe was fully redeemed, remove it from both the lists
-            _safesOrderedForRedemption.remove(_safeId);
-            _safesOrderedForLiquidation.remove(_safeId);
+            _removeSafeFromBothQueues(_safeId);
         } else {
-            uint256 collateralToRedeem = amountToRedeem / redemption.price;
+            uint256 collateralToRedeem = (amountToRedeem * PRECISION) /
+                redemption.price;
             // update with new collateral ratio
             uint256 _newRatio = ((safe.borrowedAmount - amountToRedeem)) /
                 (safe.collateralAmount - collateralToRedeem);
@@ -206,20 +214,16 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
 
     function _redeemSafes(
         SBStructs.Redemption memory redemption,
-        uint256 nearestSpotInLiquidationQueue,
-        IDoublyLinkedList _safesOrderedForRedemption,
-        IDoublyLinkedList _safesOrderedForLiquidation
+        uint256 nearestSpotInLiquidationQueue
     ) internal returns (SBStructs.Redemption memory) {
         uint256 processedSpots = redemption.processedSpots;
         // Target within 1% = 100 points, 100% = 10000 points
         while (redemption.redeemedAmount < redemption.requestedAmount) {
             //uint256 spotForUpdate = 0;
-            uint256 head = _safesOrderedForRedemption.getHead();
+            uint256 head = safesOrderedForRedemption.getHead();
             (, redemption) = _redeemNode(
                 head,
                 redemption,
-                _safesOrderedForRedemption,
-                _safesOrderedForLiquidation,
                 nearestSpotInLiquidationQueue
             );
             processedSpots++;
@@ -242,11 +246,12 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
     function redeemSafe(
         uint256 _safeId,
         uint256 amountToRedeem,
-        SBStructs.Safe memory safe,
+        Safe memory safe,
         SBStructs.Redemption memory redemption
-    ) internal returns (SBStructs.Safe memory, SBStructs.Redemption memory) {
+    ) internal returns (Safe memory, SBStructs.Redemption memory) {
         //uint256 amountInCollateral = amountToRedeem /
-        uint256 amountInCollateral = amountToRedeem / redemption.price;
+        uint256 amountInCollateral = (amountToRedeem * PRECISION) /
+            redemption.price;
         safe.collateralAmount -= amountInCollateral;
         safe.borrowedAmount -= amountToRedeem;
         redemption.collateralAmount += amountInCollateral;
@@ -257,6 +262,7 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
     }
 
     function distributeFees(
+        uint256 safeId,
         uint fee,
         bool mint
     ) internal returns (uint256 feePaid, uint256 canRefund) {
@@ -281,6 +287,14 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
         if (canRefund > 0 && mint) {
             sbdToken.burn(address(this), canRefund);
         }
+        emit FeeDistributed(
+            safeId,
+            feePaid,
+            mint,
+            sbrStakersFee,
+            stabilityPoolFee,
+            canRefund
+        );
     }
 
     function distributeDebtAndCollateral(
@@ -299,8 +313,8 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
     // Internal function to update a safe's borrowed amount and deposited amount
     function _updateSafe(
         uint _safeId,
-        SBStructs.Safe storage _safe
-    ) internal returns (SBStructs.Safe memory) {
+        Safe storage _safe
+    ) internal returns (Safe memory) {
         // Update borrowed amount
         LiquidationSnapshot storage liquidationSnapshot = liquidationSnapshots[
             _safeId
@@ -363,7 +377,15 @@ abstract contract StableBase is IStableBase, ERC721, Ownable {
     }
 
     function _removeSafe(uint256 _safeId) internal {
+        //safes[_safeId].status = SafeStatus.CLOSED;
         delete safes[_safeId];
         _burn(_safeId);
+    }
+
+    function _removeSafeFromBothQueues(uint256 safeId) internal {
+        safesOrderedForLiquidation.remove(safeId);
+        emit SafeRemovedFromLiquidationQueue(safeId);
+        safesOrderedForRedemption.remove(safeId);
+        emit SafeRemovedFromRedemptionQueue(safeId);
     }
 }

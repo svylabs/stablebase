@@ -2,6 +2,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("@nomiclabs/hardhat-solhint");
 require("hardhat-gas-reporter");
+require("hardhat-contract-sizer");
 
 module.exports = {
   solidity: {
@@ -29,5 +30,9 @@ module.exports = {
   },
   gasReporter: {
     enabled: false
-  }
+  },
+  contractSizer: {
+    runOnCompile: true, // Automatically display sizes after compile
+    only: [], // Use an array of contract names if you want to limit the output
+  },
 };

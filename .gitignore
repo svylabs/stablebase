@@ -1,4 +1,6 @@
 timestamps
+simulation/__pycache__/
+.venv
 coverage/
 node_modules/
 artifacts/

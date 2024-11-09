@@ -130,7 +130,7 @@ describe("Test the flow", function () {
              await utils.stakeSBD(david, BigInt(0), davidAmount / BigInt(2), contracts);
              await time.increase(86400); // 1 day
              await stabilityPool.connect(david).claim();
-             expect(await sbrToken.balanceOf(david.address)).to.be.closeTo(ethers.parseUnits("86400", 18), BigInt(20 * 1e18));
+             expect(await sbrToken.balanceOf(david.address)).to.be.closeTo(ethers.parseUnits("86400", 18), BigInt(1 * 1e18));
              let davidBalance = await sbrToken.balanceOf(david.address);
              let eliStake = eliAmount / BigInt(2);
              await utils.stakeSBD(eli, BigInt(0), eliAmount / BigInt(2), contracts);
@@ -140,9 +140,9 @@ describe("Test the flow", function () {
              let eliReward = (eliStake * rewardPerDay * BigInt(6)) / (eliStake + davidStake);
              await stabilityPool.connect(eli).claim();
              //await stabilityPool.connect(david).claim();
-             expect(await sbrToken.balanceOf(david.address)).to.be.closeTo(davidReward + davidBalance, BigInt(100 * 1e18));
+             expect(await sbrToken.balanceOf(david.address)).to.be.closeTo(davidReward + davidBalance, BigInt(10 * 1e18));
              expect(await sbrToken.balanceOf(eli.address)).to.be.closeTo(eliReward, BigInt(100 * 1e18));
-             expect(await sbrToken.totalSupply()).to.be.closeTo(ethers.parseUnits("86400", 18) * BigInt(7), BigInt(100 * 1e18));
+             expect(await sbrToken.totalSupply()).to.be.closeTo(ethers.parseUnits("86400", 18) * BigInt(7), BigInt(10 * 1e18));
 
              let fabioStake = fabioAmount / BigInt(2);
              await utils.stakeSBD(fabio, BigInt(0), fabioAmount / BigInt(2), contracts);
@@ -157,10 +157,16 @@ describe("Test the flow", function () {
              await stabilityPool.connect(david).claim();
              await stabilityPool.connect(eli).claim();
              await stabilityPool.connect(fabio).claim();
-            expect(await sbrToken.totalSupply()).to.be.closeTo(ethers.parseUnits("86400", 18) * BigInt(365), BigInt(100 * 1e18));
-            expect(await sbrToken.balanceOf(david.address)).to.be.closeTo(davidReward + davidBalance, BigInt(100 * 1e18));
-            expect(await sbrToken.balanceOf(eli.address)).to.be.closeTo(eliReward + eliBalance, BigInt(100 * 1e18));
-            expect(await sbrToken.balanceOf(fabio.address)).to.be.closeTo(fabioReward, BigInt(100 * 1e18));
+            expect(await sbrToken.totalSupply()).to.be.closeTo(ethers.parseUnits("86400", 18) * BigInt(365), BigInt(1 * 1e18));
+            //expect(await sbrToken.totalSupply()).equals(ethers.parseUnits("86400", 18) * BigInt(365));
+            expect(await sbrToken.balanceOf(david.address)).to.be.closeTo(davidReward + davidBalance, BigInt(10 * 1e18));
+            expect(await sbrToken.balanceOf(eli.address)).to.be.closeTo(eliReward + eliBalance, BigInt(10 * 1e18));
+            expect(await sbrToken.balanceOf(fabio.address)).to.be.closeTo(fabioReward, BigInt(10 * 1e18));
+            const totalSupply = await sbrToken.totalSupply();
+            const sbrDavid = await sbrToken.balanceOf(david.address);
+            const sbrEli = await sbrToken.balanceOf(eli.address);
+            const sbrFabio = await sbrToken.balanceOf(fabio.address);
+            expect(totalSupply).equals(sbrDavid + sbrEli + sbrFabio);
 
 
         });

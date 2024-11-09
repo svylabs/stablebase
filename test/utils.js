@@ -1,4 +1,5 @@
 const { ethers } = require("hardhat");
+const { expect, assert} = require("chai");
 
 async function takeODLLSnapshot(odll, id) {
     //const odll = await ethers.getContractAt("OrderedDoublyLinkedList", address);
@@ -113,9 +114,11 @@ async function borrow(user, safeId, collateral, borrowAmount, shieldingRate, con
     const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
     const existingSafe = await contracts.stableBaseCDP.safes(safeId);
     //console.log(existingSafe, safeId, existingSafe.borrowedAmount, existingSafe.collateralAmount);
+    let safeOpened = false;
     if (existingSafe.borrowedAmount == BigInt(0) && existingSafe.collateralAmount == BigInt(0)) {
         //console.log("Opening safe");
         await contracts.stableBaseCDP.connect(user).openSafe(safeId, collateral, { value: collateral });
+        safeOpened = true;
     }
     const fee = borrowAmount * shieldingRate;
     const tx = await contracts.stableBaseCDP.connect(user).borrow(safeId, borrowAmount, shieldingRate, BigInt(0), BigInt(0));
@@ -123,6 +126,10 @@ async function borrow(user, safeId, collateral, borrowAmount, shieldingRate, con
     const gasPaid = receipt.gasUsed * tx.gasPrice;
     const newSafe = await contracts.stableBaseCDP.safes(safeId);
     const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    expect(newSnapshot.stableBaseCDP.totalDebt).to.equal(existingSnapshot.stableBaseCDP.totalDebt + borrowAmount);
+    if (safeOpened) {
+        expect(newSnapshot.stableBaseCDP.totalCollateral).to.equal(existingSnapshot.stableBaseCDP.totalCollateral + collateral);
+    }
     return {
         safeId,
         gasPaid,
@@ -143,6 +150,8 @@ async function feeTopup(user, safeId, feeRate, contracts) {
     const receipt = await tx.wait();
     const gasPaid = receipt.gasUsed * tx.gasPrice;
     const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    expect(newSnapshot.stableBaseCDP.totalDebt).to.equal(existingSnapshot.stableBaseCDP.totalDebt);
+    expect(newSnapshot.stableBaseCDP.totalCollateral).to.equal(existingSnapshot.stableBaseCDP.totalCollateral);
     return {
         safeId,
         gasPaid,
@@ -159,6 +168,8 @@ async function repay(user, safeId, repayAmount, contracts) {
     const receipt = await tx.wait();
     const gasPaid = receipt.gasUsed * tx.gasPrice;
     const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    expect(newSnapshot.stableBaseCDP.totalDebt).to.equal(existingSnapshot.stableBaseCDP.totalDebt - repayAmount);
+    expect(newSnapshot.stableBaseCDP.totalCollateral).to.equal(existingSnapshot.stableBaseCDP.totalCollateral);
     return {
         safeId,
         gasPaid,
@@ -174,6 +185,8 @@ async function addCollateral(user, safeId, additionalCollateral, contracts) {
     const receipt = await tx.wait();
     const gasPaid = receipt.gasUsed * tx.gasPrice;
     const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    expect(newSnapshot.stableBaseCDP.totalCollateral).to.equal(existingSnapshot.stableBaseCDP.totalCollateral + additionalCollateral);
+    expect(newSnapshot.stableBaseCDP.totalDebt).to.equal(existingSnapshot.stableBaseCDP.totalDebt);
     return {
         safeId,
         gasPaid,
@@ -189,6 +202,8 @@ async function withdrawCollateral(user, safeId, withdrawCollateral, contracts) {
     const receipt = await tx.wait();
     const gasPaid = receipt.gasUsed * tx.gasPrice;
     const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    expect(newSnapshot.stableBaseCDP.totalCollateral).to.equal(existingSnapshot.stableBaseCDP.totalCollateral - withdrawCollateral);
+    expect(newSnapshot.stableBaseCDP.totalDebt).to.equal(existingSnapshot.stableBaseCDP.totalDebt);
     return {
         safeId,
         gasPaid,
@@ -205,6 +220,8 @@ async function liquidate(user, contracts) {
     const receipt = await tx.wait();
     const gasPaid = receipt.gasUsed * tx.gasPrice;
     const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
+    expect(newSnapshot.stableBaseCDP.totalCollateral).to.equal(existingSnapshot.stableBaseCDP.totalCollateral - existingSnapshot.safe.collateralAmount);
+    expect(newSnapshot.stableBaseCDP.totalDebt).to.equal(existingSnapshot.stableBaseCDP.totalDebt - existingSnapshot.safe.borrowedAmount);
     return {
         safeId,
         existingSnapshot,
@@ -216,7 +233,7 @@ async function liquidate(user, contracts) {
 
 async function adjustPosition(user, safeId, contracts) {
     const existingSnapshot = await takeContractSnapshots(contracts, safeId, user);
-    const tx = await contracts.stableBaseCDP.connect(user).adjustPosition(safeId);
+    const tx = await contracts.stableBaseCDP.connect(user).adjustPosition(safeId, BigInt(0));
     const receipt = await tx.wait();
     const gasPaid = receipt.gasUsed * tx.gasPrice;
     const newSnapshot = await takeContractSnapshots(contracts, safeId, user);
