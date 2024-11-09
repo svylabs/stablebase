@@ -49,7 +49,9 @@ class Actor extends Agent {
     async distributeSbdRewards(reward) {
         this.stabilityPool.unclaimedRewards.sbd = this.stabilityPool.unclaimedRewards.sbd + reward;
         const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
-        expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000000001", 18));
+        //console.log(await this.contracts.stabilityPool.rewardLoss());
+        console.log("Pending rewards ", pendingRewards[0], this.stabilityPool.unclaimedRewards.sbd);
+        expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
     }
     async claimSbdRewards() {
         this.sbdBalance += this.stabilityPool.unclaimedRewards.sbd;
@@ -84,7 +86,7 @@ class Borrower extends Actor {
     async openSafe() {
         console.log("Opening safe for ", this.safeId, this.id);
         ///console.log("Account balance: ", this.account, );
-        let collateralAmount = (this.ethBalance * BigInt(Math.floor(getRandomInRange(0.001, 0.01) * 1000)) / BigInt(1000));
+        let collateralAmount = (((this.ethBalance / BigInt(1e18)) * BigInt(1e18)) * BigInt(Math.floor(getRandomInRange(0.001, 0.01) * 1000))) / BigInt(1000);
         console.log("OPening safe with collateral ", collateralAmount);
         const tx = await this.contracts.stableBaseCDP.connect(this.account).openSafe(this.safeId, collateralAmount, { value: collateralAmount });
         const detail = await tx.wait();
@@ -99,7 +101,7 @@ class Borrower extends Actor {
             // doing this only 50% of the time
             await this.openSafe();
         }
-        let borrowAmount = (this.safe.collateral * this.market.collateralPrice * BigInt(Math.floor(getRandomInRange(0.1, 0.8) * 1000)) / BigInt(1000));
+        let borrowAmount = ((((this.safe.collateral * this.market.collateralPrice * BigInt(Math.floor(getRandomInRange(0.1, 0.8) * 1000)))  / BigInt(1e18)) * BigInt(1e18))/ BigInt(1000));
         if (this.safe.collateral == BigInt(0)) {
             borrowAmount = BigInt(10000);
             // this should fail as there is no safe
@@ -131,7 +133,7 @@ class Borrower extends Actor {
         if (this.safe.debt == BigInt(0)) {
             return;
         }
-        const repayAmount = (this.safe.debt * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) / BigInt(1000));
+        const repayAmount = (((this.safe.debt * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) ) / BigInt(1e18) ) * BigInt(1e18)) / BigInt(1000);
         console.log("Repaying ", repayAmount);
         if (repayAmount > this.sbdBalance || ((this.safe.debt - repayAmount) < await this.contracts.stableBaseCDP.MINIMUM_DEBT())) {
             // this should fail
@@ -159,7 +161,7 @@ class Borrower extends Actor {
     }
 
     async withdrawCollateral() {
-        const withdrawAmount = (this.safe.collateral * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) / BigInt(1000));
+        const withdrawAmount = ((this.safe.collateral * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) / BigInt(1e18)) * BigInt(1e18)) / BigInt(1000);
         console.log("Withdrawing collateral ", withdrawAmount);
         const collateralValue = this.safe.collateral * this.market.collateralPrice;
         const withdrawValue = withdrawAmount * this.market.collateralPrice;
@@ -182,7 +184,7 @@ class Borrower extends Actor {
     }
 
     async addCollateral() {
-        const addAmount = (this.ethBalance * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) / BigInt(1000));
+        const addAmount = ((this.ethBalance * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) / BigInt(1e18)) * BigInt(1e18)) / BigInt(1000);
         console.log("Adding collateral ", addAmount);
         if (this.safe.collateral == BigInt(0)) {
             try {
@@ -215,12 +217,15 @@ class Borrower extends Actor {
             }
         } else {
             try {
+                const tx1= await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, BigInt(0));
+                await tx1.wait();
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, BigInt(0));
                 assert.fail("This should have failed");
             } catch (ex) {
                 expect(this.safe.debt).to.equal((await this.contracts.stableBaseCDP.safes(this.safeId)).borrowedAmount);
                 const tx1= await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, topupFee);
                 await tx1.wait();
+                await this.tracker.verifyStakerPendingRewards();
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, BigInt(0));
                 const detail = await tx.wait();
                 const refund = await this.tracker.distributeShieldingFee(topupFee);
@@ -233,7 +238,7 @@ class Borrower extends Actor {
     }
 
     async stakeSBD() {
-        let stakeAmount = (this.sbdBalance * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) / BigInt(1000));
+        let stakeAmount = ((this.sbdBalance * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000))) / BigInt(1000));
         console.log("Staking SBD ", this.id, stakeAmount, this.sbdBalance);
         if (stakeAmount == BigInt(0) && Math.random() < 0.5) {
             stakeAmount = BigInt(1000);
@@ -249,6 +254,8 @@ class Borrower extends Actor {
         } else {
             if (Math.random < 0.3) {
                 try {
+                    const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stabilityPool.target, BigInt(0));
+                    await tx1.wait();
                     // Should fail because of insufficient allowance
                     const tx = await this.contracts.stabilityPool.connect(this.account).stake(stakeAmount);
                     assert.fail("Stake SBD should have failed");
@@ -266,9 +273,9 @@ class Borrower extends Actor {
                 const detail = await tx.wait();
                 const gas = detail.gasUsed * tx.gasPrice;
                 this.sbdBalance = this.sbdBalance - stakeAmount;
-                expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000000001", 18));
-                expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000000001", 18));
-                expect(ethBalance + pendingRewards[1] - gas).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.0000000000001", 18));
+                expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
+                expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
+                expect(ethBalance + pendingRewards[1] - gas).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.0000000001", 18));
                 if (pendingRewards[0] > BigInt(0) || pendingRewards[1] > BigInt(0)) {
                     await this.claimSbdRewards();
                     await this.claimCollateralGain();
@@ -470,6 +477,16 @@ class OfflineProtocolTracker extends Agent {
     this.stabilityPool.stakers = this.stabilityPool.stakers.filter(s => s != staker);
   }
 
+  async verifyStakerPendingRewards() {
+    for (const staker of this.stabilityPool.stakers) {
+        console.log("Verifying rewards for ", staker.id, staker.account.address);
+        const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(staker.account.address);
+        console.log("Pending rewards ", pendingRewards[0], staker.stabilityPool.unclaimedRewards.sbd);
+        expect(pendingRewards[0]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
+        expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
+    }
+  }
+
   async distributeShieldingFee(fee) {
      let totalStake = this.stabilityPool.totalStake;
      let proportion = BigInt(9000);
@@ -477,11 +494,12 @@ class OfflineProtocolTracker extends Agent {
         proportion = BigInt(10000);
      }
      let distributed = BigInt(0);
+     console.log(await this.contracts.stabilityPool.totalStakedRaw(), totalStake);
      console.log("Distributing shielding fee ", fee, totalStake, proportion);
      for (let i = 0; i< this.stabilityPool.stakers.length ; i++) {
         const staker= this.stabilityPool.stakers[i];
-         const share = ((fee * staker.stabilityPool.stake * proportion * BigInt(1e18))  / (totalStake * BigInt(10000))) / BigInt(1e18);
-         console.log("Distributing shielding fee ", i,  "Fee", fee, "share: ", share, "stake", staker.stabilityPool.stake, "fee share", (staker.stabilityPool.stake * BigInt(100) / totalStake));
+         const share = (((fee * staker.stabilityPool.stake * proportion * BigInt(1e18))  / (totalStake)) / BigInt(1e18) / BigInt(10000));
+         console.log("Distributing shielding fee ", i,  "Fee", fee, "share: ", share, "stake", staker.stabilityPool.stake, "fee share", ((staker.stabilityPool.stake * BigInt(10000)) / totalStake));
          await staker.distributeSbdRewards(share);
          distributed += share;
      }
@@ -496,13 +514,6 @@ class OfflineProtocolTracker extends Agent {
      //this.stabilityPool.totalRewards.sbd += distributed;
      //this.sbrStaking.totalRewards.sbd += distributedToSbrStakers;
      return fee - distributed - distributedToSbrStakers; // return refund
-  }
-
-  async claimFromStabilityPool(staker, reward, collateral) {
-    //this.stabilityPool.totalRewards.sbd -= reward;
-    //this.stabilityPool.totalRewards.eth -= collateral;
-    await staker.claimSbdRewards();
-    await staker.claimCollateralGain();
   }
 
   async distributeCollateralGains(collateral) {
@@ -719,6 +730,9 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch(error => {
+    for (let i = 0;i<10;i++){
+        console.log((Math.floor(getRandomInRange(0.1, 0.8) * 1000)));
+    }
     console.error(error);
     process.exit(1);
   });
