@@ -27,6 +27,6 @@ module.exports = {
     only: [], // Use an array of contract names if you want to limit the output
   },
     gasReporter: {
-        enabled: true
+        enabled: false
     }
 };

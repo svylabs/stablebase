@@ -67,13 +67,129 @@ class Actor extends Agent {
         this.sbrStaking.unclaimedRewards.eth += reward;
     }
     async buyETH() {
-
+        /*
+        const ethAmount = this.sbdBalance / this.market.ethPrice;
+        if (this.market.ethBalance > ethAmount && this.sbdBalance > BigInt(0)) {
+            if (ethAmount < this.market.ethBalance) {
+                const tx = await this.contracts.sbdToken.connect(this.account).transfer(this.contracts.stableBaseCDP.target, this.sbdBalance);
+                await tx.wait();
+                await this.market.buyETH(ethAmount, this.sbdBalance, this);
+            }
+        }*/
     }
     async buySBD() {
-        this.market.buySBD()
+       /* const sbdAmount = this.ethBalance / this.market.sbdPric
+        if (this.sbdBalance == BigInt(0) && Math.random() < 0.3) {
+            this.market
+            this.market.buySBD()
+        }*/
     }
     async step() {
         this.ethBalance = await this.account.provider.getBalance(this.account.address);
+    }
+
+    async stakeSBD() {
+        let stakeAmount = (((this.sbdBalance * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000))/ BigInt(1e18)) * BigInt(1e18)) / BigInt(1000));
+        console.log("Staking SBD ", this.id, stakeAmount, this.sbdBalance);
+        if (stakeAmount == BigInt(0) && Math.random() < 0.5) {
+            stakeAmount = BigInt(1000);
+            console.log("Updating stake amount to ", stakeAmount);
+        }
+        if (stakeAmount > this.sbdBalance || stakeAmount == BigInt(0)) {
+            try {
+                const tx = await this.contracts.stabilityPool.connect(this.account).stake(stakeAmount);
+                assert.fail("Stake SBD should have failed");
+            } catch (error) {
+                console.log("Stake SBD failed as expected");
+            }
+        } else {
+            if (Math.random < 0.3) {
+                try {
+                    const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stabilityPool.target, BigInt(0));
+                    await tx1.wait();
+                    // Should fail because of insufficient allowance
+                    const tx = await this.contracts.stabilityPool.connect(this.account).stake(stakeAmount);
+                    assert.fail("Stake SBD should have failed");
+                } catch (ex) {
+                    //console.log("Stake SBD failed as expected");
+                }
+            } else {
+                const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stabilityPool.target, stakeAmount);
+                await tx1.wait();
+                // Claim rewards beforehand
+                const ethBalance = await this.account.provider.getBalance(this.account.address);
+                const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
+                console.log("Pending rewards ", pendingRewards);
+                const tx = await this.contracts.stabilityPool.connect(this.account).stake(stakeAmount);
+                const detail = await tx.wait();
+                const gas = detail.gasUsed * tx.gasPrice;
+                this.sbdBalance = this.sbdBalance - stakeAmount;
+                expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
+                expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
+                expect(ethBalance + pendingRewards[1] - gas).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.0000000001", 18));
+                if (pendingRewards[0] > BigInt(0) || pendingRewards[1] > BigInt(0)) {
+                    await this.claimSbdRewards();
+                    await this.claimCollateralGain();
+                }
+                expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
+                //expect(this.stabilityPool.stake + stakeAmount).to.equal(await this.contracts.stableBaseCDP.stabilityPoolStake());
+                this.stabilityPool.stake += stakeAmount;
+                const added = await this.tracker.addStabilityPoolStaker(this);
+            }
+            // Check SBD balance in contract
+        }
+    }
+
+    async unstakeSBD() {
+        let unstakeAmount = (((this.stabilityPool.stake * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000))/ BigInt(1e18)) * BigInt(1e18)) / BigInt(1000));
+        console.log("Unstaking SBD ", this.id, unstakeAmount, this.stabilityPool.stake);
+        if (unstakeAmount > this.stabilityPool.stake || unstakeAmount == BigInt(0)) {
+            try {
+                const tx = await this.contracts.stabilityPool.connect(this.account).unstake(unstakeAmount);
+                assert.fail("Unstake SBD should have failed");
+            } catch (error) {
+                console.log("Unstake SBD failed as expected");
+            }
+        } else {
+            const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
+            const tx = await this.contracts.stabilityPool.connect(this.account).unstake(unstakeAmount);
+            const detail = await tx.wait();
+            const gas = detail.gasUsed * tx.gasPrice;
+            expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
+            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
+            await this.claimSbdRewards();
+            await this.claimCollateralGain();
+            this.sbdBalance = this.sbdBalance + unstakeAmount;
+            expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
+            expect(this.stabilityPool.stake - unstakeAmount).to.equal((await this.contracts.stabilityPool.getUser(this.account.address)).stake);
+            this.stabilityPool.stake -= unstakeAmount;
+            await this.tracker.updateStabilityPoolStake(this);
+        }
+        // Check SBD balance in contract
+    }
+
+    async claimRewards() {
+        if (this.stabilityPool.stake == BigInt(0)) {
+            try {
+                const tx = await this.contracts.stabilityPool.connect(this.account).claim();
+                assert.fail("Claim rewards should have failed");
+            } catch (ex) {
+                console.log("Claim rewards failed as expected");
+            }
+        } else {
+            const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
+            const tx = await this.contracts.stabilityPool.connect(this.account).claim();
+            const detail = await tx.wait();
+            const gas = detail.gasUsed * tx.gasPrice;
+            //this.sbdBalance += pendingRewards[0];
+            //this.ethBalance += pendingRewards[1] - gas;
+            expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
+            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
+            await this.claimSbdRewards();
+            await this.claimCollateralGain();
+            expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
+            expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.00000000001", 18));
+        }
     }
 }
 
@@ -243,110 +359,6 @@ class Borrower extends Actor {
         }
     }
 
-    async stakeSBD() {
-        let stakeAmount = (((this.sbdBalance * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000))/ BigInt(1e18)) * BigInt(1e18)) / BigInt(1000));
-        console.log("Staking SBD ", this.id, stakeAmount, this.sbdBalance);
-        if (stakeAmount == BigInt(0) && Math.random() < 0.5) {
-            stakeAmount = BigInt(1000);
-            console.log("Updating stake amount to ", stakeAmount);
-        }
-        if (stakeAmount > this.sbdBalance || stakeAmount == BigInt(0)) {
-            try {
-                const tx = await this.contracts.stabilityPool.connect(this.account).stake(stakeAmount);
-                assert.fail("Stake SBD should have failed");
-            } catch (error) {
-                console.log("Stake SBD failed as expected");
-            }
-        } else {
-            if (Math.random < 0.3) {
-                try {
-                    const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stabilityPool.target, BigInt(0));
-                    await tx1.wait();
-                    // Should fail because of insufficient allowance
-                    const tx = await this.contracts.stabilityPool.connect(this.account).stake(stakeAmount);
-                    assert.fail("Stake SBD should have failed");
-                } catch (ex) {
-                    //console.log("Stake SBD failed as expected");
-                }
-            } else {
-                const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stabilityPool.target, stakeAmount);
-                await tx1.wait();
-                // Claim rewards beforehand
-                const ethBalance = await this.account.provider.getBalance(this.account.address);
-                const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
-                console.log("Pending rewards ", pendingRewards);
-                const tx = await this.contracts.stabilityPool.connect(this.account).stake(stakeAmount);
-                const detail = await tx.wait();
-                const gas = detail.gasUsed * tx.gasPrice;
-                this.sbdBalance = this.sbdBalance - stakeAmount;
-                expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
-                expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
-                expect(ethBalance + pendingRewards[1] - gas).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.0000000001", 18));
-                if (pendingRewards[0] > BigInt(0) || pendingRewards[1] > BigInt(0)) {
-                    await this.claimSbdRewards();
-                    await this.claimCollateralGain();
-                }
-                expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
-                //expect(this.stabilityPool.stake + stakeAmount).to.equal(await this.contracts.stableBaseCDP.stabilityPoolStake());
-                this.stabilityPool.stake += stakeAmount;
-                const added = await this.tracker.addStabilityPoolStaker(this);
-            }
-            // Check SBD balance in contract
-        }
-    }
-
-    async unstakeSBD() {
-        let unstakeAmount = (((this.stabilityPool.stake * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000))/ BigInt(1e18)) * BigInt(1e18)) / BigInt(1000));
-        console.log("Unstaking SBD ", this.id, unstakeAmount, this.stabilityPool.stake);
-        if (unstakeAmount > this.stabilityPool.stake || unstakeAmount == BigInt(0)) {
-            try {
-                const tx = await this.contracts.stabilityPool.connect(this.account).unstake(unstakeAmount);
-                assert.fail("Unstake SBD should have failed");
-            } catch (error) {
-                console.log("Unstake SBD failed as expected");
-            }
-        } else {
-            const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
-            const tx = await this.contracts.stabilityPool.connect(this.account).unstake(unstakeAmount);
-            const detail = await tx.wait();
-            const gas = detail.gasUsed * tx.gasPrice;
-            expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
-            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
-            await this.claimSbdRewards();
-            await this.claimCollateralGain();
-            this.sbdBalance = this.sbdBalance + unstakeAmount;
-            expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
-            expect(this.stabilityPool.stake - unstakeAmount).to.equal((await this.contracts.stabilityPool.getUser(this.account.address)).stake);
-            this.stabilityPool.stake -= unstakeAmount;
-            await this.tracker.updateStabilityPoolStake(this);
-        }
-        // Check SBD balance in contract
-    }
-
-    async claimRewards() {
-        if (this.stabilityPool.stake == BigInt(0)) {
-            try {
-                const tx = await this.contracts.stabilityPool.connect(this.account).claim();
-                assert.fail("Claim rewards should have failed");
-            } catch (ex) {
-                console.log("Claim rewards failed as expected");
-            }
-        } else {
-            const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
-            const tx = await this.contracts.stabilityPool.connect(this.account).claim();
-            const detail = await tx.wait();
-            const gas = detail.gasUsed * tx.gasPrice;
-            //this.sbdBalance += pendingRewards[0];
-            //this.ethBalance += pendingRewards[1] - gas;
-            expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
-            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
-            await this.claimSbdRewards();
-            await this.claimCollateralGain();
-            expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
-            expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.00000000001", 18));
-        }
-    }
-
     async stakeSBR() {
     }
 
@@ -388,11 +400,11 @@ class Borrower extends Actor {
             return;
         }
         if (Math.random() < 0.005) {
-            //await this.buyETH();
+            await this.buyETH();
             return;
         }
         if (Math.random() < 0.005) {
-            //await this.buySBD();
+            await this.buySBD();
             return;
         }
     }
@@ -417,15 +429,7 @@ class ThirdpartyStablecoinHolder extends Actor {
     constructor(account, initialBalance, contracts, market, tracker) {
         super(account, initialBalance, contracts, market, tracker);
     }
-    async stakeSBD() {
-    }
-
-    async unstakeSBD() {
-    }
-
-    async claimRewards() {
-    }
-
+    
     async stakeSBR() {
     }
 
@@ -433,7 +437,14 @@ class ThirdpartyStablecoinHolder extends Actor {
     }
 
     async step() {
-
+        if (Math.random() < 0.03) {
+            await this.stakeSBR();
+            return;
+        }
+        if (Math.random() < 0.005) {
+            await this.unstakeSBR();
+            return;
+        }
     }
 
 }
@@ -447,45 +458,46 @@ class Market extends Agent {
       this.ethBalance = initialBalance;
       console.log("Market initial balance: ", this.ethBalance);
       this.collateralPrice = BigInt(3000); // Starting price for collateral (e.g., ETH)
-      this.sbdPrice = BigInt(1);;
+      this.sbdPrice = BigInt(10000);
       this.tracker = tracker;
       this.sbdBalance = BigInt(0);
       this.sbrBalance = BigInt(0);
     }
 
-    async buyETH(amount, buyer) {
-        if (this.ethBalance < amount) {
+    async buyETH(ethAmount, sbdAmount, buyer) {
+        if (this.ethBalance < ethAmount) {
             return false;
         }
-        this.ethBalance -= amount;
-        this.sbdBalance += amount;
+        this.ethBalance -= ethAmount;
+        this.sbdBalance += sbdAmount;
         const tx = await account.sendTransaction({
-            to: buyer.address,
-            value: amount // Send 1 ETH
+            to: buyer.account.address,
+            value: ethAmount // Send 1 ETH
           });
         await tx.wait();
         return true;
     }
 
-    async buySBD(amount, buyer) {
-        if (this.sbdBalance < amount) {
+    async buySBD(ethAmount, sbdAmount, buyer) {
+        if (this.sbdBalance < sbdAmount) {
             return false;
         }
-        this.ethBalance += amount;
-        this.sbdBalance -= amount;
-        const tx = await this.contracts.sbdToken.connect(this.account).tranfser(buyer.address, amount);
+        this.ethBalance += ethAmount;
+        this.sbdBalance -= sbdAmount;
+        const tx = await this.contracts.sbdToken.connect(this.account).transfer(buyer.account.address, sbdAmount);
         await tx.wait();
         return true;
     }
 
     async fluctuateCollateralPrice(factor) {
-        const rand = getRandomInRange(0, 2 * factor);
-        this.collateralPrice = this.collateralPrice * ((1 - factor) + rand); // ±2% fluctuation
-        this.sbdPrice = this.sbdPrice * ((1 + factor / 8) - rand / 8); // ±2% fluctuation
+        const f = Math.floor(factor * 1000);
+        const rand = (Math.floor(getRandomInRange(0, 2 * factor) * 1000));
+        console.log("Fluctuating collateral price ", factor, f, rand);
+        this.collateralPrice = (this.collateralPrice * BigInt((1000 - f) + rand)) / BigInt(1000); // ±2% fluctuation
+        this.sbdPrice = (this.sbdPrice * BigInt((BigInt(1000) + BigInt(f) / BigInt(8)) - BigInt(rand) / BigInt(8))) / BigInt(1000); // ±2% fluctuation
     }
   
     async step() {
-        /*
         if (Math.random() < 0.1) {
             await this.fluctuateCollateralPrice(0.04);
         } else if (Math.random() < 0.01) {
@@ -494,7 +506,9 @@ class Market extends Agent {
             await this.fluctuateCollateralPrice(0.16);
         } else {
             await this.fluctuateCollateralPrice(0.015);
-        }*/
+        }
+        console.log("Collateral price: ", this.collateralPrice);
+        console.log("SBD price: ", this.sbdPrice);
        //await this.fluctuateCollateralPrice();
        await this.contracts.priceOracle.setPrice(this.collateralPrice);
     }
@@ -792,7 +806,7 @@ async function main() {
        await market.step();
         
         for (const actor of actors) {
-            await actor.step();
+           await actor.step();
         }
         
         console.log(); // Blank line for readability between steps
