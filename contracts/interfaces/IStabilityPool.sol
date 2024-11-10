@@ -28,7 +28,7 @@ interface IStabilityPool {
     function performLiquidation(
         uint256 amount,
         uint256 collateral
-    ) external returns (bool);
+    ) external payable returns (bool);
 
     function addReward(uint256 _amount) external returns (bool);
 

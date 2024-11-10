@@ -239,10 +239,11 @@ contract StabilityPool is IStabilityPool, Ownable {
     function performLiquidation(
         uint256 amount,
         uint256 collateral
-    ) external onlyDebtContract returns (bool) {
+    ) external payable onlyDebtContract returns (bool) {
         //require(msg.sender == debtContract, "Caller is not the debt contract");
         //uint256 totalEffectiveStake = getTotalEffectiveStake();
         require(amount <= totalStakedRaw, "Invalid liquidation amount");
+        require(msg.value == collateral, "Invalid collateral amount");
 
         uint256 previousScalingFactor = stakeScalingFactor;
         //uint256 scalingFactorReduction = (_amount * precision) / totalStakedRaw;

@@ -310,10 +310,9 @@ contract StableBaseCDP is StableBase {
 
         if (possible) {
             require(
-                stabilityPool.performLiquidation(
-                    borrowedAmount,
-                    collateralAmount - liquidationFee
-                ),
+                stabilityPool.performLiquidation{
+                    value: collateralAmount - liquidationFee
+                }(borrowedAmount, collateralAmount - liquidationFee),
                 "Liquidation failed"
             );
             // Burn the amount from stability pool
@@ -321,11 +320,6 @@ contract StableBaseCDP is StableBase {
                 sbdToken.burn(address(stabilityPool), borrowedAmount),
                 "Burn failed"
             );
-            // Transfer the collateral to the liquidator
-            (bool success, ) = address(stabilityPool).call{
-                value: collateralAmount - liquidationFee
-            }("");
-            require(success, "Collateral transfer failed");
 
             emit LiquidatedUsingStabilityPool(
                 _safeId,
