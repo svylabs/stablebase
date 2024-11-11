@@ -174,15 +174,8 @@ describe("StabilityPool", function () {
       const liquidationAmount = ethers.parseEther("900"); // 30% of total stake
 
       const collateralAmount = ethers.parseEther("9"); // Mock debt contract returns 1 collateral for 900 debt
-      const tx = await owner.sendTransaction({
-        to: stabilityPool.target,
-        value: collateralAmount, // amount in wei
-      });
-  
-      // Wait for the transaction to be mined
-      await tx.wait();
-
-      await stabilityPool.connect(owner).performLiquidation(liquidationAmount, collateralAmount);
+      
+      await stabilityPool.connect(owner).performLiquidation(liquidationAmount, collateralAmount, {value: collateralAmount});
 
       // Alice claims collateral
       const alicePendingCollateral = await stabilityPool.userPendingCollateral(alice.address);
@@ -289,15 +282,8 @@ describe("StabilityPool", function () {
       const invalidLiquidationAmount = totalEffectiveStake + BigInt(100);
 
       const collateralAmount = ethers.parseEther("9"); // Mock debt contract returns 1 collateral for 900 debt
-      const tx = await owner.sendTransaction({
-        to: debtContract.target,
-        value: collateralAmount, // amount in wei
-      });
-  
-      // Wait for the transaction to be mined
-      await tx.wait();
 
-      await expect(stabilityPool.connect(owner).performLiquidation(invalidLiquidationAmount, BigInt(2)))
+      await expect(stabilityPool.connect(owner).performLiquidation(invalidLiquidationAmount, BigInt(2), {value: BigInt(2)}))
         .to.be.revertedWith("Invalid liquidation amount");
     });
 
@@ -314,17 +300,10 @@ describe("StabilityPool", function () {
       console.log(aliceStake / liquidationAmount);
 
       const collateralAmount = ethers.parseEther("1"); // Mock debt contract returns 1 collateral for 900 debt
-      const tx = await owner.sendTransaction({
-        to: debtContract.target,
-        value: collateralAmount, // amount in wei
-      });
-  
-      // Wait for the transaction to be mined
-      await tx.wait();
-
+      
       console.log(aliceStake / liquidationAmount);
 
-      await stabilityPool.connect(owner).performLiquidation(liquidationAmount, collateralAmount);
+      await stabilityPool.connect(owner).performLiquidation(liquidationAmount, collateralAmount, {value: collateralAmount});
 
       // Scaling factor should reset
       const scalingFactor = await stabilityPool.stakeScalingFactor();
@@ -597,10 +576,9 @@ describe("StabilityPool", function () {
         const collateralAmount1 = ethers.parseUnits("1", 18);
         await sbdToken.transfer(stabilityPool.target, liquidateAmount1);
 
-        await sendCollateral(collateralAmount1);
-    
+        
         await expect(
-          stabilityPool.connect(owner).performLiquidation(liquidateAmount1, collateralAmount1)
+          stabilityPool.connect(owner).performLiquidation(liquidateAmount1, collateralAmount1, {value: collateralAmount1})
         )
           .to.emit(stabilityPool, "LiquidationPerformed")
           //.withArgs(liquidateAmount1, collateralAmount1);
@@ -717,8 +695,7 @@ pool.liquidate(Uint.unscaled(500), Uint.unscaled(1))
         const liquidateAmountStep14 = ethers.parseEther("500");
         const collateralAmountStep14 = ethers.parseEther("1");
         await sbdToken.connect(owner).transfer(stabilityPool.target, liquidateAmountStep14);
-        await sendCollateral(collateralAmountStep14);
-        await expect(stabilityPool.connect(owner).performLiquidation(liquidateAmountStep14, collateralAmountStep14))
+        await expect(stabilityPool.connect(owner).performLiquidation(liquidateAmountStep14, collateralAmountStep14, {value: collateralAmountStep14}))
         .to.emit(stabilityPool, "LiquidationPerformed")
         //.withArgs(liquidateAmountStep14, collateralAmountStep14);
         totalStaked = totalStaked - liquidateAmountStep14;
@@ -797,10 +774,9 @@ pool.liquidate(Uint.unscaled(500), Uint.unscaled(1))
         const liquidateAmount2 = ethers.parseUnits("333", 18);
         await sbdToken.transfer(stabilityPool.target, liquidateAmount2);
 
-        await sendCollateral(collateralAmount1);
-    
+        
         await expect(
-          stabilityPool.connect(owner).performLiquidation(liquidateAmount2, collateralAmount1)
+          stabilityPool.connect(owner).performLiquidation(liquidateAmount2, collateralAmount1, {value: collateralAmount1})
         )
           .to.emit(stabilityPool, "LiquidationPerformed")
           //.withArgs(liquidateAmount2, collateralAmount1);
@@ -954,8 +930,8 @@ print_pool(pool, "After 5 claims")
         const liquidateAmountStep21 = ethers.parseEther("500");
         const collateralAmountStep21 = ethers.parseEther("1");
         //await sbdToken.connect(owner).transfer(stabilityPool.target, liquidateAmountStep21);
-        await sendCollateral(collateralAmountStep21);
-        await expect(stabilityPool.connect(owner).performLiquidation(liquidateAmountStep21, collateralAmountStep21))
+        //await sendCollateral(collateralAmountStep21);
+        await expect(stabilityPool.connect(owner).performLiquidation(liquidateAmountStep21, collateralAmountStep21, {value: collateralAmountStep21}))
         .to.emit(stabilityPool, "LiquidationPerformed")
         //.withArgs(liquidateAmountStep21, collateralAmountStep21);
 
@@ -972,8 +948,8 @@ print_pool(pool, "After 5 claims")
         const liquidateAmountStep25 = totalEffectiveStake;
         //const liquidateAmountStep20 = ethers.parseUnits("1333.999999999999999999", 18);
         const collateralAmountStep25 = ethers.parseUnits("1", 18);
-        await sendCollateral(collateralAmountStep25);
-        await expect(stabilityPool.connect(owner).performLiquidation(liquidateAmountStep25, collateralAmountStep25))
+        //await sendCollateral(collateralAmountStep25);
+        await expect(stabilityPool.connect(owner).performLiquidation(liquidateAmountStep25, collateralAmountStep25, {value: collateralAmountStep25}))
         .to.emit(stabilityPool, "LiquidationPerformed")
         //.withArgs(liquidateAmountStep25, collateralAmountStep25);
 
@@ -1096,8 +1072,8 @@ print_pool(pool, "After 5 claims")
   }
 
   async function liquidate(liquidationAmount, collateralAmount) {
-        await sendCollateral(collateralAmount);
-        await expect(stabilityPool.connect(owner).performLiquidation(liquidationAmount, collateralAmount))
+        //await sendCollateral(collateralAmount);
+        await expect(stabilityPool.connect(owner).performLiquidation(liquidationAmount, collateralAmount, {value: collateralAmount}))
         .to.emit(stabilityPool, "LiquidationPerformed")
         //.withArgs(liquidationAmount, collateralAmount);
   }

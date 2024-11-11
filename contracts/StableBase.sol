@@ -11,9 +11,9 @@ import "./interfaces/ISBRStaking.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IMintableToken is IERC20 {
-    function mint(address to, uint256 amount) external;
+    function mint(address to, uint256 amount) external returns (bool);
 
-    function burn(address from, uint256 amount) external;
+    function burn(address from, uint256 amount) external returns (bool);
 }
 
 abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
@@ -166,7 +166,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
             emit FeeRefund(safeId, canRefund);
         }
         // Mint SBD tokens to the borrower
-        sbdToken.mint(msg.sender, _amountToBorrow);
+        require(sbdToken.mint(msg.sender, _amountToBorrow), "Mint failed");
         _updateTotalDebt(totalDebt, amount, true);
         // Emit the Borrow event
         emit Borrowed(
@@ -240,7 +240,11 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         if (!feeAdded) {
             fee = 0;
         }
-        payable(msg.sender).transfer(redemption.collateralAmount - fee);
+
+        (bool success, ) = msg.sender.call{
+            value: redemption.collateralAmount - fee
+        }("");
+        require(success, "Transfer failed");
     }
 
     function redeemSafe(
@@ -267,7 +271,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         bool mint
     ) internal returns (uint256 feePaid, uint256 canRefund) {
         if (mint) {
-            sbdToken.mint(address(this), fee);
+            require(sbdToken.mint(address(this), fee), "Mint failed");
         }
         uint256 sbrStakersFee = (fee * SBR_FEE_REWARD) / 10000;
         uint256 stabilityPoolFee = fee;
@@ -285,7 +289,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         }
         require(canRefund <= fee, "Invalid refund amount");
         if (canRefund > 0 && mint) {
-            sbdToken.burn(address(this), canRefund);
+            require(sbdToken.burn(address(this), canRefund), "Burn failed");
         }
         emit FeeDistributed(
             safeId,

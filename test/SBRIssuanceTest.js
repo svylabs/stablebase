@@ -147,7 +147,7 @@ describe("Test the flow", function () {
              let fabioStake = fabioAmount / BigInt(2);
              await utils.stakeSBD(fabio, BigInt(0), fabioAmount / BigInt(2), contracts);
              await time.increase(86400 * 300); // 360 days
-             await stabilityPool.connect(owner).performLiquidation(BigInt(200000), BigInt(5)) // Should have no impact on user stakes
+             await stabilityPool.connect(owner).performLiquidation(BigInt(200000), BigInt(5), {value: BigInt(5)}) // Should have no impact on user stakes
              await time.increase(86400 * 60); // 1 day
              davidBalance = await sbrToken.balanceOf(david.address);
              davidReward = (davidStake * rewardPerDay * BigInt(358)) / (eliStake + davidStake + fabioStake);

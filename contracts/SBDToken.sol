@@ -17,11 +17,18 @@ contract SBDToken is ERC20, Ownable {
         transferOwnership(_stableBaseCDP);
     }
 
-    function mint(address to, uint256 amount) external onlyOwner {
+    function mint(
+        address to,
+        uint256 amount
+    ) external onlyOwner returns (bool) {
         _mint(to, amount);
+        return true;
     }
 
-    function burn(address from, uint256 amount) external onlyOwner {
+    function burn(
+        address from,
+        uint256 amount
+    ) external onlyOwner returns (bool) {
         require(from != address(0), "Invalid address");
         require(amount > 0, "Amount must be greater than 0");
         require(balanceOf(from) >= amount, "Insufficient balance");
@@ -31,5 +38,6 @@ contract SBDToken is ERC20, Ownable {
         totalBurned += amount;
 
         emit Burn(from, amount);
+        return true;
     }
 }
