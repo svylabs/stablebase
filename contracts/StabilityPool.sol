@@ -436,18 +436,24 @@ contract StabilityPool is IStabilityPool, Ownable {
                 stakingToken.transfer(msg.sender, pendingReward - feeReward),
                 "Reward transfer failed"
             );
-            require(
-                stakingToken.transfer(frontend, feeReward),
-                "Fee transfer failed"
-            );
+            if (feeReward > 0) {
+                require(
+                    stakingToken.transfer(frontend, feeReward),
+                    "Fee transfer failed"
+                );
+            }
         }
         if (pendingCollateral != 0) {
             uint256 feeReward = (fee * pendingCollateral) /
                 BASIS_POINTS_DIVISOR;
-            (bool success, ) = msg.sender.call{value: pendingCollateral}("");
+            (bool success, ) = msg.sender.call{
+                value: pendingCollateral - feeReward
+            }("");
             require(success, "Collateral transfer failed");
-            (success, ) = frontend.call{value: feeReward}("");
-            require(success, "Fee transfer failed");
+            if (feeReward > 0) {
+                (success, ) = frontend.call{value: feeReward}("");
+                require(success, "Fee transfer failed");
+            }
         }
         if (pendingSbrRewards != 0) {
             require(
