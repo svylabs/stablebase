@@ -20,7 +20,7 @@ async function main() {
     console.log("Deployed SBRToken to:", sbrToken.target);
 
     const StabilityPool = await ethers.getContractFactory("StabilityPool");
-    const stabilityPool = await StabilityPool.deploy();
+    const stabilityPool = await StabilityPool.deploy(true);
     await stabilityPool.waitForDeployment();
     console.log("Deployed StabilityPool to:", stabilityPool.target);
     

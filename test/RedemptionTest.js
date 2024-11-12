@@ -37,7 +37,7 @@ describe("Test the flow", function () {
       await sbrToken.waitForDeployment();
   
       StabilityPool = await ethers.getContractFactory("StabilityPool");
-      stabilityPool = await StabilityPool.deploy();
+      stabilityPool = await StabilityPool.deploy(true);
       await stabilityPool.waitForDeployment();
       
       const PriceOracle = await ethers.getContractFactory("MockPriceOracle");
@@ -119,7 +119,8 @@ describe("Test the flow", function () {
              sbdToken.connect(charlie).transfer(david.address, ethers.parseEther("100000"));
              const amount = ethers.parseEther("300000");
              const collateralAmount = amount / price;
-             const fee = (await contracts.stableBaseCDP.REDEMPTION_LIQUIDATION_FEE() * collateralAmount / BigInt(10000));
+             const fee = (await contracts.stableBaseCDP.REDEMPTION_BASE_FEE() * collateralAmount / BigInt(10000));
+             await contracts.sbdToken.connect(david).approve(contracts.stableBaseCDP.target, amount);
              const snapshot = await utils.redeem(david, amount, contracts, [users.alice.safeId, users.bob.safeId, users.charlie.safeId]);
              expect(snapshot.newSnapshot.safes[users.bob.safeId].borrowedAmount).to.equal(snapshot.existingSnapshot.safes[users.bob.safeId].borrowedAmount - amount);
              expect(snapshot.newSnapshot.safes[users.bob.safeId].collateralAmount).to.equal(snapshot.existingSnapshot.safes[users.bob.safeId].collateralAmount - collateralAmount);

@@ -38,7 +38,7 @@ describe("Test the flow", function () {
       await sbrToken.waitForDeployment();
   
       StabilityPool = await ethers.getContractFactory("StabilityPool");
-      stabilityPool = await StabilityPool.deploy();
+      stabilityPool = await StabilityPool.deploy(false);
       await stabilityPool.waitForDeployment();
       
       const PriceOracle = await ethers.getContractFactory("MockPriceOracle");

@@ -67,6 +67,10 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
 
     mapping(uint256 => LiquidationSnapshot) public liquidationSnapshots;
 
+    bool public stabilityPoolCanReceiveRewards = false;
+
+    bool public sbrStakingPoolCanReceiveRewards = false;
+
     constructor() Ownable(msg.sender) ERC721("StableBase Safe", "SBSafe") {}
 
     function setAddresses(
@@ -450,25 +454,44 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
     }
 
     function _redeemToUser(SBStructs.Redemption memory redemption) internal {
-        require(
-            sbdToken.approve(address(stabilityPool), redemption.ownerFee),
-            "Approve failed"
-        );
-        require(
-            stabilityPool.addReward(redemption.ownerFee),
-            "Add reward failed"
-        );
-        emit OwnerRedemptionFeeDistributed(
-            redemption.redemptionId,
-            redemption.ownerFee
-        );
-        require(
-            stabilityPool.addCollateralReward(redemption.redeemerFee),
-            "Add collateral reward failed"
-        );
-        (bool success, ) = msg.sender.call{value: redemption.collateralAmount}(
-            ""
-        );
+        uint256 collateralRefund = 0;
+        if (redemption.ownerFee > 0) {
+            if (stabilityPoolCanReceiveRewards) {
+                require(
+                    sbdToken.approve(
+                        address(stabilityPool),
+                        redemption.ownerFee
+                    ),
+                    "Approve failed"
+                );
+                require(
+                    stabilityPool.addReward(redemption.ownerFee),
+                    "Add reward failed"
+                );
+                emit OwnerRedemptionFeeDistributed(
+                    redemption.redemptionId,
+                    redemption.ownerFee
+                );
+            } else {
+                require(
+                    sbdToken.transfer(msg.sender, redemption.ownerFee),
+                    "Owner fee refund failed"
+                );
+            }
+        }
+        if (redemption.redeemerFee > 0 && stabilityPoolCanReceiveRewards) {
+            require(
+                stabilityPool.addCollateralReward{
+                    value: redemption.redeemerFee
+                }(redemption.redeemerFee),
+                "Add collateral reward failed"
+            );
+        } else {
+            collateralRefund = redemption.redeemerFee;
+        }
+        (bool success, ) = msg.sender.call{
+            value: redemption.collateralAmount + collateralRefund
+        }("");
         require(success, "Transfer failed");
     }
 
@@ -598,5 +621,21 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         emit SafeRemovedFromLiquidationQueue(safeId);
         safesOrderedForRedemption.remove(safeId);
         emit SafeRemovedFromRedemptionQueue(safeId);
+    }
+
+    function setCanStabilityPoolReceiveRewards(
+        bool canReceiveRewards
+    ) external returns (bool) {
+        require(msg.sender == address(stabilityPool), "Only stability pool");
+        stabilityPoolCanReceiveRewards = canReceiveRewards;
+        return true;
+    }
+
+    function setCanSBRStakingPoolReceiveRewards(
+        bool canReceiveRewards
+    ) external returns (bool) {
+        require(msg.sender == address(sbrTokenStaking), "Only SBR Staking");
+        sbrStakingPoolCanReceiveRewards = canReceiveRewards;
+        return true;
     }
 }

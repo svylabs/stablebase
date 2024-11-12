@@ -4,6 +4,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/ISBRStaking.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+interface IRewardSender {
+    function setCanSBRStakingPoolReceiveRewards(
+        bool canReceiveRewards
+    ) external returns (bool);
+}
+
 contract SBRStaking is ISBRStaking, Ownable {
     mapping(address => Stake) public stakes;
 

@@ -9,6 +9,12 @@ interface IMintableToken is IERC20 {
     function mint(address to, uint256 amount) external returns (bool);
 }
 
+interface IRewardSender {
+    function setCanStabilityPoolReceiveRewards(
+        bool canReceiveRewards
+    ) external returns (bool);
+}
+
 contract StabilityPool is IStabilityPool, Ownable {
     IERC20 public stakingToken; // Token that users stake and receive rewards in
     address public stableBaseCDP; // External contract to liquidate debt
@@ -75,7 +81,11 @@ contract StabilityPool is IStabilityPool, Ownable {
         _;
     }
 
-    constructor() Ownable(msg.sender) {}
+    bool public rewardSenderActive;
+
+    constructor(bool _rewardSenderActive) Ownable(msg.sender) {
+        rewardSenderActive = _rewardSenderActive;
+    }
 
     function setAddresses(
         address _stakingToken,
@@ -105,7 +115,17 @@ contract StabilityPool is IStabilityPool, Ownable {
         );
 
         user.stake += _amount;
+        uint256 oldTotalStakedRaw = totalStakedRaw;
         totalStakedRaw += _amount;
+
+        if (oldTotalStakedRaw == 0 && rewardSenderActive) {
+            require(
+                IRewardSender(stableBaseCDP).setCanStabilityPoolReceiveRewards(
+                    true
+                ),
+                "Unable to set reward distribution"
+            );
+        }
 
         emit Staked(msg.sender, _amount);
     }
@@ -120,6 +140,15 @@ contract StabilityPool is IStabilityPool, Ownable {
 
         user.stake -= _amount;
         totalStakedRaw -= _amount;
+
+        if (totalStakedRaw == 0 && rewardSenderActive) {
+            require(
+                IRewardSender(stableBaseCDP).setCanStabilityPoolReceiveRewards(
+                    false
+                ),
+                "Unable to set reward distribution"
+            );
+        }
 
         require(
             stakingToken.transfer(msg.sender, _amount),
@@ -304,6 +333,15 @@ contract StabilityPool is IStabilityPool, Ownable {
         );
 
         totalStakedRaw -= amount;
+
+        if (totalStakedRaw == 0 && rewardSenderActive) {
+            require(
+                IRewardSender(stableBaseCDP).setCanStabilityPoolReceiveRewards(
+                    false
+                ),
+                "Unable to activate reward sender"
+            );
+        }
 
         if (cumulativeProductScalingFactor < minimumScalingFactor) {
             StakeResetSnapshot memory resetSnapshot = StakeResetSnapshot({

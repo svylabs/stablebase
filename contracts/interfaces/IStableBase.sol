@@ -213,9 +213,11 @@ interface IStableBase {
 
     function liquidate() external;
 
-    // TODO: add more functions
-    // liquidate
-    // withdraw
-    // setReserveRatio
-    // setTargetShieldingRate
+    function setCanStabilityPoolReceiveRewards(
+        bool canReceiveRewards
+    ) external returns (bool);
+
+    function setCanSBRStakingPoolReceiveRewards(
+        bool canReceiveRewards
+    ) external returns (bool);
 }

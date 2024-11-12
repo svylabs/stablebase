@@ -40,7 +40,7 @@ describe("StabilityPool", function () {
 
     // Deploy StabilityPool contract
     StabilityPool = await ethers.getContractFactory("StabilityPool");
-    stabilityPool = await StabilityPool.deploy();
+    stabilityPool = await StabilityPool.deploy(false);
     await stabilityPool.waitForDeployment();
     await stabilityPool.setAddresses(sbdToken.target,
       owner.address,
