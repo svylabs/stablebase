@@ -45,12 +45,14 @@ interface IStableBase {
         uint256 totalDebt
     );
     event Redeemed(
+        uint256 indexed redemptionId,
         uint256 indexed safeId,
         uint256 amount,
         uint256 collateral,
         uint256 refundedToOwner
     );
     event RedeemedBatch(
+        uint256 indexed redemptionId,
         uint256 amount,
         uint256 redeemedCollateral,
         uint256 totalCollateral,
@@ -106,6 +108,8 @@ interface IStableBase {
     event RedeemerFeePaid(
         uint256 indexed redemptionId,
         uint256 indexed safeId,
+        uint256 collateralToRedeem,
+        uint256 collateralToReturn,
         uint256 feePaid
     );
     event OwnerFeePaid(

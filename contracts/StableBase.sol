@@ -45,7 +45,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
 
     uint256 public constant SBR_FEE_REWARD = 1000; // 10% of the fee goes to SBR Stakers
 
-    uint256 public constant REDEMPTION_LIQUIDATION_FEE = 100; // 0.75%;
+    uint256 public constant REDEMPTION_LIQUIDATION_FEE = 75; // 0.75%;
 
     uint256 public constant REDEMPTION_BASE_FEE = 15; // 0.15%;
 
@@ -225,15 +225,15 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
             uint256 _redeemerFee
         )
     {
+        uint256 collateralValue = (safe.collateralAmount * collateralPrice) /
+            PRECISION;
         uint256 feePaidPercentage = ((safe.feePaid * BASIS_POINTS_DIVISOR) /
-            safe.borrowedAmount);
+            collateralValue);
         // Fee tier to apply for this safe(applied to the redeemer)
         uint256 feeTier = min(
             feePaidPercentage + REDEMPTION_BASE_FEE,
             REDEMPTION_LIQUIDATION_FEE
         );
-        uint256 collateralValue = (safe.collateralAmount * collateralPrice) /
-            PRECISION;
         /*
         If the fee paid is less than REDEMPTION_BASE_FEE, the redemption fee is (feePaid + REDEMPTION_BASE_FEE)
          */
@@ -364,7 +364,13 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         collateralToReturn = collateralToRedeem - redeemerFee;
         if (redeemerFee > 0) {
             redemption.redeemerFee += redeemerFee;
-            emit RedeemerFeePaid(redemption.redemptionId, _safeId, redeemerFee);
+            emit RedeemerFeePaid(
+                redemption.redemptionId,
+                _safeId,
+                collateralToRedeem,
+                collateralToReturn,
+                redeemerFee
+            );
         }
         // update target shielding rate
         return
@@ -421,6 +427,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         safe.borrowedAmount -= amountToRedeem;
         redemption.collateralAmount += collateralToReturn;
         redemption.redeemedAmount += amountToRedeem + amountToRefund;
+        redemption.refundedAmount += amountToRefund;
         safes[_safeId] = safe;
         // If the safe is empty(borrowedAmount == 0 in BORROW mode or when the collateral has been fully redeemed in EXCHANGE mode)
         // Borrow mode: If fee paid > REDEMPTION_BASE_FEE
@@ -445,6 +452,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
             );
         }
         emit Redeemed(
+            redemption.redemptionId,
             _safeId,
             amountToRedeem,
             collateralToRedeem,

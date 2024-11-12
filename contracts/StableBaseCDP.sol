@@ -240,6 +240,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
             requestedAmount: amount,
             price: price,
             redeemedAmount: 0,
+            refundedAmount: 0,
             processedSpots: 0,
             collateralAmount: 0,
             ownerFee: 0,
@@ -250,13 +251,21 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         _redeemToUser(_redemption);
         totalCollateral -= _redemption.collateralAmount;
         //totalDebt -= _redemption.redeemedAmount;
-        _updateTotalDebt(totalDebt, _redemption.redeemedAmount, false);
+        _updateTotalDebt(
+            totalDebt,
+            _redemption.redeemedAmount - _redemption.refundedAmount,
+            false
+        );
         require(
-            sbdToken.burn(address(this), _redemption.redeemedAmount),
+            sbdToken.burn(
+                address(this),
+                _redemption.redeemedAmount - _redemption.refundedAmount
+            ),
             "Burn failed"
         );
 
         emit RedeemedBatch(
+            redemptionId,
             amount,
             _redemption.collateralAmount,
             totalCollateral,

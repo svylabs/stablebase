@@ -15,6 +15,7 @@ library SBStructs {
         uint256 requestedAmount;
         uint256 price;
         uint256 redeemedAmount;
+        uint256 refundedAmount;
         uint256 processedSpots;
         uint256 collateralAmount;
         uint256 ownerFee;

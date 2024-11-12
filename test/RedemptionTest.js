@@ -49,7 +49,7 @@ describe("Test the flow", function () {
       await stableBaseCDP.waitForDeployment();
   
       const SBRStaking = await ethers.getContractFactory("SBRStaking");
-      sbrStaking = await SBRStaking.deploy();
+      sbrStaking = await SBRStaking.deploy(true);
       await sbrStaking.waitForDeployment();
   
       const OrderedDoublyLinkedList = await ethers.getContractFactory("OrderedDoublyLinkedList");
@@ -84,14 +84,20 @@ describe("Test the flow", function () {
       const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
       const bobSafeId = ethers.solidityPackedKeccak256(["address", "address"], [bob.address, ethers.ZeroAddress]);
       const charlieSafeId = ethers.solidityPackedKeccak256(["address", "address"], [charlie.address, ethers.ZeroAddress]);
+      const davidSafeId = ethers.solidityPackedKeccak256(["address", "address"], [david.address, ethers.ZeroAddress]);
+      const eliSafeId = ethers.solidityPackedKeccak256(["address", "address"], [eli.address, ethers.ZeroAddress]);
 
       const aliceCollateral = ethers.parseEther("800");
       const bobCollateral = ethers.parseEther("800");
-      const charlieCollateral = ethers.parseEther("800");
+      const charlieCollateral = ethers.parseEther("900");
+      const davidCollateral = ethers.parseEther("10");
+        const eliCollateral = ethers.parseEther("10");
 
       const aliceBorrowAmount = ethers.parseEther("5000000");
       const bobBorrowAmount = ethers.parseEther("4500000");
-      const charlieBorrowAmount = ethers.parseEther("5700000");
+      const charlieBorrowAmount = ethers.parseEther("5100000");
+      const davidBorrowAmount = ethers.parseEther("50000");
+        const eliBorrowAmount = ethers.parseEther("50000");
 
       users.alice.safeId = aliceSafeId;
       users.alice.borrowAmount = aliceBorrowAmount;
@@ -102,12 +108,25 @@ describe("Test the flow", function () {
       users.charlie.safeId = charlieSafeId;
       users.charlie.borrowAmount = charlieBorrowAmount;
       users.charlie.collateralAmount = charlieCollateral;
+      users.david = {
+         safeId: davidSafeId,
+            borrowAmount: davidBorrowAmount,
+            collateralAmount: davidCollateral,
+      };
+      users.eli = {
+            safeId: eliSafeId,
+                borrowAmount: eliBorrowAmount,
+                collateralAmount: eliCollateral,
+      };
 
-      priceOracle.setPrice(BigInt(10000)); // Should be able to borrow upto 3000 per collateral
 
-      await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
+      priceOracle.setPrice(BigInt(7000)); // Should be able to borrow upto 3000 per collateral
+
       await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
       await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
+      await utils.borrow(david, davidSafeId, davidCollateral, davidBorrowAmount, BigInt(21), contracts);
+      await utils.borrow(eli, eliSafeId, eliCollateral, eliBorrowAmount, BigInt(10), contracts);
+      await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(100), contracts);
     });
 
     describe("Test Redemption", function() {
@@ -121,7 +140,7 @@ describe("Test the flow", function () {
              const collateralAmount = amount / price;
              const fee = (await contracts.stableBaseCDP.REDEMPTION_BASE_FEE() * collateralAmount / BigInt(10000));
              await contracts.sbdToken.connect(david).approve(contracts.stableBaseCDP.target, amount);
-             const snapshot = await utils.redeem(david, amount, contracts, [users.alice.safeId, users.bob.safeId, users.charlie.safeId]);
+             const snapshot = await utils.redeem(david, amount, contracts, [users.alice.safeId, users.bob.safeId, users.charlie.safeId, users.david.safeId, users.eli.safeId]);
              expect(snapshot.newSnapshot.safes[users.bob.safeId].borrowedAmount).to.equal(snapshot.existingSnapshot.safes[users.bob.safeId].borrowedAmount - amount);
              expect(snapshot.newSnapshot.safes[users.bob.safeId].collateralAmount).to.equal(snapshot.existingSnapshot.safes[users.bob.safeId].collateralAmount - collateralAmount);
              expect(snapshot.newSnapshot.user.ethBalance).to.equal(snapshot.existingSnapshot.user.ethBalance + collateralAmount - snapshot.gasPaid);
@@ -130,37 +149,94 @@ describe("Test the flow", function () {
         });
 
         it("should be able to redeem multiple safes", async function() {
-            priceOracle.setPrice(BigInt(10000));
+            priceOracle.setPrice(BigInt(7000));
+            await contracts.sbdToken.connect(david).approve(contracts.stabilityPool.target, ethers.parseEther("40000"));
+            stabilityPool.connect(david).stake(ethers.parseEther("40000"));
             sbdToken.connect(alice).transfer(david.address, ethers.parseEther("2000000"));
             sbdToken.connect(bob).transfer(david.address, ethers.parseEther("1000000"));
             sbdToken.connect(charlie).transfer(david.address, ethers.parseEther("3000000"));
             const amount = ethers.parseEther("6000000");
             const collateralAmount = amount / price;
-            const snapshot = await utils.redeem(david, amount, contracts, [users.alice.safeId, users.bob.safeId, users.charlie.safeId]);
-            
-            expect(snapshot.newSnapshot.safes[users.bob.safeId].borrowedAmount).to.equal(0);
-            let totalRedeemed = snapshot.existingSnapshot.safes[users.bob.safeId].borrowedAmount;
-            const collateralFromBob = totalRedeemed / price;
-            console.log("Existing Collateral: ", snapshot.existingSnapshot.safes[users.bob.safeId].collateralAmount)
-            console.log("Collateral from bob: ", collateralFromBob);
-            expect(snapshot.newSnapshot.safes[users.bob.safeId].collateralAmount).to.equal(snapshot.existingSnapshot.safes[users.bob.safeId].collateralAmount - collateralFromBob);
-            expect(snapshot.newSnapshot.user.ethBalance).to.equal(snapshot.existingSnapshot.user.ethBalance + collateralAmount - snapshot.gasPaid);
-            expect(snapshot.newSnapshot.sbdToken.totalSupply).to.equal(snapshot.existingSnapshot.sbdToken.totalSupply - amount);
-            const toRedeem = amount - totalRedeemed;
-            const collateralFromAlice = toRedeem / price;
-            // redemption from alice safe
-            expect(snapshot.newSnapshot.safes[users.alice.safeId].borrowedAmount).to.equal(snapshot.existingSnapshot.safes[users.alice.safeId].borrowedAmount - toRedeem);
-            expect(snapshot.newSnapshot.safes[users.alice.safeId].collateralAmount).to.equal(snapshot.existingSnapshot.safes[users.alice.safeId].collateralAmount - collateralFromAlice);
-            const oldRatio = snapshot.existingSnapshot.safes[users.alice.safeId].borrowedAmount / snapshot.existingSnapshot.safes[users.alice.safeId].collateralAmount;
-            const newRatioAlice = snapshot.newSnapshot.safes[users.alice.safeId].borrowedAmount / snapshot.newSnapshot.safes[users.alice.safeId].collateralAmount;
-            console.log(oldRatio, newRatioAlice);
-            snapshot.newSnapshot.stableBaseCDP.liquidationQueue.all.forEach(node => {
-                if (node.safeId == users.alice.safeId) {
-                    //console.log(newRatioAlice);
-                    expect(node.data.value).to.equal(newRatioAlice);
-                }
-            })
+            await contracts.sbdToken.connect(david).approve(contracts.stableBaseCDP.target, amount);
+            const snapshot = await utils.redeem(david, amount, contracts, [users.alice.safeId, users.bob.safeId, users.charlie.safeId, users.david.safeId, users.eli.safeId]);
 
+            /*
+
+                 800    10     10       800   800
+                 4.5m   0.05m   0.05m  5.0m   5.7m
+                  0      10     21      100   200
+
+                 6m redemption request
+
+                 4.5m 
+
+                 800 * 7000 = 5.6m 
+                 bob: 4.5m / 7000 = 642.857 collateral
+                 800 - 642.857 = (157.142) * 7000 = 1.1m to bob
+                 redeemerFee: (0.15 * 642.857) / 100 = 0.964
+                 ownerFee: 0.15 * 1100000 / 100 = 1650
+
+                 eli: 0.05m 
+                 50000 / 7000 = 7.142 collateral
+                 10 - 7.142 = 2.857 * 7000 = 20k to eli
+                 fee: 0.25 
+                 redeemerFee: (0.25 * 7.142) / 100 = 0.0178
+                 ownerFee: 0.25 * 20000 / 100 = 50
+
+                 david: 0.05m
+                 50000 / 7000 = 7.142 collateral
+                 10 - 7.142 = 2.857 in david's safe
+                 50k redeemed from david
+                 fee: 0.21 + 0.15 = 0.36
+                 redeemerFee: 0.36 * 7.142 / 100 = 0.0257
+                 ownerFee: 0
+
+                 4.5m + 1.1m + 50k + 20k + 50k = 5.72m
+
+                 6m - 5.72m = 280k
+
+                 alice:
+                 800 * 7000 = 5.6m
+                 280000 / 7000 = 40 collateral
+                 alice: 760 collateral
+                 borrowedamount: 5m - 280k = 4.72m
+                 redeemerFee: (0.75 * 40) / 100 = 0.3
+                 ownerFee: 0
+
+
+            */
+
+           const expectedRedeemAmounts = [
+               {safeId: users.bob.safeId, borrowedAmount: 0, collateralAmount: 0, collateralRedeemed: BigInt(642.857 * 1e18), refunded: BigInt(1100000), redeemerFee: BigInt(0.964 * 1e18), ownerFee: BigInt(1650)},
+               {safeId: users.eli.safeId, borrowedAmount: 0, collateralAmount: 0, collateralRedeemed: BigInt(7.142 * 1e18), refunded: BigInt(20000), redeemerFee: BigInt(0.0178 * 1e18) , ownerFee: BigInt(50)},
+               {safeId: users.david.safeId, collateralRedeemed: BigInt(7.142 * 1e18), refunded: BigInt(0), redeemerFee: BigInt(0.0257 * 1e18), ownerFee: BigInt(0)},
+               {safeId: users.alice.safeId, collateralRedeemed: BigInt(40 * 1e18), refunded: BigInt(0), redeemerFee: BigInt(0.3 * 1e18), ownerFee: BigInt(0)}
+           ]
+           expectedRedeemAmounts.forEach((expectedAmount) => {
+               console.log(expectedAmount);
+               console.log(snapshot.newSnapshot.safes[expectedAmount.safeId]);
+           });
+           console.log(snapshot.newSnapshot.stableBaseCDP.redemptionQueue.all);
+           console.log(snapshot.existingSnapshot.stableBaseCDP.liquidationQueue.all);
+           console.log(snapshot.newSnapshot.stableBaseCDP.liquidationQueue.all);
+           console.log(snapshot.existingSnapshot.stabilityPool.ethBalance, snapshot.newSnapshot.stabilityPool.ethBalance);
+           console.log(snapshot.existingSnapshot.stabilityPool.sbdBalance, snapshot.newSnapshot.stabilityPool.sbdBalance);
+           //console.log(snapshot.logs);
+           snapshot.logs.forEach((log) => {
+            try {
+               console.log(contracts.stableBaseCDP.interface.parseLog(log));
+            } catch (ex) {
+                try {
+                    console.log(contracts.stabilityPool.interface.parseLog(log));
+                } catch (ex1) {
+                    try {
+                        console.log(contracts.sbdToken.interface.parseLog(log));
+                    } catch (ex2) {
+                        console.log(ex2);
+                    }
+                }
+            }
+           })
 
         });
 

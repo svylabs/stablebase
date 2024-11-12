@@ -35,7 +35,7 @@ async function main() {
     console.log("Deployed StableBaseCDP to:", stableBaseCDP.target);
 
     const SBRStaking = await ethers.getContractFactory("SBRStaking");
-    const sbrStaking = await SBRStaking.deploy();
+    const sbrStaking = await SBRStaking.deploy(true);
     await sbrStaking.waitForDeployment();
     console.log("Deployed SBRStaking to:", sbrStaking.target);
 

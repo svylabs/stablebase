@@ -49,7 +49,7 @@ describe("Test the flow", function () {
       await stableBaseCDP.waitForDeployment();
   
       const SBRStaking = await ethers.getContractFactory("SBRStaking");
-      sbrStaking = await SBRStaking.deploy();
+      sbrStaking = await SBRStaking.deploy(true);
       await sbrStaking.waitForDeployment();
   
       const OrderedDoublyLinkedList = await ethers.getContractFactory("OrderedDoublyLinkedList");

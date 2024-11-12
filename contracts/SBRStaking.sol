@@ -23,7 +23,11 @@ contract SBRStaking is ISBRStaking, Ownable {
     IERC20 public rewardToken;
     address public stableBaseContract;
 
-    constructor() Ownable(msg.sender) {}
+    bool public canReceiveRewards = false;
+
+    constructor(bool _canReceiveRewards) Ownable(msg.sender) {
+        canReceiveRewards = _canReceiveRewards;
+    }
 
     function setAddresses(
         address _stakingToken,
@@ -48,7 +52,13 @@ contract SBRStaking is ISBRStaking, Ownable {
         );
 
         user.stake += _amount;
+        uint256 _oldTotalStake = totalStake;
         totalStake += _amount;
+
+        if (canReceiveRewards && _oldTotalStake == 0) {
+            IRewardSender(stableBaseContract)
+                .setCanSBRStakingPoolReceiveRewards(true);
+        }
 
         emit Staked(msg.sender, _amount);
     }
@@ -62,6 +72,12 @@ contract SBRStaking is ISBRStaking, Ownable {
 
         user.stake -= _amount;
         totalStake -= _amount;
+
+        if (totalStake == 0) {
+            IRewardSender(stableBaseContract)
+                .setCanSBRStakingPoolReceiveRewards(false);
+        }
+
         require(
             stakingToken.transfer(msg.sender, _amount),
             "Transfer tokens failed"
