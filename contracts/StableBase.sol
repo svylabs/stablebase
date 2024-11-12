@@ -45,7 +45,9 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
 
     uint256 public constant SBR_FEE_REWARD = 1000; // 10% of the fee goes to SBR Stakers
 
-    uint256 public constant REDEMPTION_LIQUIDATION_FEE = 75; // 0.75%;
+    uint256 public constant REDEMPTION_LIQUIDATION_FEE = 100; // 0.75%;
+
+    uint256 public constant REDEMPTION_BASE_FEE = 15; // 0.15%;
 
     uint256 public cumulativeDebtPerUnitCollateral;
 
@@ -142,6 +144,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         }
         uint _amountToBorrow = amount - _shieldingFee;
         safe.borrowedAmount += amount;
+        safe.feePaid += _shieldingFee;
 
         // Calculate the ratio (borrowAmount per unit collateral)
         uint256 ratio = (safe.borrowedAmount) / safe.collateralAmount;
@@ -180,6 +183,117 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         );
     }
 
+    function min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
+    }
+
+    /**
+     * Calculates the amount of collateral to redeem in a Safe
+     *  If the user has total fee paid < REDEMPTION_BASE_FEE, whole collateral of the safe will be redeemed (including unused collateral), depending on redemption amount.
+     *     - Reason: Redemptions could be used as a means of slippage free exchange at market price.
+     *  If the user has total fee paid >= REDEMPTION_BASE_FEE, the collateral redeemed will be upto the borrowed amount of the safe.
+     *
+     * There is potential for price manipulation, but it also exists in the current redemption system due to the usage of price oracle.
+     *
+     * fee is calculated as follows:
+     *  If the fee paid is less than REDEMPTION_BASE_FEE, the redemption fee to be paid by redeemer is (feePaidBasisPoints + REDEMPTION_BASE_FEE)
+     *       - Fee is charged to the redeemer
+     *       - Fee is also charged to the owner of the Safe at the time, based on the refund to be paid.
+     *            ownerFee = (collateralValueRedeemed * REDEMPTION_BASE_FEE) / 10000 - feePaid
+     *  If the fee paid is greater than REDEMPTION_BASE_FEE, the fee is min(feePaid + REDEMPTION_BASE_FEE, REDEMPTION_LIQUIDATION_FEE)
+     *       - Fee is charged to the redeemer only
+     *
+     * The owner fee and redeemer fee from redemption is paid to Stability Pool stakers(100%).
+     */
+    function calculateRedemptionAmountsAndFee(
+        Safe memory safe,
+        uint256 amountToRedeem,
+        uint256 collateralPrice
+    )
+        public
+        pure
+        returns (
+            bool borrowMode,
+            uint256 _collateralToRedeem,
+            uint256 _amountToRedeem,
+            uint256 _amountToRefund,
+            uint256 _ownerFee,
+            uint256 _redeemerFee
+        )
+    {
+        uint256 feePaidPercentage = ((safe.feePaid * BASIS_POINTS_DIVISOR) /
+            safe.borrowedAmount);
+        // Fee tier to apply for this safe(applied to the redeemer)
+        uint256 feeTier = min(
+            feePaidPercentage + REDEMPTION_BASE_FEE,
+            REDEMPTION_LIQUIDATION_FEE
+        );
+        uint256 collateralValue = (safe.collateralAmount * collateralPrice) /
+            PRECISION;
+        /*
+        If the fee paid is less than REDEMPTION_BASE_FEE, the redemption fee is (feePaid + REDEMPTION_BASE_FEE)
+         */
+        if (feePaidPercentage <= REDEMPTION_BASE_FEE) {
+            if (amountToRedeem >= collateralValue) {
+                // redeem the whole collateral, while refunding stablecoins back to the owner of the safe
+                _amountToRedeem = safe.borrowedAmount;
+                _amountToRefund = collateralValue - _amountToRedeem;
+                _collateralToRedeem = safe.collateralAmount;
+                // OWNER FEE = REDEMPTION BASE FEE for the
+                // toPay = collateralValue * REDEMPTION_BASE_FEE / BASIS_POINTS_DIVISOR
+                // toPay - feePaid
+                uint256 ownerToPay = (collateralValue * REDEMPTION_BASE_FEE) /
+                    BASIS_POINTS_DIVISOR;
+                if (ownerToPay > safe.feePaid) {
+                    _ownerFee = ownerToPay - safe.feePaid;
+                }
+            } else {
+                if (amountToRedeem >= safe.borrowedAmount) {
+                    _amountToRefund = amountToRedeem - safe.borrowedAmount;
+                    _amountToRedeem = safe.borrowedAmount;
+                    _collateralToRedeem =
+                        ((_amountToRedeem + _amountToRefund) * PRECISION) /
+                        collateralPrice;
+                    _ownerFee =
+                        ((_amountToRedeem + _amountToRefund) *
+                            REDEMPTION_BASE_FEE) /
+                        BASIS_POINTS_DIVISOR;
+                    if (_ownerFee > safe.feePaid) {
+                        _ownerFee = _ownerFee - safe.feePaid;
+                    }
+                } else {
+                    _amountToRedeem = amountToRedeem;
+                    _collateralToRedeem =
+                        (amountToRedeem * PRECISION) /
+                        collateralPrice;
+                    _amountToRefund = 0;
+                    _ownerFee = 0;
+                }
+                // No seller fee here
+            }
+        } else {
+            borrowMode = true;
+            if (amountToRedeem >= safe.borrowedAmount) {
+                _amountToRedeem = safe.borrowedAmount;
+                _collateralToRedeem =
+                    (_amountToRedeem * PRECISION) /
+                    collateralPrice;
+                _amountToRefund = 0;
+                _ownerFee = 0;
+            } else {
+                _amountToRedeem = amountToRedeem;
+                _amountToRefund = 0;
+                _ownerFee = 0;
+                _collateralToRedeem =
+                    (_amountToRedeem * PRECISION) /
+                    collateralPrice;
+                //amountToRedeem =
+            }
+        }
+        _redeemerFee = (_collateralToRedeem * feeTier) / BASIS_POINTS_DIVISOR;
+    }
+
+    // Redemption always redeems the whole collateral
     function _redeemNode(
         uint256 _safeId,
         SBStructs.Redemption memory redemption,
@@ -190,26 +304,77 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         _updateSafe(_safeId, safe);
         uint256 amountToRedeem = redemption.requestedAmount -
             redemption.redeemedAmount;
-        if (amountToRedeem > safe.borrowedAmount) {
-            amountToRedeem = safe.borrowedAmount;
+        uint256 collateralToRedeem = (amountToRedeem * PRECISION) /
+            redemption.price;
+        // Amount of collateral to return back to the redeemer
+        uint256 collateralToReturn = collateralToRedeem;
+        // Amount of stablecoins to refund the safe owner
+        uint256 amountToRefund = 0;
+        // Total fee(in percentage terms) paid by the safe owner
+        // Total collateral value of the safe
+        uint256 ownerFee = 0;
+        uint256 redeemerFee = 0;
+        bool borrowMode;
+        (
+            borrowMode,
+            collateralToRedeem,
+            amountToRedeem,
+            amountToRefund,
+            ownerFee,
+            redeemerFee
+        ) = calculateRedemptionAmountsAndFee(
+            safe,
+            amountToRedeem,
+            redemption.price
+        );
+        if (amountToRefund > 0) {
+            if (amountToRefund > ownerFee) {
+                require(
+                    sbdToken.transfer(
+                        ownerOf(_safeId),
+                        amountToRefund - ownerFee
+                    ),
+                    "Mint failed for owner fee"
+                );
+                emit OwnerRefunded(
+                    redemption.redemptionId,
+                    _safeId,
+                    amountToRefund - ownerFee,
+                    ownerFee
+                );
+            } else {
+                // Nothing to pay owner
+                emit OwnerRefunded(
+                    redemption.redemptionId,
+                    _safeId,
+                    0,
+                    ownerFee
+                );
+            }
+            if (ownerFee > 0) {
+                redemption.ownerFee += ownerFee;
+                emit OwnerFeePaid(redemption.redemptionId, _safeId, ownerFee);
+            }
         }
-        if (amountToRedeem == safe.borrowedAmount) {
-            // If the safe was fully redeemed, remove it from both the lists
-            _removeSafeFromBothQueues(_safeId);
-        } else {
-            uint256 collateralToRedeem = (amountToRedeem * PRECISION) /
-                redemption.price;
-            // update with new collateral ratio
-            uint256 _newRatio = ((safe.borrowedAmount - amountToRedeem)) /
-                (safe.collateralAmount - collateralToRedeem);
-            safesOrderedForLiquidation.upsert(
-                _safeId,
-                _newRatio,
-                nearestSpotInLiquidationQueue
-            );
+        // Total amount of collateral to return to the redeemer
+        collateralToReturn = collateralToRedeem - redeemerFee;
+        if (redeemerFee > 0) {
+            redemption.redeemerFee += redeemerFee;
+            emit RedeemerFeePaid(redemption.redemptionId, _safeId, redeemerFee);
         }
         // update target shielding rate
-        return redeemSafe(_safeId, amountToRedeem, safe, redemption);
+        return
+            redeemSafe(
+                _safeId,
+                borrowMode,
+                amountToRedeem,
+                amountToRefund,
+                collateralToRedeem,
+                collateralToReturn,
+                safe,
+                nearestSpotInLiquidationQueue,
+                redemption
+            );
     }
 
     function _redeemSafes(
@@ -232,37 +397,79 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         return redemption;
     }
 
-    function _redeemToUser(SBStructs.Redemption memory redemption) internal {
-        // TODO: Distribute fees to SBR Stakers
-        uint256 fee = (redemption.collateralAmount *
-            REDEMPTION_LIQUIDATION_FEE) / BASIS_POINTS_DIVISOR;
-        bool feeAdded = sbrTokenStaking.addCollateralReward{value: fee}(fee);
-        if (!feeAdded) {
-            fee = 0;
-        }
-
-        (bool success, ) = msg.sender.call{
-            value: redemption.collateralAmount - fee
-        }("");
-        require(success, "Transfer failed");
+    function closeToZero(uint256 value) internal pure returns (bool) {
+        return value < 1e10;
     }
 
     function redeemSafe(
         uint256 _safeId,
+        bool borrowMode,
         uint256 amountToRedeem,
+        uint256 amountToRefund,
+        uint256 collateralToRedeem,
+        uint256 collateralToReturn,
         Safe memory safe,
+        uint256 nearestSpotInLiquidationQueue,
         SBStructs.Redemption memory redemption
     ) internal returns (Safe memory, SBStructs.Redemption memory) {
         //uint256 amountInCollateral = amountToRedeem /
-        uint256 amountInCollateral = (amountToRedeem * PRECISION) /
-            redemption.price;
-        safe.collateralAmount -= amountInCollateral;
+        safe.collateralAmount -= collateralToRedeem;
         safe.borrowedAmount -= amountToRedeem;
-        redemption.collateralAmount += amountInCollateral;
-        redemption.redeemedAmount += amountToRedeem;
+        redemption.collateralAmount += collateralToReturn;
+        redemption.redeemedAmount += amountToRedeem + amountToRefund;
         safes[_safeId] = safe;
-        emit Redeemed(_safeId, amountToRedeem, amountInCollateral);
+        // If the safe is empty(borrowedAmount == 0 in BORROW mode or when the collateral has been fully redeemed in EXCHANGE mode)
+        // Borrow mode: If fee paid > REDEMPTION_BASE_FEE
+        // Exchange mode; If fee paid <= REDEMPTION_BASE_FEE
+        if (
+            (safe.borrowedAmount == 0 && borrowMode) ||
+            (!borrowMode && closeToZero(safe.collateralAmount))
+        ) {
+            _removeSafeFromBothQueues(_safeId);
+        } else {
+            uint256 newRatio = safe.borrowedAmount / safe.collateralAmount;
+            IDoublyLinkedList.Node
+                memory liquidationNode = safesOrderedForLiquidation.upsert(
+                    _safeId,
+                    newRatio,
+                    nearestSpotInLiquidationQueue
+                );
+            emit LiquidationQueueUpdated(
+                _safeId,
+                newRatio,
+                liquidationNode.next
+            );
+        }
+        emit Redeemed(
+            _safeId,
+            amountToRedeem,
+            collateralToRedeem,
+            amountToRefund
+        );
         return (safe, redemption);
+    }
+
+    function _redeemToUser(SBStructs.Redemption memory redemption) internal {
+        require(
+            sbdToken.approve(address(stabilityPool), redemption.ownerFee),
+            "Approve failed"
+        );
+        require(
+            stabilityPool.addReward(redemption.ownerFee),
+            "Add reward failed"
+        );
+        emit OwnerRedemptionFeeDistributed(
+            redemption.redemptionId,
+            redemption.ownerFee
+        );
+        require(
+            stabilityPool.addCollateralReward(redemption.redeemerFee),
+            "Add collateral reward failed"
+        );
+        (bool success, ) = msg.sender.call{value: redemption.collateralAmount}(
+            ""
+        );
+        require(success, "Transfer failed");
     }
 
     function distributeFees(

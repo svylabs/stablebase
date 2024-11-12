@@ -4,8 +4,9 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Structures.sol";
 import "./StableBase.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract StableBaseCDP is StableBase {
+contract StableBaseCDP is StableBase, ReentrancyGuard {
     constructor() StableBase() {}
 
     /**
@@ -27,7 +28,8 @@ contract StableBaseCDP is StableBase {
             collateralAmount: _amount,
             borrowedAmount: 0,
             weight: 0,
-            status: SafeStatus.OPEN
+            status: SafeStatus.OPEN,
+            feePaid: 0
         });
         LiquidationSnapshot memory liquidationSnapshot = LiquidationSnapshot({
             debtPerCollateralSnapshot: cumulativeDebtPerUnitCollateral,
@@ -212,20 +214,36 @@ contract StableBaseCDP is StableBase {
     }
 
     // Function to redeem SBD tokens for the underlying collateral
-
     function redeem(
         uint256 amount,
         uint256 nearestSpotInLiquidationQueue
     ) external onlyInNormalMode {
         require(amount > 0, "Amount must be greater than 0");
-        sbdToken.burn(msg.sender, amount);
+        require(
+            sbdToken.transferFrom(msg.sender, address(this), amount),
+            "Unable to transfer SBD"
+        );
         uint256 price = priceOracle.fetchPrice();
+        uint256 redemptionId = uint256(
+            keccak256(
+                abi.encode(
+                    msg.sender,
+                    amount,
+                    block.number,
+                    safesOrderedForRedemption.getHead()
+                )
+            )
+        );
+
         SBStructs.Redemption memory _redemption = SBStructs.Redemption({
+            redemptionId: redemptionId,
             requestedAmount: amount,
             price: price,
             redeemedAmount: 0,
             processedSpots: 0,
-            collateralAmount: 0
+            collateralAmount: 0,
+            ownerFee: 0,
+            redeemerFee: 0
         });
 
         _redemption = _redeemSafes(_redemption, nearestSpotInLiquidationQueue);
@@ -233,6 +251,11 @@ contract StableBaseCDP is StableBase {
         totalCollateral -= _redemption.collateralAmount;
         //totalDebt -= _redemption.redeemedAmount;
         _updateTotalDebt(totalDebt, _redemption.redeemedAmount, false);
+        require(
+            sbdToken.burn(address(this), _redemption.redeemedAmount),
+            "Burn failed"
+        );
+
         emit RedeemedBatch(
             amount,
             _redemption.collateralAmount,
@@ -255,6 +278,7 @@ contract StableBaseCDP is StableBase {
         require(balance >= fee, "Insufficient Balance to pay fee");
         // Update the spot in the shieldedSafes list
         safe.weight += topupRate;
+        safe.feePaid += fee;
         require(
             sbdToken.transferFrom(msg.sender, address(this), fee),
             "Transfering Tokens failed"
@@ -278,7 +302,8 @@ contract StableBaseCDP is StableBase {
         emit FeeTopup(safeId, topupRate, fee, safe.weight);
     }
 
-    function liquidate() external {
+    function liquidate() external nonReentrant {
+        uint256 gasStart = gasleft();
         uint256 _safeId = safesOrderedForLiquidation.getTail();
         uint256 _last = safesOrderedForLiquidation.getHead();
         Safe storage safe = safes[_safeId];
@@ -348,10 +373,30 @@ contract StableBaseCDP is StableBase {
 
         // Remove the Safe from the mapping
         _removeSafe(_safeId);
-
-        // Send fee
-        (bool success, ) = msg.sender.call{value: liquidationFee}("");
-        require(success, "Fee transfer failed");
+        uint256 gasUsed = gasStart - gasleft();
+        uint256 gasCompensation = (gasUsed + 80000) * tx.gasprice;
+        uint256 refund = min(gasCompensation, liquidationFee);
+        if (refund > 0) {
+            // Send gas cost
+            (bool success, ) = msg.sender.call{value: refund}("");
+            //require(success, "Gas compensation failed");
+            if (!success) {
+                refund = 0;
+            }
+        }
+        if (liquidationFee - refund > 0) {
+            // Send the remaining liquidation fee to the stability pool
+            bool success = sbrTokenStaking.addCollateralReward{
+                value: liquidationFee - refund
+            }(liquidationFee - refund);
+            if (!success) {
+                // Refund the remaining liquidation fee to the user
+                (bool success, ) = msg.sender.call{
+                    value: liquidationFee - refund
+                }("");
+                require(success, "Transfer failed");
+            }
+        }
     }
 
     function adjustPosition(

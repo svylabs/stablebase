@@ -220,6 +220,32 @@ contract StabilityPool is IStabilityPool, Ownable {
         return true;
     }
 
+    function addCollateralReward(
+        uint256 amount
+    ) external payable onlyDebtContract returns (bool) {
+        require(amount > 0, "Reward must be greater than zero");
+        require(msg.value == amount, "Invalid collateral amount");
+        uint256 _totalStakedRaw = totalStakedRaw;
+        if (_totalStakedRaw == 0) {
+            return false;
+        }
+
+        uint256 _totalAmount = amount + collateralLoss;
+        uint256 _collateralPerToken = ((_totalAmount *
+            stakeScalingFactor *
+            precision) / _totalStakedRaw) / precision;
+
+        totalCollateralPerToken += _collateralPerToken;
+
+        collateralLoss =
+            _totalAmount -
+            (((_collateralPerToken * _totalStakedRaw * precision) /
+                stakeScalingFactor) / precision);
+
+        emit CollateralRewardAdded(amount);
+        return true;
+    }
+
     function isLiquidationPossible(
         uint256 amount
     ) external view override returns (bool) {

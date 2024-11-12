@@ -44,7 +44,12 @@ interface IStableBase {
         uint256 totalCollateral,
         uint256 totalDebt
     );
-    event Redeemed(uint256 indexed safeId, uint256 amount, uint256 collateral);
+    event Redeemed(
+        uint256 indexed safeId,
+        uint256 amount,
+        uint256 collateral,
+        uint256 refundedToOwner
+    );
     event RedeemedBatch(
         uint256 amount,
         uint256 redeemedCollateral,
@@ -92,12 +97,37 @@ interface IStableBase {
         uint256 stabilityPoolFee,
         uint256 canRefund
     );
+    event OwnerRefunded(
+        uint256 indexed redemptionId,
+        uint256 indexed safeId,
+        uint256 refund,
+        uint256 fee
+    );
+    event RedeemerFeePaid(
+        uint256 indexed redemptionId,
+        uint256 indexed safeId,
+        uint256 feePaid
+    );
+    event OwnerFeePaid(
+        uint256 indexed redemptionId,
+        uint256 indexed safeId,
+        uint256 feePaid
+    );
+    event OwnerRedemptionFeeDistributed(
+        uint256 indexed redemptionId,
+        uint256 feePaid
+    );
+    event RedeemerRedemptionFeeDistributed(
+        uint256 indexed redemptionId,
+        uint256 feePaid
+    );
 
     struct Safe {
         uint256 collateralAmount;
         uint256 borrowedAmount;
         uint256 weight;
         SafeStatus status;
+        uint256 feePaid;
     }
 
     enum SafeStatus {
