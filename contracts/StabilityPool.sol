@@ -55,6 +55,8 @@ contract StabilityPool is IStabilityPool, Ownable {
     SBRRewardDistribution public sbrRewardDistributionStatus =
         SBRRewardDistribution.NOT_STARTED;
 
+    uint256 public constant BASIS_POINTS_DIVISOR = 10000;
+
     /**
        Distribute SBR reward to early users for 1 year, beginning from first person that stakes SBR.
        After 1 year, distribute SBR reward to all users.
@@ -103,11 +105,19 @@ contract StabilityPool is IStabilityPool, Ownable {
         emit Received(msg.sender, msg.value);
     }
 
-    // Stake tokens
     function stake(uint256 _amount) external {
+        stake(_amount, msg.sender, 0);
+    }
+
+    function unstake(uint256 amount) external {
+        unstake(amount, msg.sender, 0);
+    }
+
+    // Stake tokens
+    function stake(uint256 _amount, address frontend, uint256 fee) public {
         require(_amount > 0, "Cannot stake zero tokens");
         UserInfo storage user = users[msg.sender];
-        _claim(user);
+        _claim(user, frontend, fee);
 
         require(
             stakingToken.transferFrom(msg.sender, address(this), _amount),
@@ -131,10 +141,10 @@ contract StabilityPool is IStabilityPool, Ownable {
     }
 
     // Unstake tokens
-    function unstake(uint256 _amount) external {
+    function unstake(uint256 _amount, address frontend, uint256 fee) public {
         require(_amount > 0, "Cannot unstake zero tokens");
         UserInfo storage user = users[msg.sender];
-        _claim(user);
+        _claim(user, frontend, fee);
 
         require(_amount <= user.stake, "Invalid unstake amount");
 
@@ -158,11 +168,19 @@ contract StabilityPool is IStabilityPool, Ownable {
         emit Unstaked(msg.sender, _amount);
     }
 
-    function _claim(UserInfo storage user) internal {
+    function _claim(
+        UserInfo storage user,
+        address frontend,
+        uint256 fee
+    ) internal {
         if (sbrRewardDistributionStatus != SBRRewardDistribution.ENDED) {
             _addSBRRewards();
         }
-        (uint256 reward, uint256 collateral, ) = _updateRewards(user);
+        (uint256 reward, uint256 collateral, ) = _updateRewards(
+            user,
+            frontend,
+            fee
+        );
         _updateUserStake(user);
         emit RewardClaimed(msg.sender, reward, collateral);
     }
@@ -210,7 +228,12 @@ contract StabilityPool is IStabilityPool, Ownable {
     // Claim accumulated rewards
     function claim() external {
         UserInfo storage user = users[msg.sender];
-        _claim(user);
+        _claim(user, msg.sender, 0);
+    }
+
+    function claim(address frontend, uint256 fee) external {
+        UserInfo storage user = users[msg.sender];
+        _claim(user, frontend, fee);
     }
 
     // Add rewards to the pool
@@ -375,7 +398,9 @@ contract StabilityPool is IStabilityPool, Ownable {
 
     // Internal function to update user rewards
     function _updateRewards(
-        UserInfo storage user
+        UserInfo storage user,
+        address frontend,
+        uint256 fee
     )
         internal
         returns (
@@ -406,14 +431,23 @@ contract StabilityPool is IStabilityPool, Ownable {
         }
 
         if (pendingReward != 0) {
+            uint256 feeReward = (fee * pendingReward) / BASIS_POINTS_DIVISOR;
             require(
-                stakingToken.transfer(msg.sender, pendingReward),
+                stakingToken.transfer(msg.sender, pendingReward - feeReward),
                 "Reward transfer failed"
+            );
+            require(
+                stakingToken.transfer(frontend, feeReward),
+                "Fee transfer failed"
             );
         }
         if (pendingCollateral != 0) {
+            uint256 feeReward = (fee * pendingCollateral) /
+                BASIS_POINTS_DIVISOR;
             (bool success, ) = msg.sender.call{value: pendingCollateral}("");
             require(success, "Collateral transfer failed");
+            (success, ) = frontend.call{value: feeReward}("");
+            require(success, "Fee transfer failed");
         }
         if (pendingSbrRewards != 0) {
             require(

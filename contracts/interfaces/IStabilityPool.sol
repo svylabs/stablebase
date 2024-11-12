@@ -19,9 +19,15 @@ interface IStabilityPool {
 
     function stake(uint256 _amount) external;
 
+    function stake(uint256 _amount, address _frontend, uint256 fee) external;
+
     function unstake(uint256 _amount) external;
 
+    function unstake(uint256 _amount, address _frontend, uint256 fee) external;
+
     function claim() external;
+
+    function claim(address _frontend, uint256 fee) external;
 
     function isLiquidationPossible(uint256 amount) external view returns (bool);
 
