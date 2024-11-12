@@ -357,6 +357,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
             }
             if (ownerFee > 0) {
                 redemption.ownerFee += ownerFee;
+                safe.feePaid = 0; // Reset the fee paid by the safe owner
                 emit OwnerFeePaid(redemption.redemptionId, _safeId, ownerFee);
             }
         }
@@ -456,7 +457,8 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
             _safeId,
             amountToRedeem,
             collateralToRedeem,
-            amountToRefund
+            amountToRefund,
+            redemption.requestedAmount - redemption.redeemedAmount
         );
         return (safe, redemption);
     }

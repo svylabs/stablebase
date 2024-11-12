@@ -124,7 +124,7 @@ describe("Test the flow", function () {
 
       await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
       await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
-      await utils.borrow(david, davidSafeId, davidCollateral, davidBorrowAmount, BigInt(21), contracts);
+      await utils.borrow(david, davidSafeId, davidCollateral, davidBorrowAmount, BigInt(25), contracts);
       await utils.borrow(eli, eliSafeId, eliCollateral, eliBorrowAmount, BigInt(10), contracts);
       await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(100), contracts);
     });
@@ -203,25 +203,55 @@ describe("Test the flow", function () {
                  redeemerFee: (0.75 * 40) / 100 = 0.3
                  ownerFee: 0
 
-
             */
+            let redeemed = BigInt(0);
+            const bobCollateralRedeemed = BigInt(4500000 * 1e18) / BigInt(7000);
+            const bobFeeTier = BigInt(15);
+            redeemed += BigInt(5600000 * 1e18);
+            const eliCollateralRedeemed = BigInt(50000 * 1e18) / BigInt(7000);
+            const eliFeeTier = BigInt(15) + (((users.eli.borrowAmount * BigInt(10) / BigInt(10000))) * BigInt(10000)) / BigInt(70000 * 1e18);
+            const eliFeePaid = (users.eli.borrowAmount * BigInt(10) / BigInt(10000));
+            const eliFeeToPay = (BigInt(70000 * 1e18) * BigInt(15)) / BigInt(10000) - eliFeePaid;
+            redeemed += BigInt(70000 * 1e18);
+            const davidCollateralRedeemed = ethers.parseEther("50000") / BigInt(7000);
+            const davidFeeTier = BigInt(15) + (((users.david.borrowAmount * BigInt(25) / BigInt(10000))) * BigInt(10000)) / BigInt(70000 * 1e18);
+            const davidFeePaid = (users.david.borrowAmount * BigInt(25) / BigInt(10000));
+            const aliceCollateralRedeemed = BigInt(280000 * 1e18) / BigInt(7000);
+            const aliceFeeTier = BigInt(75);
+            const aliceFeePaid = (users.alice.borrowAmount * BigInt(100) / BigInt(10000));
+
+            console.log(bobCollateralRedeemed, eliCollateralRedeemed, davidCollateralRedeemed, aliceCollateralRedeemed);
+            console.log(bobFeeTier, eliFeeTier, davidFeeTier, aliceFeeTier);
+
+
 
            const expectedRedeemAmounts = [
-               {safeId: users.bob.safeId, borrowedAmount: 0, collateralAmount: 0, collateralRedeemed: BigInt(642.857 * 1e18), refunded: BigInt(1100000), redeemerFee: BigInt(0.964 * 1e18), ownerFee: BigInt(1650)},
-               {safeId: users.eli.safeId, borrowedAmount: 0, collateralAmount: 0, collateralRedeemed: BigInt(7.142 * 1e18), refunded: BigInt(20000), redeemerFee: BigInt(0.0178 * 1e18) , ownerFee: BigInt(50)},
-               {safeId: users.david.safeId, collateralRedeemed: BigInt(7.142 * 1e18), refunded: BigInt(0), redeemerFee: BigInt(0.0257 * 1e18), ownerFee: BigInt(0)},
-               {safeId: users.alice.safeId, collateralRedeemed: BigInt(40 * 1e18), refunded: BigInt(0), redeemerFee: BigInt(0.3 * 1e18), ownerFee: BigInt(0)}
+               {safeId: users.bob.safeId, borrowedAmount: 0, collateralAmount: 0, collateralRedeemed: BigInt(800 * 1e18), refunded: BigInt(1100000), redeemerFee: BigInt(1.2 * 1e18), ownerFee: BigInt(8400 * 1e18)},
+               {safeId: users.eli.safeId, borrowedAmount: 0, collateralAmount: 0, collateralRedeemed: BigInt(10 * 1e18), refunded: BigInt(20000), redeemerFee: (BigInt(10 * 1e18) * eliFeeTier) / BigInt(10000) , ownerFee: BigInt(55 * 1e18)},
+               {safeId: users.david.safeId, borrowedAmount: 0, collateralAmount: ethers.parseEther("10") - davidCollateralRedeemed, collateralRedeemed: davidCollateralRedeemed, refunded: BigInt(0), redeemerFee: (davidCollateralRedeemed * davidFeeTier) / BigInt(10000), ownerFee: BigInt(0)},
+               {safeId: users.alice.safeId, borrowedAmount: (users.alice.borrowAmount - ethers.parseEther("280000")), collateralAmount: BigInt(760 * 1e18), collateralRedeemed: BigInt(40 * 1e18), refunded: BigInt(0), redeemerFee: ((aliceCollateralRedeemed * aliceFeeTier) / BigInt(10000)), ownerFee: BigInt(0)}
            ]
+           let totalOwnerFee = BigInt(0);
+           let totalRedeemerFee = BigInt(0);
            expectedRedeemAmounts.forEach((expectedAmount) => {
-               console.log(expectedAmount);
-               console.log(snapshot.newSnapshot.safes[expectedAmount.safeId]);
+               //console.log(expectedAmount);
+               //console.log(snapshot.newSnapshot.safes[expectedAmount.safeId]);
+               expect(snapshot.newSnapshot.safes[expectedAmount.safeId].borrowedAmount).to.be.closeTo(expectedAmount.borrowedAmount, ethers.parseEther("0.00000000001"));
+               expect(snapshot.newSnapshot.safes[expectedAmount.safeId].collateralAmount).to.be.closeTo(expectedAmount.collateralAmount, ethers.parseEther("0.00000000001"));
+               totalOwnerFee += expectedAmount.ownerFee;
+               totalRedeemerFee += expectedAmount.redeemerFee;
            });
-           console.log(snapshot.newSnapshot.stableBaseCDP.redemptionQueue.all);
+           
+           /*console.log(snapshot.newSnapshot.stableBaseCDP.redemptionQueue.all);
            console.log(snapshot.existingSnapshot.stableBaseCDP.liquidationQueue.all);
            console.log(snapshot.newSnapshot.stableBaseCDP.liquidationQueue.all);
+           */
            console.log(snapshot.existingSnapshot.stabilityPool.ethBalance, snapshot.newSnapshot.stabilityPool.ethBalance);
            console.log(snapshot.existingSnapshot.stabilityPool.sbdBalance, snapshot.newSnapshot.stabilityPool.sbdBalance);
-           //console.log(snapshot.logs);
+           expect(snapshot.newSnapshot.stabilityPool.sbdBalance).to.be.closeTo(snapshot.existingSnapshot.stabilityPool.sbdBalance + totalOwnerFee, ethers.parseEther("0.00000000001"));
+           expect(snapshot.newSnapshot.stabilityPool.ethBalance).to.be.closeTo(snapshot.existingSnapshot.stabilityPool.ethBalance + totalRedeemerFee, ethers.parseEther("0.00000000001"));
+           
+          
            snapshot.logs.forEach((log) => {
             try {
                console.log(contracts.stableBaseCDP.interface.parseLog(log));
@@ -236,7 +266,7 @@ describe("Test the flow", function () {
                     }
                 }
             }
-           })
+           });
 
         });
 

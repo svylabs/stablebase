@@ -49,7 +49,8 @@ interface IStableBase {
         uint256 indexed safeId,
         uint256 amount,
         uint256 collateral,
-        uint256 refundedToOwner
+        uint256 refundedToOwner,
+        uint256 remaningToRedeem
     );
     event RedeemedBatch(
         uint256 indexed redemptionId,
