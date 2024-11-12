@@ -223,8 +223,6 @@ describe("Test the flow", function () {
             console.log(bobCollateralRedeemed, eliCollateralRedeemed, davidCollateralRedeemed, aliceCollateralRedeemed);
             console.log(bobFeeTier, eliFeeTier, davidFeeTier, aliceFeeTier);
 
-
-
            const expectedRedeemAmounts = [
                {safeId: users.bob.safeId, borrowedAmount: 0, collateralAmount: 0, collateralRedeemed: BigInt(800 * 1e18), refunded: BigInt(1100000), redeemerFee: BigInt(1.2 * 1e18), ownerFee: BigInt(8400 * 1e18)},
                {safeId: users.eli.safeId, borrowedAmount: 0, collateralAmount: 0, collateralRedeemed: BigInt(10 * 1e18), refunded: BigInt(20000), redeemerFee: (BigInt(10 * 1e18) * eliFeeTier) / BigInt(10000) , ownerFee: BigInt(55 * 1e18)},

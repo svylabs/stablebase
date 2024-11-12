@@ -385,26 +385,40 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         uint256 gasUsed = gasStart - gasleft();
         uint256 gasCompensation = (gasUsed + 80000) * tx.gasprice;
         uint256 refund = min(gasCompensation, liquidationFee);
-        if (refund > 0) {
-            // Send gas cost
-            (bool success, ) = msg.sender.call{value: refund}("");
-            //require(success, "Gas compensation failed");
-            if (!success) {
-                refund = 0;
-            }
-        }
-        if (liquidationFee - refund > 0) {
-            // Send the remaining liquidation fee to the stability pool
+        _distributeLiquidationFeeAndGasCompensation(liquidationFee, refund);
+    }
+
+    function _distributeLiquidationFeeAndGasCompensation(
+        uint256 liquidationFee,
+        uint256 refund
+    ) internal {
+        // Try to send the liquidation fee to sbr stakers
+        if (sbrStakingPoolCanReceiveRewards) {
             bool success = sbrTokenStaking.addCollateralReward{
                 value: liquidationFee - refund
             }(liquidationFee - refund);
-            if (!success) {
-                // Refund the remaining liquidation fee to the user
-                (bool success, ) = msg.sender.call{
+            if (!success && stabilityPoolCanReceiveRewards) {
+                success = stabilityPool.addCollateralReward{
                     value: liquidationFee - refund
-                }("");
-                require(success, "Transfer failed");
+                }(liquidationFee - refund);
+                if (!success) {
+                    refund = liquidationFee;
+                }
             }
+        } else if (stabilityPoolCanReceiveRewards) {
+            bool success = stabilityPool.addCollateralReward{
+                value: liquidationFee - refund
+            }(liquidationFee - refund);
+            if (!success) {
+                refund = liquidationFee;
+            }
+        } else {
+            refund = liquidationFee;
+        }
+        if (refund > 0) {
+            // Refund the remaining liquidation fee to the user
+            (bool success, ) = msg.sender.call{value: refund}("");
+            require(success, "Transfer failed");
         }
     }
 
