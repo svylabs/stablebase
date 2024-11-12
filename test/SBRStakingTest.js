@@ -23,7 +23,7 @@ describe("SBRStaking Contract", function () {
 
     // Deploy the SBRStaking contract
     const SBRStakingContract = await ethers.getContractFactory("SBRStaking");
-    sbrStaking = await SBRStakingContract.deploy(true);
+    sbrStaking = await SBRStakingContract.deploy(false);
     await sbrStaking.waitForDeployment();
 
     // Set addresses

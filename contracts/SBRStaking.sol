@@ -23,10 +23,10 @@ contract SBRStaking is ISBRStaking, Ownable {
     IERC20 public rewardToken;
     address public stableBaseContract;
 
-    bool public canReceiveRewards = false;
+    bool public rewardSenderActive = false;
 
-    constructor(bool _canReceiveRewards) Ownable(msg.sender) {
-        canReceiveRewards = _canReceiveRewards;
+    constructor(bool _rewardSenderActive) Ownable(msg.sender) {
+        rewardSenderActive = _rewardSenderActive;
     }
 
     function setAddresses(
@@ -55,7 +55,7 @@ contract SBRStaking is ISBRStaking, Ownable {
         uint256 _oldTotalStake = totalStake;
         totalStake += _amount;
 
-        if (canReceiveRewards && _oldTotalStake == 0) {
+        if (rewardSenderActive && _oldTotalStake == 0) {
             IRewardSender(stableBaseContract)
                 .setCanSBRStakingPoolReceiveRewards(true);
         }
@@ -73,7 +73,7 @@ contract SBRStaking is ISBRStaking, Ownable {
         user.stake -= _amount;
         totalStake -= _amount;
 
-        if (totalStake == 0) {
+        if (rewardSenderActive && totalStake == 0) {
             IRewardSender(stableBaseContract)
                 .setCanSBRStakingPoolReceiveRewards(false);
         }
