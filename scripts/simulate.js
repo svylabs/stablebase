@@ -109,11 +109,10 @@ class Actor extends Agent {
         try {
             await this._step();
         } catch (error) {
-            console.log(this.stabilityPool);
-            console.log(this.safeId, this.safe);
             console.log(this.ethBalance, this.sbdBalance, this.sbrBalance);
+            await this._printState();
+            console.log(this.stabilityPool);
             console.log(await this.contracts.sbdToken.balanceOf(this.account.address));
-            console.log(await this.contracts.stableBaseCDP.safes(this.safeId));
             console.log(await this.contracts.stabilityPool.getUser(this.account.address));
             await this.tracker.printState();
             throw error;
@@ -400,6 +399,14 @@ class Borrower extends Actor {
     async unstakeSBR() {
     }
 
+    async _printState() {
+        console.log("Borrower state ", this.safeId, this.safe);
+        console.log("Safe: ", await this.contracts.stableBaseCDP.safes(this.safeId));
+        console.log("Stability Pool State: ", this.stabilityPool);
+        console.log("Stability Pool state for user: ", await this.contracts.stabilityPool.getUser(this.account.address));
+        console.log("Stability Pool Reward State: ", await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address));
+    }
+
     async _step() {
         if (Math.random() < 0.03) {
             await this.borrow();
@@ -443,6 +450,10 @@ class Borrower extends Actor {
 class Bot extends Actor {
     constructor(account, initialBalance, contracts, market, tracker) {
         super("Bot", account, initialBalance, contracts, market, tracker);
+    }
+
+    async _printState() {
+        // nothing
     }
     async liquidate() {
         const safeId = await this.contracts.liquidationQueue.getTail();
@@ -562,6 +573,10 @@ class Bot extends Actor {
 class ThirdpartyStablecoinHolder extends Actor {
     constructor(account, initialBalance, contracts, market, tracker) {
         super("ThirdpartyStablecoinHolder", account, initialBalance, contracts, market, tracker);
+    }
+
+    async _printState() {
+        // Nothing spl
     }
     
     async stakeSBR() {
@@ -886,9 +901,12 @@ class OfflineProtocolTracker extends Agent {
   async printState() {
      // Print state
      const contractState = await takeContractSnapshots(this.contracts);
-     const safeSnapshots = await takeSafeSnapshots(this.contracts, [...this.borrowers.map(b => b.safeId)]);
+     const safeIds = Object.keys(this.borrowers).map(k => this.borrowers[k].safeId);
+     const safeSnapshots = await takeSafeSnapshots(this.contracts, safeIds);
         console.log("Contract state: ", contractState);
         console.log("Safe snapshots: ", safeSnapshots);
+        console.log("Redemption QUeue: ", contractState.stableBaseCDP.redemptionQueue.all);
+        console.log("Liquidation Queue: ", contractState.stableBaseCDP.liquidationQueue.all);
   }
 
   async validateSafes() {
@@ -927,7 +945,6 @@ class OfflineProtocolTracker extends Agent {
         const safe = await this.contracts.stableBaseCDP.safes(borrower.safeId);
         expect(safe.collateralAmount).to.equal(borrower.safe.collateral, "Collateral mismatch");
         expect(safe.borrowedAmount).to.equal(borrower.safe.debt, "Debt mismatch");
-        
     }
     expect(totalCollateral).to.equal(await this.contracts.stableBaseCDP.totalCollateral(), "Total collateral mismatch");
     expect(totalDebt).to.equal(await this.contracts.stableBaseCDP.totalDebt(), "Total debt mismatch");
