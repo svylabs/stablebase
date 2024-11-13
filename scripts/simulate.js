@@ -3,6 +3,7 @@ const { time } = require('@nomicfoundation/hardhat-network-helpers');
 const { ethers } = require("hardhat");
 const { deployContract } = require("@nomicfoundation/hardhat-ethers/types");
 const { assert, expect } = require("chai");
+const { takeODLLSnapshot, takeUserSnapshots, takeContractSnapshots, takeSafeSnapshots } = require("../test/utils");
 
 const numBorrowers = 100;
 const numBots = 5;
@@ -105,6 +106,18 @@ class Actor extends Agent {
     async step() {
         console.log(`[${this.actorType} - ${this.id}] executing step`);
         this.ethBalance = await this.account.provider.getBalance(this.account.address);
+        try {
+            await this._step();
+        } catch (error) {
+            console.log(this.stabilityPool);
+            console.log(this.safeId, this.safe);
+            console.log(this.ethBalance, this.sbdBalance, this.sbrBalance);
+            console.log(await this.contracts.sbdToken.balanceOf(this.account.address));
+            console.log(await this.contracts.stableBaseCDP.safes(this.safeId));
+            console.log(await this.contracts.stabilityPool.getUser(this.account.address));
+            await this.tracker.printState();
+            throw error;
+        }
     }
 
     async stakeSBD() {
@@ -387,8 +400,7 @@ class Borrower extends Actor {
     async unstakeSBR() {
     }
 
-    async step() {
-        await super.step();
+    async _step() {
         if (Math.random() < 0.03) {
             await this.borrow();
             return;
@@ -527,8 +539,7 @@ class Bot extends Actor {
             }
         }
     }
-    async step() {
-        super.step();
+    async _step() {
         if (Math.random() < 0.1) {
             await this.buySBD();
             return;
@@ -559,8 +570,7 @@ class ThirdpartyStablecoinHolder extends Actor {
     async unstakeSBR() {
     }
 
-    async step() {
-        super.step();
+    async _step() {
         if (Math.random() < 0.1) {
             await this.buySBD();
             return;
@@ -873,9 +883,43 @@ class OfflineProtocolTracker extends Agent {
     expect(totalRewards.eth).to.be.closeTo(await ethers.provider.getBalance(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool ETH balance mismatch");
   }
 
+  async printState() {
+     // Print state
+     const contractState = await takeContractSnapshots(this.contracts);
+     const safeSnapshots = await takeSafeSnapshots(this.contracts, [...this.borrowers.map(b => b.safeId)]);
+        console.log("Contract state: ", contractState);
+        console.log("Safe snapshots: ", safeSnapshots);
+  }
+
   async validateSafes() {
     let totalCollateral = BigInt(0);
     let totalDebt = BigInt(0);
+    const safesOrderedForRedemption = await takeODLLSnapshot(this.contracts.redemptionQueue);
+    const safesOrderedForLiquidation = await takeODLLSnapshot(this.contracts.liquidationQueue);
+    let current = await this.contracts.redemptionQueue.getHead();
+    let prevNode;
+    let prev;
+    do {
+        const currentNode = await this.contracts.redemptionQueue.getNode(current);
+        if (prevNode) {
+            expect(prevNode.value).to.be.lessThanOrEqual(currentNode.value, "Redemption queue order mismatch");
+        }
+        prevNode = currentNode;
+        prev = current;
+        current = currentNode.next;
+    } while (current != BigInt(0));
+    current = await this.contracts.liquidationQueue.getHead();
+    prevNode = null;
+    prev = null;
+    do {
+        const currentNode = await this.contracts.liquidationQueue.getNode(current);
+        if (prevNode) {
+            expect(prevNode.value).to.be.lessThanOrEqual(currentNode.value, "Redemption queue order mismatch");
+        }
+        prevNode = currentNode;
+        prev = current;
+        current = currentNode.next;
+    } while (current != BigInt(0));
     for (const borrowerId of Object.keys(this.borrowers)) {
         const borrower = this.borrowers[borrowerId];
         totalCollateral += borrower.safe.collateral;
@@ -883,6 +927,7 @@ class OfflineProtocolTracker extends Agent {
         const safe = await this.contracts.stableBaseCDP.safes(borrower.safeId);
         expect(safe.collateralAmount).to.equal(borrower.safe.collateral, "Collateral mismatch");
         expect(safe.borrowedAmount).to.equal(borrower.safe.debt, "Debt mismatch");
+        
     }
     expect(totalCollateral).to.equal(await this.contracts.stableBaseCDP.totalCollateral(), "Total collateral mismatch");
     expect(totalDebt).to.equal(await this.contracts.stableBaseCDP.totalDebt(), "Total debt mismatch");

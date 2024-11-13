@@ -34,7 +34,9 @@ async function takeCDPSnapshot(contracts, safeId) {
     snapshot.totalDebt = await contracts.stableBaseCDP.totalDebt();
     snapshot.redemptionQueue = await takeODLLSnapshot(contracts.redemptionQueue, safeId);
     snapshot.liquidationQueue = await takeODLLSnapshot(contracts.liquidationQueue, safeId);
-    snapshot.liquidationSnapshotForSafe = await contracts.stableBaseCDP.liquidationSnapshots(safeId);
+    if (safeId) {
+        snapshot.liquidationSnapshotForSafe = await contracts.stableBaseCDP.liquidationSnapshots(safeId);
+    }
     return snapshot;
 }
 
@@ -95,8 +97,12 @@ async function takeContractSnapshots(contracts, safeId, user) {
     snapshots.sbdToken = await takeSBDSnapshot(contracts);
     snapshots.sbrToken = await takeSBRSnapshot(contracts);
     snapshots.sbrStaking = await takeSBRStakingSnapshot(contracts);
-    snapshots.safe = await contracts.stableBaseCDP.safes(safeId);
-    snapshots.user = await takeUserSnapshots(contracts, safeId, user);
+    if (safeId) {
+        snapshots.safe = await contracts.stableBaseCDP.safes(safeId);
+    }
+    if (user)  {
+        snapshots.user = await takeUserSnapshots(contracts, safeId, user);
+    }
     return snapshots;
 }
 
@@ -279,4 +285,4 @@ async function redeem(user, amount, contracts, safes) {
     }
 }
 
-module.exports = { borrow, feeTopup, repay, addCollateral, adjustPosition, liquidate, stakeSBD, redeem, takeContractSnapshots, takeUserSnapshots, withdrawCollateral};
+module.exports = { borrow, feeTopup, repay, addCollateral, adjustPosition, liquidate, stakeSBD, redeem, takeContractSnapshots, takeUserSnapshots, withdrawCollateral, takeODLLSnapshot, takeSafeSnapshots};
