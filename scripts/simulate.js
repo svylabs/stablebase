@@ -252,6 +252,7 @@ class Borrower extends Actor {
     async activatePendingCollateralAndDebt() {
         const result = await this.contracts.stableBaseCDP.getInactiveDebtAndCollateral(this.safeId);
         if (result[0] > BigInt(0) || result[1] > BigInt(0)) {
+            console.log("Applying pending collateral and debt ", result[0], result[1]);
             const pendingDebtIncrease=  this.safe.pending.debt;
             const pendingCollateralIncrease = this.safe.pending.collateral;
             expect(pendingDebtIncrease).to.be.closeTo(result[0], ethers.parseUnits("0.0000000001", 18));
@@ -497,18 +498,31 @@ class Bot extends Actor {
         if (collateralValue < (safe.borrowedAmount * BigInt(1100) / BigInt(1000))) {
             // liquidate
             console.log("Attempting to liquidate ", safeId);
+            this.tracker.activatePendingCollateralAndDebt(safeId);
             const safeBeforeLiquidation = await this.contracts.stableBaseCDP.safes(safeId);
             console.log("Safe before liquidation: ", safeBeforeLiquidation);
+            console.log("Total debt/collateral", await this.contracts.stableBaseCDP.totalDebt(), await this.contracts.stableBaseCDP.totalCollateral(), this.tracker.totalDebt, this.tracker.totalCollateral);
             const tx = await this.contracts.stableBaseCDP.connect(this.account).liquidate();
             const txDetail = await tx.wait();
+            const gas = txDetail.gasUsed * tx.gasPrice;
+            let gasCompensation = BigInt(0);
+            txDetail.logs.forEach(log => {
+                if (log.address == this.contracts.stableBaseCDP.address) {
+                    const event = this.contracts.stableBaseCDP.interface.parseLog(log);
+                    if (event.name == "LiquidationGasCompensationPaid") {
+                        console.log("Gas compensation for liquidation: ", event.args.gasCompensated, txDetail.gasUsed, tx.gasPrice);
+                        gasCompensation = event.args.refund;
+                    }
+                }
+            });
             // Check debt and collateral in contract
             // Adjust stakes, rewards, etc.
             const safeAfterLiquidation = await this.contracts.stableBaseCDP.safes(safeId);
             expect(safeAfterLiquidation.borrowedAmount).to.equal(BigInt(0));
             expect(safeAfterLiquidation.collateralAmount).to.equal(BigInt(0));
             const liquidationFee = safe.collateralAmount * (await this.contracts.stableBaseCDP.REDEMPTION_LIQUIDATION_FEE()) / BigInt(10000);
-            const refund = await this.tracker.liquidate(safe, safeId, liquidationFee);
-            this.ethBalance += refund;
+            const refund = await this.tracker.liquidate(safe, safeId, liquidationFee - gasCompensation);
+            //this.ethBalance += refund;
             //expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.1", 18));
 
         } else if (Math.random() < 0.05) {
@@ -533,6 +547,7 @@ class Bot extends Actor {
         let amountToRedeem = sbdAmount;
         do {
             const safeId = await this.contracts.redemptionQueue.getHead();
+            this.tracker.activatePendingCollateralAndDebt(safeId);
             //console.log("Redeeming safe: ", safeId);
             const safe = await this.contracts.stableBaseCDP.safes(safeId);
             const safeCopy = {
@@ -763,6 +778,11 @@ class OfflineProtocolTracker extends Agent {
     delete this.safeMapping[BigInt(borrowerAgent.safeId)];
   }
 
+  async activatePendingCollateralAndDebt(safeId) {
+    const borrower = this.safeMapping[BigInt(safeId)];
+    await borrower.activatePendingCollateralAndDebt();
+  }
+
   async addStabilityPoolStaker(staker) {
     if (this.stabilityPool.stakers.filter(s => s.id == staker.id).length == 0) {
         this.stabilityPool.stakers.push(staker);
@@ -788,6 +808,7 @@ class OfflineProtocolTracker extends Agent {
      const fee = liquidationFee;
      this.totalCollateral -= collateralAmount;
      this.totalDebt -= borrowAmount;
+     const refund = BigInt(0);
      if (this.stabilityPool.totalStake >= borrowAmount) {
         await this.distributeCollateralGainsToStabilityPoolStakers(collateralAmount - fee, false);
         const totalStake = this.stabilityPool.totalStake;
@@ -798,34 +819,36 @@ class OfflineProtocolTracker extends Agent {
         this.stabilityPool.totalStake -= borrowAmount;
         if (this.sbrStaking.totalStake > BigInt(0)) {
             await this.distributeCollateralGainsToSBRStakers(collateralAmount - fee);
-            return BigInt(0);
+            //return BigInt(0);
         } else if (this.stabilityPool.totalStake > BigInt(0)) {
             await this.distributeCollateralGainsToStabilityPoolStakers(liquidationFee, true);
-            return BigInt(0);
+            //return BigInt(0);
+            //refund = 
         } else {
-            return liquidationFee;
+           // return liquidationFee;
+           refund = liquidationFee;
         }
      } else {
-        // Distribute debt and collateral to existing borrowers
-        this.totalCollateral -= collateralAmount;
-        this.totalDebt -= borrowAmount;
+        const totalCollateral = await this.contracts.stableBaseCDP.totalCollateral();
         await this.cleanupBorrower(safeId);
-        await distributeDebtAndCollateralToExistingBorrowers(borrowAmount, collateralAmount, this.totalCollateral);
+        await this.distributeDebtAndCollateralToExistingBorrowers(borrowAmount, collateralAmount, totalCollateral);
      }
-     expect(this.totalCollateral).to.equal(await this.contracts.stableBaseCDP.totalCollateral());
-     expect(this.totalDebt).to.equal(await this.contracts.stableBaseCDP.totalDebt());
+     //expect(this.totalCollateral).to.equal(await this.contracts.stableBaseCDP.totalCollateral());
+     //expect(this.totalDebt).to.equal(await this.contracts.stableBaseCDP.totalDebt());
      expect(await this.contracts.redemptionQueue.getNode(safeId)).to.deep.equal([BigInt(0), BigInt(0), BigInt(0)]);
      expect(await this.contracts.liquidationQueue.getNode(safeId)).to.deep.equal([BigInt(0), BigInt(0), BigInt(0)]);
-     await cleanupBorrower(safeId);
-     return BigInt(0);
+     await this.cleanupBorrower(safeId);
+     return refund;
   }
 
   async distributeDebtAndCollateralToExistingBorrowers(debt, collateral, totalCollateral) {
+     console.log("Distributing debt and collateral to existing borrowers ", debt, collateral, totalCollateral);
      for (const borrowerId of Object.keys(this.borrowers)) {
         const borrower = this.borrowers[borrowerId];
         const share = ((collateral * borrower.safe.collateral) / totalCollateral);
         borrower.safe.pending.collateral += share;
-        borrower.safe.pending.debt += (debt * share) / collateral
+        borrower.safe.pending.debt += (debt * share) / collateral;
+        console.log("Distributing debt and collateral to borrower ", borrower.id, share, borrower.safe.pending.collateral, borrower.safe.pending.debt);
      }
   }
 

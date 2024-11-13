@@ -80,6 +80,7 @@ interface IStableBase {
     );
     event LiquidationGasCompensationPaid(
         uint256 indexed safeId,
+        uint256 gasCompensated,
         address receiver,
         uint256 feePaid
     );

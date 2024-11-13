@@ -392,6 +392,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         uint256 refund = min(gasCompensation, liquidationFee);
         _distributeLiquidationFeeAndGasCompensation(
             _safeId,
+            (gasUsed + 100000),
             liquidationFee,
             refund
         );
@@ -399,6 +400,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
 
     function _distributeLiquidationFeeAndGasCompensation(
         uint256 safeId,
+        uint256 gasPaid,
         uint256 liquidationFee,
         uint256 refund
     ) internal {
@@ -443,7 +445,12 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
             // Refund the remaining liquidation fee to the user
             (bool success, ) = msg.sender.call{value: refund}("");
             require(success, "Transfer failed");
-            emit LiquidationGasCompensationPaid(safeId, msg.sender, refund);
+            emit LiquidationGasCompensationPaid(
+                safeId,
+                gasPaid,
+                msg.sender,
+                refund
+            );
         }
     }
 
