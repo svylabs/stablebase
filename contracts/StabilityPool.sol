@@ -362,7 +362,7 @@ contract StabilityPool is IStabilityPool, Ownable {
                 IRewardSender(stableBaseCDP).setCanStabilityPoolReceiveRewards(
                     false
                 ),
-                "Unable to activate reward sender"
+                "Unable to deactivate reward sender"
             );
         }
 

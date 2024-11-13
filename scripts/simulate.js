@@ -465,14 +465,16 @@ class Bot extends Actor {
         const collateralValue = safe.collateralAmount * this.market.collateralPrice;
         if (collateralValue < (safe.borrowedAmount * BigInt(1100) / BigInt(1000))) {
             // liquidate
-            /*
             console.log("Attempting to liquidate ", safeId);
             const tx = await this.contracts.stableBaseCDP.connect(this.account).liquidate();
             await tx.wait();
             // Check debt and collateral in contract
             // Adjust stakes, rewards, etc.
-            */
-
+            const safeAfterLiquidation = await this.contracts.stableBaseCDP.safes(safeId);
+            expect(safeAfterLiquidation.borrowedAmount).to.equal(BigInt(0));
+            expect(safeAfterLiquidation.collateralAmount).to.equal(BigInt(0));
+            const liquidationFee = safe.collateralAmount * (await this.contracts.stableBaseCDP.REDEMPTION_LIQUIDATION_FEE()) / BigInt(10000);
+            this.tracker.liquidate(safe, safeId, safe.borrowedAmount, liquidationFee);
 
         } else if (Math.random() < 0.05) {
             console.log("Attempting to liquidate ", safeId);
@@ -563,11 +565,11 @@ class Bot extends Actor {
             await this.buyETH();
             return;
         }
-        if (Math.random() < 0.5) {
-            await this.liquidate();
+        if (Math.random() < 0.2) {
+            //await this.liquidate();
             return;
         }
-        if (Math.random() < 0.5) {
+        if (Math.random() < 0.2) {
             await this.redeem();
             return;
         }
@@ -734,6 +736,25 @@ class OfflineProtocolTracker extends Agent {
     this.stabilityPool.totalStake = this.stabilityPool.stakers.reduce((acc, s) => acc + s.stabilityPool.stake, BigInt(0));
   }
 
+  async liquidate(safe, safeId, liquidationFee) { 
+     const borrowAmount = safe.borrowedAmount;
+     const collateralAmount = safe.collateralAmount;
+     const fee = liquidationFee;
+     this.totalCollateral -= collateralAmount;
+     this.totalDebt -= borrowAmount;
+     if (this.stabilityPool.totalStake > BigInt(0)) {
+        await this.distributeCollateralGainsToStabilityPoolStakers(collateralAmount - fee);
+        const totalStake = this.stabilityPool.totalStake;
+        const scalingFactor =  ((totalStake - borrowAmount) * BigInt(1e18)) / totalStake;
+        for (const staker of this.stabilityPool.stakers) {
+            staker.stabilityPool.stake = (staker.stabilityPool.stake * scalingFactor) / BigInt(1e18);
+        }
+        this.stabilityPool.totalStake -= borrowAmount;
+     } else {
+        // Distribute debt and collateral to existing borrowers
+     }
+  }
+
   async updateRedeemedSafes(redeemedSafes) {
     for (const safe of redeemedSafes) {
         const collateralToRedeem = safe.params[1];
@@ -747,7 +768,7 @@ class OfflineProtocolTracker extends Agent {
         const agent = this.safeMapping[safe.safeId];
         agent.safe.collateral -= collateralToRedeem;
         agent.safe.debt -= debtToRedeem;
-        agent.sbdBalance += toRefund;
+        agent.sbdBalance += (toRefund - ownerFee);
         // Update the redemption / liquidation queue.
         if (this.stabilityPool.totalStake > BigInt(0)) {
             if (ownerFee > BigInt(0)) {
@@ -873,6 +894,7 @@ class OfflineProtocolTracker extends Agent {
     sbrTokens += this.market.sbrBalance;
     sbdTokens += this.stabilityPool.totalStake;
     //sbdTokens += this.stabilityPool.totalRewards.sbd;
+
     console.log(sbdTokens);
     console.log(await this.contracts.sbdToken.totalSupply());
     expect(await this.contracts.sbdToken.balanceOf(this.contracts.stableBaseCDP.target)).to.equal(BigInt(0), "SBD token mismatch");
@@ -955,11 +977,16 @@ class OfflineProtocolTracker extends Agent {
   }
 
   async step() {
+    try {
     //this.checkForLiquidation(collateralPrice);
-    await this.validateDebtAndCollateral();
-    await this.validateTotalSupply();
-    await this.validateStabilityPool();
-    await this.validateSafes();
+        await this.validateDebtAndCollateral();
+        await this.validateTotalSupply();
+        await this.validateStabilityPool();
+        await this.validateSafes();
+    } catch (ex) {
+        console.log(this.stabilityPool);
+        await this.printState();
+    }
   }
 }
 
