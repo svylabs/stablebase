@@ -73,6 +73,16 @@ interface IStableBase {
         uint256 totalCollateral,
         uint256 totalDebt
     );
+    event LiquidationFeePaid(
+        uint256 indexed safeId,
+        address receiver,
+        uint256 feePaid
+    );
+    event LiquidationGasCompensationPaid(
+        uint256 indexed safeId,
+        address receiver,
+        uint256 feePaid
+    );
 
     event FeeTopup(
         uint256 indexed safeId,

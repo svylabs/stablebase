@@ -383,42 +383,63 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         // Remove the Safe from the mapping
         _removeSafe(_safeId);
         uint256 gasUsed = gasStart - gasleft();
-        uint256 gasCompensation = (gasUsed + 80000) * tx.gasprice;
+        uint256 gasCompensation = (gasUsed + 100000) *
+            (block.basefee + (block.basefee * 10) / 100); // 10% extra gas cost
         uint256 refund = min(gasCompensation, liquidationFee);
-        _distributeLiquidationFeeAndGasCompensation(liquidationFee, refund);
+        _distributeLiquidationFeeAndGasCompensation(
+            _safeId,
+            liquidationFee,
+            refund
+        );
     }
 
     function _distributeLiquidationFeeAndGasCompensation(
+        uint256 safeId,
         uint256 liquidationFee,
         uint256 refund
     ) internal {
         // Try to send the liquidation fee to sbr stakers
-        if (sbrStakingPoolCanReceiveRewards) {
-            bool success = sbrTokenStaking.addCollateralReward{
-                value: liquidationFee - refund
-            }(liquidationFee - refund);
-            if (!success && stabilityPoolCanReceiveRewards) {
-                success = stabilityPool.addCollateralReward{
+        if (liquidationFee > refund) {
+            if (sbrStakingPoolCanReceiveRewards) {
+                bool success = sbrTokenStaking.addCollateralReward{
+                    value: liquidationFee - refund
+                }(liquidationFee - refund);
+                if (!success && stabilityPoolCanReceiveRewards) {
+                    success = stabilityPool.addCollateralReward{
+                        value: liquidationFee - refund
+                    }(liquidationFee - refund);
+                    if (!success) {
+                        refund = liquidationFee;
+                    }
+                } else if (success) {
+                    emit LiquidationFeePaid(
+                        safeId,
+                        address(sbrTokenStaking),
+                        liquidationFee - refund
+                    );
+                }
+            } else if (stabilityPoolCanReceiveRewards) {
+                bool success = stabilityPool.addCollateralReward{
                     value: liquidationFee - refund
                 }(liquidationFee - refund);
                 if (!success) {
                     refund = liquidationFee;
+                } else {
+                    emit LiquidationFeePaid(
+                        safeId,
+                        address(stabilityPool),
+                        liquidationFee - refund
+                    );
                 }
-            }
-        } else if (stabilityPoolCanReceiveRewards) {
-            bool success = stabilityPool.addCollateralReward{
-                value: liquidationFee - refund
-            }(liquidationFee - refund);
-            if (!success) {
+            } else {
                 refund = liquidationFee;
             }
-        } else {
-            refund = liquidationFee;
         }
         if (refund > 0) {
             // Refund the remaining liquidation fee to the user
             (bool success, ) = msg.sender.call{value: refund}("");
             require(success, "Transfer failed");
+            emit LiquidationGasCompensationPaid(safeId, msg.sender, refund);
         }
     }
 

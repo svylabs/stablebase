@@ -246,6 +246,7 @@ describe("Test the flow", function () {
            */
            console.log(snapshot.existingSnapshot.stabilityPool.ethBalance, snapshot.newSnapshot.stabilityPool.ethBalance);
            console.log(snapshot.existingSnapshot.stabilityPool.sbdBalance, snapshot.newSnapshot.stabilityPool.sbdBalance);
+           // Checking fee distributions
            expect(snapshot.newSnapshot.stabilityPool.sbdBalance).to.be.closeTo(snapshot.existingSnapshot.stabilityPool.sbdBalance + totalOwnerFee, ethers.parseEther("0.00000000001"));
            expect(snapshot.newSnapshot.stabilityPool.ethBalance).to.be.closeTo(snapshot.existingSnapshot.stabilityPool.ethBalance + totalRedeemerFee, ethers.parseEther("0.00000000001"));
            
