@@ -468,13 +468,6 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         if (redemption.ownerFee > 0) {
             if (stabilityPoolCanReceiveRewards) {
                 require(
-                    sbdToken.approve(
-                        address(stabilityPool),
-                        redemption.ownerFee
-                    ),
-                    "Approve failed"
-                );
-                require(
                     stabilityPool.addReward(redemption.ownerFee),
                     "Add reward failed"
                 );
