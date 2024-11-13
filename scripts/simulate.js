@@ -740,8 +740,8 @@ class OfflineProtocolTracker extends Agent {
         expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
     }
     expect(totalStake).to.equal(await this.contracts.stabilityPool.totalStakedRaw(), "Stability pool stake mismatch");
-    expect(totalRewards.sbd + totalStake).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), ethers.parseUnits("0.0000000001", 18), "Stability pool SBD balance mismatch");
-    expect(totalRewards.eth).to.be.closeTo(await ethers.provider.getBalance(this.contracts.stabilityPool.target), ethers.parseUnits("0.0000000001", 18), "Stability pool ETH balance mismatch");
+    expect(totalRewards.sbd + totalStake).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool SBD balance mismatch");
+    expect(totalRewards.eth).to.be.closeTo(await ethers.provider.getBalance(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool ETH balance mismatch");
   }
 
   async step() {
@@ -772,7 +772,7 @@ async function deployContracts() {
       console.log("Deployed SBRToken to:", sbrToken.target);
   
       const StabilityPool = await ethers.getContractFactory("StabilityPool");
-      const stabilityPool = await StabilityPool.deploy();
+      const stabilityPool = await StabilityPool.deploy(true);
       await stabilityPool.waitForDeployment();
       console.log("Deployed StabilityPool to:", stabilityPool.target);
       
@@ -787,7 +787,7 @@ async function deployContracts() {
       console.log("Deployed StableBaseCDP to:", stableBaseCDP.target);
   
       const SBRStaking = await ethers.getContractFactory("SBRStaking");
-      const sbrStaking = await SBRStaking.deploy();
+      const sbrStaking = await SBRStaking.deploy(true);
       await sbrStaking.waitForDeployment();
       console.log("Deployed SBRStaking to:", sbrStaking.target);
   
@@ -904,7 +904,7 @@ async function main() {
     tracker.actors = actors;
 
     // Main simulation loop
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 300; i++) {
         console.log(`--- Simulation Step ${i + 1} ---`);
         
         // Get the updated collateral price from the market

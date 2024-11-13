@@ -9,6 +9,12 @@ interface IMintableToken is IERC20 {
     function mint(address to, uint256 amount) external returns (bool);
 }
 
+interface IRewardSender {
+    function setCanStabilityPoolReceiveRewards(
+        bool canReceiveRewards
+    ) external returns (bool);
+}
+
 contract StabilityPool is IStabilityPool, Ownable {
     IERC20 public stakingToken; // Token that users stake and receive rewards in
     address public stableBaseCDP; // External contract to liquidate debt
@@ -49,6 +55,8 @@ contract StabilityPool is IStabilityPool, Ownable {
     SBRRewardDistribution public sbrRewardDistributionStatus =
         SBRRewardDistribution.NOT_STARTED;
 
+    uint256 public constant BASIS_POINTS_DIVISOR = 10000;
+
     /**
        Distribute SBR reward to early users for 1 year, beginning from first person that stakes SBR.
        After 1 year, distribute SBR reward to all users.
@@ -75,7 +83,11 @@ contract StabilityPool is IStabilityPool, Ownable {
         _;
     }
 
-    constructor() Ownable(msg.sender) {}
+    bool public rewardSenderActive;
+
+    constructor(bool _rewardSenderActive) Ownable(msg.sender) {
+        rewardSenderActive = _rewardSenderActive;
+    }
 
     function setAddresses(
         address _stakingToken,
@@ -93,11 +105,19 @@ contract StabilityPool is IStabilityPool, Ownable {
         emit Received(msg.sender, msg.value);
     }
 
-    // Stake tokens
     function stake(uint256 _amount) external {
+        stake(_amount, msg.sender, 0);
+    }
+
+    function unstake(uint256 amount) external {
+        unstake(amount, msg.sender, 0);
+    }
+
+    // Stake tokens
+    function stake(uint256 _amount, address frontend, uint256 fee) public {
         require(_amount > 0, "Cannot stake zero tokens");
         UserInfo storage user = users[msg.sender];
-        _claim(user);
+        _claim(user, frontend, fee);
 
         require(
             stakingToken.transferFrom(msg.sender, address(this), _amount),
@@ -105,21 +125,40 @@ contract StabilityPool is IStabilityPool, Ownable {
         );
 
         user.stake += _amount;
+        uint256 oldTotalStakedRaw = totalStakedRaw;
         totalStakedRaw += _amount;
+
+        if (oldTotalStakedRaw == 0 && rewardSenderActive) {
+            require(
+                IRewardSender(stableBaseCDP).setCanStabilityPoolReceiveRewards(
+                    true
+                ),
+                "Unable to set reward distribution"
+            );
+        }
 
         emit Staked(msg.sender, _amount);
     }
 
     // Unstake tokens
-    function unstake(uint256 _amount) external {
+    function unstake(uint256 _amount, address frontend, uint256 fee) public {
         require(_amount > 0, "Cannot unstake zero tokens");
         UserInfo storage user = users[msg.sender];
-        _claim(user);
+        _claim(user, frontend, fee);
 
         require(_amount <= user.stake, "Invalid unstake amount");
 
         user.stake -= _amount;
         totalStakedRaw -= _amount;
+
+        if (totalStakedRaw == 0 && rewardSenderActive) {
+            require(
+                IRewardSender(stableBaseCDP).setCanStabilityPoolReceiveRewards(
+                    false
+                ),
+                "Unable to set reward distribution"
+            );
+        }
 
         require(
             stakingToken.transfer(msg.sender, _amount),
@@ -129,11 +168,19 @@ contract StabilityPool is IStabilityPool, Ownable {
         emit Unstaked(msg.sender, _amount);
     }
 
-    function _claim(UserInfo storage user) internal {
+    function _claim(
+        UserInfo storage user,
+        address frontend,
+        uint256 fee
+    ) internal {
         if (sbrRewardDistributionStatus != SBRRewardDistribution.ENDED) {
             _addSBRRewards();
         }
-        (uint256 reward, uint256 collateral, ) = _updateRewards(user);
+        (uint256 reward, uint256 collateral, ) = _updateRewards(
+            user,
+            frontend,
+            fee
+        );
         _updateUserStake(user);
         emit RewardClaimed(msg.sender, reward, collateral);
     }
@@ -181,7 +228,12 @@ contract StabilityPool is IStabilityPool, Ownable {
     // Claim accumulated rewards
     function claim() external {
         UserInfo storage user = users[msg.sender];
-        _claim(user);
+        _claim(user, msg.sender, 0);
+    }
+
+    function claim(address frontend, uint256 fee) external {
+        UserInfo storage user = users[msg.sender];
+        _claim(user, frontend, fee);
     }
 
     // Add rewards to the pool
@@ -217,6 +269,32 @@ contract StabilityPool is IStabilityPool, Ownable {
         }
 
         emit RewardAdded(_amount);
+        return true;
+    }
+
+    function addCollateralReward(
+        uint256 amount
+    ) external payable onlyDebtContract returns (bool) {
+        require(amount > 0, "Reward must be greater than zero");
+        require(msg.value == amount, "Invalid collateral amount");
+        uint256 _totalStakedRaw = totalStakedRaw;
+        if (_totalStakedRaw == 0) {
+            return false;
+        }
+
+        uint256 _totalAmount = amount + collateralLoss;
+        uint256 _collateralPerToken = ((_totalAmount *
+            stakeScalingFactor *
+            precision) / _totalStakedRaw) / precision;
+
+        totalCollateralPerToken += _collateralPerToken;
+
+        collateralLoss =
+            _totalAmount -
+            (((_collateralPerToken * _totalStakedRaw * precision) /
+                stakeScalingFactor) / precision);
+
+        emit CollateralRewardAdded(amount);
         return true;
     }
 
@@ -279,6 +357,15 @@ contract StabilityPool is IStabilityPool, Ownable {
 
         totalStakedRaw -= amount;
 
+        if (totalStakedRaw == 0 && rewardSenderActive) {
+            require(
+                IRewardSender(stableBaseCDP).setCanStabilityPoolReceiveRewards(
+                    false
+                ),
+                "Unable to activate reward sender"
+            );
+        }
+
         if (cumulativeProductScalingFactor < minimumScalingFactor) {
             StakeResetSnapshot memory resetSnapshot = StakeResetSnapshot({
                 scalingFactor: cumulativeProductScalingFactor,
@@ -311,7 +398,9 @@ contract StabilityPool is IStabilityPool, Ownable {
 
     // Internal function to update user rewards
     function _updateRewards(
-        UserInfo storage user
+        UserInfo storage user,
+        address frontend,
+        uint256 fee
     )
         internal
         returns (
@@ -342,14 +431,29 @@ contract StabilityPool is IStabilityPool, Ownable {
         }
 
         if (pendingReward != 0) {
+            uint256 feeReward = (fee * pendingReward) / BASIS_POINTS_DIVISOR;
             require(
-                stakingToken.transfer(msg.sender, pendingReward),
+                stakingToken.transfer(msg.sender, pendingReward - feeReward),
                 "Reward transfer failed"
             );
+            if (feeReward > 0) {
+                require(
+                    stakingToken.transfer(frontend, feeReward),
+                    "Fee transfer failed"
+                );
+            }
         }
         if (pendingCollateral != 0) {
-            (bool success, ) = msg.sender.call{value: pendingCollateral}("");
+            uint256 feeReward = (fee * pendingCollateral) /
+                BASIS_POINTS_DIVISOR;
+            (bool success, ) = msg.sender.call{
+                value: pendingCollateral - feeReward
+            }("");
             require(success, "Collateral transfer failed");
+            if (feeReward > 0) {
+                (success, ) = frontend.call{value: feeReward}("");
+                require(success, "Fee transfer failed");
+            }
         }
         if (pendingSbrRewards != 0) {
             require(

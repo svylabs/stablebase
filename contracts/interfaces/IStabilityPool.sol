@@ -19,9 +19,15 @@ interface IStabilityPool {
 
     function stake(uint256 _amount) external;
 
+    function stake(uint256 _amount, address _frontend, uint256 fee) external;
+
     function unstake(uint256 _amount) external;
 
+    function unstake(uint256 _amount, address _frontend, uint256 fee) external;
+
     function claim() external;
+
+    function claim(address _frontend, uint256 fee) external;
 
     function isLiquidationPossible(uint256 amount) external view returns (bool);
 
@@ -31,6 +37,10 @@ interface IStabilityPool {
     ) external payable returns (bool);
 
     function addReward(uint256 _amount) external returns (bool);
+
+    function addCollateralReward(
+        uint256 _amount
+    ) external payable returns (bool);
 
     function getUser(address user) external returns (UserInfo memory userInfo);
 
@@ -44,6 +54,7 @@ interface IStabilityPool {
     event Staked(address indexed user, uint256 amount);
     event Unstaked(address indexed user, uint256 amount);
     event RewardAdded(uint256 amount);
+    event CollateralRewardAdded(uint256 amount);
     event RewardClaimed(
         address indexed user,
         uint256 amount,

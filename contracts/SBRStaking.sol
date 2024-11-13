@@ -4,6 +4,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/ISBRStaking.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+interface IRewardSender {
+    function setCanSBRStakingPoolReceiveRewards(
+        bool canReceiveRewards
+    ) external returns (bool);
+}
+
 contract SBRStaking is ISBRStaking, Ownable {
     mapping(address => Stake) public stakes;
 
@@ -17,7 +23,11 @@ contract SBRStaking is ISBRStaking, Ownable {
     IERC20 public rewardToken;
     address public stableBaseContract;
 
-    constructor() Ownable(msg.sender) {}
+    bool public rewardSenderActive = false;
+
+    constructor(bool _rewardSenderActive) Ownable(msg.sender) {
+        rewardSenderActive = _rewardSenderActive;
+    }
 
     function setAddresses(
         address _stakingToken,
@@ -42,7 +52,13 @@ contract SBRStaking is ISBRStaking, Ownable {
         );
 
         user.stake += _amount;
+        uint256 _oldTotalStake = totalStake;
         totalStake += _amount;
+
+        if (rewardSenderActive && _oldTotalStake == 0) {
+            IRewardSender(stableBaseContract)
+                .setCanSBRStakingPoolReceiveRewards(true);
+        }
 
         emit Staked(msg.sender, _amount);
     }
@@ -56,6 +72,12 @@ contract SBRStaking is ISBRStaking, Ownable {
 
         user.stake -= _amount;
         totalStake -= _amount;
+
+        if (rewardSenderActive && totalStake == 0) {
+            IRewardSender(stableBaseContract)
+                .setCanSBRStakingPoolReceiveRewards(false);
+        }
+
         require(
             stakingToken.transfer(msg.sender, _amount),
             "Transfer tokens failed"

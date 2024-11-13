@@ -227,7 +227,8 @@ async function liquidate(user, contracts) {
         existingSnapshot,
         newSnapshot,
         gasPaid,
-        gasUsed: receipt.gasUsed
+        gasUsed: receipt.gasUsed,
+        logs: receipt.logs
     }
 }
 
@@ -273,7 +274,8 @@ async function redeem(user, amount, contracts, safes) {
         existingSnapshot,
         newSnapshot,
         gasPaid,
-        gasUsed: receipt.gasUsed
+        gasUsed: receipt.gasUsed,
+        logs: receipt.logs
     }
 }
 

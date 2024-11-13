@@ -20,7 +20,7 @@ async function main() {
     console.log("Deployed SBRToken to:", sbrToken.target);
 
     const StabilityPool = await ethers.getContractFactory("StabilityPool");
-    const stabilityPool = await StabilityPool.deploy();
+    const stabilityPool = await StabilityPool.deploy(true);
     await stabilityPool.waitForDeployment();
     console.log("Deployed StabilityPool to:", stabilityPool.target);
     
@@ -35,7 +35,7 @@ async function main() {
     console.log("Deployed StableBaseCDP to:", stableBaseCDP.target);
 
     const SBRStaking = await ethers.getContractFactory("SBRStaking");
-    const sbrStaking = await SBRStaking.deploy();
+    const sbrStaking = await SBRStaking.deploy(true);
     await sbrStaking.waitForDeployment();
     console.log("Deployed SBRStaking to:", sbrStaking.target);
 

@@ -45,7 +45,7 @@ describe("Test the flow", function () {
     await sbrToken.waitForDeployment();
 
     StabilityPool = await ethers.getContractFactory("StabilityPool");
-    stabilityPool = await StabilityPool.deploy();
+    stabilityPool = await StabilityPool.deploy(true);
     await stabilityPool.waitForDeployment();
     
     const PriceOracle = await ethers.getContractFactory("MockPriceOracle");
@@ -57,7 +57,7 @@ describe("Test the flow", function () {
     await stableBaseCDP.waitForDeployment();
 
     const SBRStaking = await ethers.getContractFactory("SBRStaking");
-    sbrStaking = await SBRStaking.deploy();
+    sbrStaking = await SBRStaking.deploy(true);
     await sbrStaking.waitForDeployment();
 
     const OrderedDoublyLinkedList = await ethers.getContractFactory("OrderedDoublyLinkedList");

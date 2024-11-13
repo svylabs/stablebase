@@ -44,8 +44,16 @@ interface IStableBase {
         uint256 totalCollateral,
         uint256 totalDebt
     );
-    event Redeemed(uint256 indexed safeId, uint256 amount, uint256 collateral);
+    event Redeemed(
+        uint256 indexed redemptionId,
+        uint256 indexed safeId,
+        uint256 amount,
+        uint256 collateral,
+        uint256 refundedToOwner,
+        uint256 remaningToRedeem
+    );
     event RedeemedBatch(
+        uint256 indexed redemptionId,
         uint256 amount,
         uint256 redeemedCollateral,
         uint256 totalCollateral,
@@ -64,6 +72,16 @@ interface IStableBase {
         uint256 collateral,
         uint256 totalCollateral,
         uint256 totalDebt
+    );
+    event LiquidationFeePaid(
+        uint256 indexed safeId,
+        address receiver,
+        uint256 feePaid
+    );
+    event LiquidationGasCompensationPaid(
+        uint256 indexed safeId,
+        address receiver,
+        uint256 feePaid
     );
 
     event FeeTopup(
@@ -92,12 +110,39 @@ interface IStableBase {
         uint256 stabilityPoolFee,
         uint256 canRefund
     );
+    event OwnerRefunded(
+        uint256 indexed redemptionId,
+        uint256 indexed safeId,
+        uint256 refund,
+        uint256 fee
+    );
+    event RedeemerFeePaid(
+        uint256 indexed redemptionId,
+        uint256 indexed safeId,
+        uint256 collateralToRedeem,
+        uint256 collateralToReturn,
+        uint256 feePaid
+    );
+    event OwnerFeePaid(
+        uint256 indexed redemptionId,
+        uint256 indexed safeId,
+        uint256 feePaid
+    );
+    event OwnerRedemptionFeeDistributed(
+        uint256 indexed redemptionId,
+        uint256 feePaid
+    );
+    event RedeemerRedemptionFeeDistributed(
+        uint256 indexed redemptionId,
+        uint256 feePaid
+    );
 
     struct Safe {
         uint256 collateralAmount;
         uint256 borrowedAmount;
         uint256 weight;
         SafeStatus status;
+        uint256 feePaid;
     }
 
     enum SafeStatus {
@@ -183,9 +228,11 @@ interface IStableBase {
 
     function liquidate() external;
 
-    // TODO: add more functions
-    // liquidate
-    // withdraw
-    // setReserveRatio
-    // setTargetShieldingRate
+    function setCanStabilityPoolReceiveRewards(
+        bool canReceiveRewards
+    ) external returns (bool);
+
+    function setCanSBRStakingPoolReceiveRewards(
+        bool canReceiveRewards
+    ) external returns (bool);
 }

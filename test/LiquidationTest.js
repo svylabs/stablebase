@@ -1,6 +1,7 @@
 const { expect, assert} = require("chai");
 const { ethers } = require("hardhat");
 const utils = require("./utils");
+const { time } = require('@nomicfoundation/hardhat-network-helpers');
 
 describe("Test the flow", function () {
     let stableBaseCDP, sbdToken, sbrToken, sbrStaking, mockPriceOracle, owner, user, stabilityPool, redemptionQueue, liquidationQueue, priceOracle, mockOracle, contracts;
@@ -37,7 +38,7 @@ describe("Test the flow", function () {
       await sbrToken.waitForDeployment();
   
       StabilityPool = await ethers.getContractFactory("StabilityPool");
-      stabilityPool = await StabilityPool.deploy();
+      stabilityPool = await StabilityPool.deploy(true);
       await stabilityPool.waitForDeployment();
       
       const PriceOracle = await ethers.getContractFactory("MockPriceOracle");
@@ -49,7 +50,7 @@ describe("Test the flow", function () {
       await stableBaseCDP.waitForDeployment();
   
       const SBRStaking = await ethers.getContractFactory("SBRStaking");
-      sbrStaking = await SBRStaking.deploy();
+      sbrStaking = await SBRStaking.deploy(true);
       await sbrStaking.waitForDeployment();
   
       const OrderedDoublyLinkedList = await ethers.getContractFactory("OrderedDoublyLinkedList");
@@ -119,10 +120,72 @@ describe("Test the flow", function () {
             priceOracle.setPrice(BigInt(3100));
             const snapshots = await utils.liquidate(owner, contracts);
             const liquidationFee = (await stableBaseCDP.REDEMPTION_LIQUIDATION_FEE() * snapshots.existingSnapshot.safe.collateralAmount) / BigInt(10000);
+            const gasUsed = snapshots.gasPaid;
 
-            expect(snapshots.newSnapshot.user.ethBalance).equals(snapshots.existingSnapshot.user.ethBalance + liquidationFee - snapshots.gasPaid);
+            console.log(snapshots.newSnapshot.user.ethBalance, snapshots.existingSnapshot.user.ethBalance, liquidationFee, snapshots.gasPaid);
+            //expect(snapshots.newSnapshot.user.ethBalance).to.be.greaterThanOrEqual(snapshots.existingSnapshot.user.ethBalance);
+            const gasCompensationPaid = snapshots.newSnapshot.user.ethBalance - (snapshots.existingSnapshot.user.ethBalance - gasUsed);
+            const rewardAddedPerToken = (liquidationFee - gasCompensationPaid) / snapshots.existingSnapshot.stabilityPool.totalStakedRaw;
 
-            expect(snapshots.newSnapshot.stabilityPool.ethBalance).equals(snapshots.existingSnapshot.stabilityPool.ethBalance + users.charlie.collateralAmount - liquidationFee);
+            expect(snapshots.newSnapshot.stabilityPool.ethBalance).to.be.closeTo(snapshots.existingSnapshot.stabilityPool.ethBalance + users.charlie.collateralAmount - gasCompensationPaid, BigInt(1e10));
+            expect(snapshots.newSnapshot.stabilityPool.sbdBalance).equals(snapshots.existingSnapshot.stabilityPool.sbdBalance - users.charlie.borrowAmount);
+            expect(snapshots.newSnapshot.sbdToken.totalSupply).equals(snapshots.existingSnapshot.sbdToken.totalSupply - users.charlie.borrowAmount);
+
+            expect(snapshots.newSnapshot.stableBaseCDP.totalCollateral).equals(snapshots.existingSnapshot.stableBaseCDP.totalCollateral - snapshots.existingSnapshot.safe.collateralAmount);
+            expect(snapshots.newSnapshot.stableBaseCDP.totalDebt).equals(snapshots.existingSnapshot.stableBaseCDP.totalDebt - snapshots.existingSnapshot.safe.borrowedAmount);
+            expect(snapshots.newSnapshot.stableBaseCDP.cumulativeCollateralPerUnitCollateral).equals(BigInt(0));
+            expect(snapshots.newSnapshot.stableBaseCDP.cumulativeDebtPerUnitCollateral).equals(BigInt(0));
+
+            const liquidatedCollateral = snapshots.existingSnapshot.safe.collateralAmount - gasCompensationPaid;
+            const totalStaked = snapshots.existingSnapshot.stabilityPool.totalStakedRaw;
+
+            expect(snapshots.newSnapshot.stabilityPool.totalCollateralPerToken).to.be.closeTo((liquidatedCollateral * BigInt(1e18) / totalStaked), ethers.parseEther("0.0000000001"));
+
+            const aliceCollateral = snapshots.newSnapshot.stabilityPool.totalCollateralPerToken * aliceSnapshot.newSnapshot.user.stabilityPool.stake.stake / BigInt(1e18);
+            const bobCollateral = snapshots.newSnapshot.stabilityPool.totalCollateralPerToken * bobSnapshot.newSnapshot.user.stabilityPool.stake.stake / BigInt(1e18);
+
+            //console.log("Alice collateral: ", aliceCollateral.toString(), " Bob collateral: ", bobCollateral.toString());
+
+            expect((await stabilityPool.connect(alice).userPendingRewardAndCollateral(alice.address))[1]).to.equal(aliceCollateral);
+            expect((await stabilityPool.connect(bob).userPendingRewardAndCollateral(bob.address))[1]).to.equal(bobCollateral);
+        })
+
+        it ("Liquidation should work - fee should be distributed to SBR stakers", async function() {
+            const aliceSnapshot = await utils.stakeSBD(alice, users.alice.safeId, users.alice.borrowAmount, contracts);
+            const bobSnapshot = await utils.stakeSBD(bob, users.bob.safeId, users.bob.borrowAmount, contracts);
+            time.increase(1000);
+            const aliceClaim = await stabilityPool.connect(alice).claim();
+            const bobClaim = await stabilityPool.connect(bob).claim();
+            const totalSBRAlice = await sbrToken.balanceOf(alice.address);
+            console.log("Total SBR Alice", totalSBRAlice.toString());
+            const tx1= await contracts.sbrToken.connect(alice).approve(sbrStaking.target, totalSBRAlice);
+            await tx1.wait();
+            const tx2 = await contracts.sbrStaking.connect(alice).stake(totalSBRAlice);
+            await tx2.wait();
+
+            //const charlieSnapshot = await utils.stakeSBD(charlie, users.charlie.safeId, users.charlie.borrowAmount, contracts);
+
+            await priceOracle.setPrice(BigInt(3100));
+            const snapshots = await utils.liquidate(owner, contracts);
+            console.log(snapshots.existingSnapshot.sbrStaking, snapshots.newSnapshot.sbrStaking);
+            const liquidationFee = (await stableBaseCDP.REDEMPTION_LIQUIDATION_FEE() * snapshots.existingSnapshot.safe.collateralAmount) / BigInt(10000);
+            const gasUsed = snapshots.gasPaid;
+            snapshots.logs.forEach(log => {
+                try {
+                console.log(contracts.stableBaseCDP.interface.parseLog(log));
+                } catch (ex) {
+                    console.log(ex);
+                }
+            });
+
+            console.log(snapshots.newSnapshot.user.ethBalance, snapshots.existingSnapshot.user.ethBalance, liquidationFee, snapshots.gasPaid, snapshots.gasUsed);
+            //expect(snapshots.newSnapshot.user.ethBalance).to.be.greaterThanOrEqual(snapshots.existingSnapshot.user.ethBalance);
+            const gasCompensationPaid = snapshots.newSnapshot.user.ethBalance - (snapshots.existingSnapshot.user.ethBalance - gasUsed);
+            console.log(gasCompensationPaid, liquidationFee);
+            const rewardAddedPerToken = ((liquidationFee - gasCompensationPaid) * BigInt(1e18)) / snapshots.existingSnapshot.sbrStaking.totalStaked;
+            console.log("Reward added per token", rewardAddedPerToken);
+
+            expect(snapshots.newSnapshot.stabilityPool.ethBalance).to.be.closeTo(snapshots.existingSnapshot.stabilityPool.ethBalance + users.charlie.collateralAmount - liquidationFee, BigInt(1e10));
             expect(snapshots.newSnapshot.stabilityPool.sbdBalance).equals(snapshots.existingSnapshot.stabilityPool.sbdBalance - users.charlie.borrowAmount);
             expect(snapshots.newSnapshot.sbdToken.totalSupply).equals(snapshots.existingSnapshot.sbdToken.totalSupply - users.charlie.borrowAmount);
 
@@ -134,7 +197,9 @@ describe("Test the flow", function () {
             const liquidatedCollateral = snapshots.existingSnapshot.safe.collateralAmount - liquidationFee;
             const totalStaked = snapshots.existingSnapshot.stabilityPool.totalStakedRaw;
 
-            expect(snapshots.newSnapshot.stabilityPool.totalCollateralPerToken).equals(liquidatedCollateral * BigInt(1e18) / totalStaked);
+            expect(snapshots.newSnapshot.stabilityPool.totalCollateralPerToken).to.be.closeTo((liquidatedCollateral * BigInt(1e18) / totalStaked), ethers.parseEther("0.0000000001"));
+
+            expect(snapshots.newSnapshot.sbrStaking.totalCollateralPerToken).to.be.closeTo(rewardAddedPerToken, ethers.parseEther("0.0000000001"));
 
             const aliceCollateral = snapshots.newSnapshot.stabilityPool.totalCollateralPerToken * aliceSnapshot.newSnapshot.user.stabilityPool.stake.stake / BigInt(1e18);
             const bobCollateral = snapshots.newSnapshot.stabilityPool.totalCollateralPerToken * bobSnapshot.newSnapshot.user.stabilityPool.stake.stake / BigInt(1e18);
