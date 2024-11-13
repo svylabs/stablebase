@@ -249,7 +249,8 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
 
         _redemption = _redeemSafes(_redemption, nearestSpotInLiquidationQueue);
         _redeemToUser(_redemption);
-        totalCollateral -= _redemption.collateralAmount;
+        totalCollateral -= (_redemption.collateralAmount +
+            _redemption.redeemerFee);
         //totalDebt -= _redemption.redeemedAmount;
         _updateTotalDebt(
             totalDebt,

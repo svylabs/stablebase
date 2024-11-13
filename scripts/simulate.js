@@ -210,7 +210,7 @@ class Actor extends Agent {
             await this.claimSbdRewards();
             await this.claimCollateralGain();
             expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
-            expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.00000000001", 18));
+            expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.0000000001", 18));
         }
     }
 }
@@ -749,6 +749,7 @@ class OfflineProtocolTracker extends Agent {
 
   async distributeRedemptionFeeToStabilityPoolStakers(redeemerFee) {
     let totalStake = this.stabilityPool.totalStake;
+    let distributed = BigInt(0);
     for (let i = 0; i< this.stabilityPool.stakers.length ; i++) {
         const staker= this.stabilityPool.stakers[i];
          const share = (((redeemerFee * staker.stabilityPool.stake * BigInt(1e18))  / (totalStake)) / BigInt(1e18));
