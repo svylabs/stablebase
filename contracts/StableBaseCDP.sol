@@ -463,6 +463,23 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         emit LiquidationQueueUpdated(safeId, _newRatio, node.next);
     }
 
+    function getInactiveDebtAndCollateral(
+        uint256 safeId
+    ) external view returns (uint256, uint256) {
+        Safe memory safe = safes[safeId];
+        LiquidationSnapshot memory liquidationSnapshot = liquidationSnapshots[
+            safeId
+        ];
+        uint debtIncrease = (safe.collateralAmount *
+            (cumulativeDebtPerUnitCollateral -
+                liquidationSnapshot.debtPerCollateralSnapshot)) / PRECISION;
+        uint collateralIncrease = (safe.collateralAmount *
+            (cumulativeCollateralPerUnitCollateral -
+                liquidationSnapshot.collateralPerCollateralSnapshot)) /
+            PRECISION;
+        return (debtIncrease, collateralIncrease);
+    }
+
     modifier _onlyOwner(uint256 _tokenId) {
         address owner = ownerOf(_tokenId);
         require(msg.sender == owner, "Not the owner");

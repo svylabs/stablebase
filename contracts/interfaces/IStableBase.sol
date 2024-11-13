@@ -136,6 +136,15 @@ interface IStableBase {
         uint256 indexed redemptionId,
         uint256 feePaid
     );
+    event SafeUpdated(
+        uint256 indexed safeId,
+        uint256 collateralAmount,
+        uint256 debtAmount,
+        uint256 collateralIncrease,
+        uint256 debtIncrease,
+        uint256 totalCollateral,
+        uint256 totalDebt
+    );
 
     struct Safe {
         uint256 collateralAmount;
@@ -227,6 +236,10 @@ interface IStableBase {
     ) external;
 
     function liquidate() external;
+
+    function getInactiveDebtAndCollateral(
+        uint256 safeId
+    ) external view returns (uint256, uint256);
 
     function setCanStabilityPoolReceiveRewards(
         bool canReceiveRewards

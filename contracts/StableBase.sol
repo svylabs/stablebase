@@ -578,6 +578,15 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
 
             totalCollateral += collateralIncrease;
             _updateTotalDebt(totalDebt, debtIncrease, true);
+            emit SafeUpdated(
+                _safeId,
+                _safe.collateralAmount,
+                _safe.borrowedAmount,
+                collateralIncrease,
+                debtIncrease,
+                totalCollateral,
+                totalDebt
+            );
         }
 
         return _safe;
