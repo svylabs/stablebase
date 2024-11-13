@@ -204,11 +204,15 @@ class Actor extends Agent {
     async claimRewards() {
         console.log("Claiming rewards ", this.id);
         if (this.stabilityPool.stake == BigInt(0)) {
-            try {
-                const tx = await this.contracts.stabilityPool.connect(this.account).claim();
-                assert.fail("Claim rewards should have failed");
-            } catch (ex) {
-                console.log("Claim rewards failed as expected");
+            // No need to claim rewards
+            const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
+            expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
+            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
+            const tx = await this.contracts.stabilityPool.connect(this.account).claim();
+            const detail = await tx.wait();
+            if (pendingRewards[0] > BigInt(0) || pendingRewards[1] > BigInt(0)) {
+                await this.claimSbdRewards();
+                await this.claimCollateralGain();
             }
         } else {
             const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
@@ -776,9 +780,9 @@ class OfflineProtocolTracker extends Agent {
     let totalStake = this.stabilityPool.totalStake;
     let distributed = BigInt(0);
     for (let i = 0; i< this.stabilityPool.stakers.length ; i++) {
-        const staker= this.stabilityPool.stakers[i];
+         const staker= this.stabilityPool.stakers[i];
          const share = (((redeemerFee * staker.stabilityPool.stake * BigInt(1e18))  / (totalStake)) / BigInt(1e18));
-         console.log("Distributing owner fee ", i,  "Fee", fee, "share: ", share, "stake", staker.stabilityPool.stake, "fee share", ((staker.stabilityPool.stake * BigInt(10000)) / totalStake));
+         console.log("Distributing owner fee ", i,  "Fee", redeemerFee, "share: ", share, "stake", staker.stabilityPool.stake, "fee share", ((staker.stabilityPool.stake * BigInt(10000)) / totalStake));
          await staker.distributeSbdRewards(share);
          distributed += share;
      }
