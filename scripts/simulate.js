@@ -42,6 +42,8 @@ class Actor extends Agent {
     }
     async distributeCollateralGain(gain) {
         this.stabilityPool.unclaimedRewards.eth += gain;
+        const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
+        expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
     }
     async claimCollateralGain() {
         this.ethBalance += this.stabilityPool.unclaimedRewards.eth;
@@ -222,7 +224,7 @@ class Borrower extends Actor {
             debt: BigInt(0)
         }
         this.riskProfile = getRandomInRange(0.0001, 0.002); // lower this number, higher the risk
-        this.shieldingRate = BigInt(Math.floor(this.riskProfile * 1000)); // 0.01 * 1000 = 10 basis points
+        this.shieldingRate = BigInt(Math.floor(this.riskProfile * 10000)); // 0.01 * 1000 = 10 basis points
     }
 
     async openSafe() {
@@ -455,8 +457,75 @@ class Bot extends Actor {
             }
         }
     }
+
+    validateRedeemParams(safe, params, amountToRedeem, collateralPrice) {
+        return true;
+    }
+
+    async getRedeemedSafes(sbdAmount) {
+        const redeemedSafes = [];
+        let amountToRedeem = sbdAmount;
+        do {
+            const safeId = await this.contracts.redemptionQueue.getHead();
+            //console.log("Redeeming safe: ", safeId);
+            const safe = await this.contracts.stableBaseCDP.safes(safeId);
+            const safeCopy = {
+                collateralAmount: safe.collateralAmount,
+                borrowedAmount: safe.borrowedAmount,
+                feePaid: safe.feePaid,
+                weight: safe.weight,
+                status: safe.status
+            };
+            //console.log("Safe: ", safeCopy);
+            const collateralValue = safe.collateralAmount * this.market.collateralPrice;
+            const borrowedAmount = safe.borrowedAmount;
+            const feePaid = safe.feePaid;
+            const collateralPrice = await this.contracts.priceOracle.fetchPrice();
+            const result = await this.contracts.stableBaseCDP.calculateRedemptionAmountsAndFee(safeCopy, amountToRedeem, collateralPrice);
+            //console.log("Redeem result: ", result);
+            expect(this.validateRedeemParams(safe, result, amountToRedeem, this.market.collateralPrice)).to.be.true;
+            redeemedSafes.push({
+                safeId,
+                safe,
+                params: result
+            });
+            amountToRedeem = amountToRedeem - (result[2] + result[3]);
+            console.log("Amount to redeem, amount redeemed from safe, refunded", amountToRedeem, result[2], result[3]);
+        } while (amountToRedeem > BigInt(0));
+        console.log("RedeemedSafes: ", redeemedSafes);
+        return redeemedSafes;
+    }
+
     async redeem() {
 
+        if (this.market.sbdPrice < BigInt(9900) && await this.contracts.stableBaseCDP.PROTOCOL_MODE() != BigInt(0)) {
+            const redeemAmount = this.sbdBalance / BigInt(2);
+            console.log(this.market.sbdPrice, "Redeeming ", redeemAmount);
+            // Redeem half of the available SBD
+            if (this.sbdBalance > BigInt(0)) {
+                // Calculate expected collateral return, fees, etc.
+                const ethBal = await this.account.provider.getBalance(this.account.address);
+                const redeemedSafes = await this.getRedeemedSafes(redeemAmount);
+                const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, redeemAmount);
+                let detail = await tx1.wait();
+                let gasUsed = detail.gasUsed * tx1.gasPrice;
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).redeem(redeemAmount, BigInt(0));
+                detail = await tx.wait();
+                gasUsed += detail.gasUsed * tx.gasPrice;
+                this.sbdBalance -= redeemAmount;
+                // adding total collateral redeemed
+                this.ethBalance += redeemedSafes.reduce((acc, safe) => acc + safe.params[1], BigInt(0));
+                // - tx fees
+                this.ethBalance -= gasUsed;
+                // - redemption fees paid
+                this.ethBalance -= redeemedSafes.reduce((acc, safe) => acc + safe.params[5], BigInt(0));
+                expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
+                expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.0000000001", 18));
+                await this.tracker.updateRedeemedSafes(redeemedSafes);
+                // update safes in tracker to update actors debt and collateral
+                // Check SBD balance in contract
+            }
+        }
     }
     async step() {
         super.step();
@@ -468,11 +537,11 @@ class Bot extends Actor {
             await this.buyETH();
             return;
         }
-        if (Math.random() < 0.05) {
+        if (Math.random() < 0.5) {
             await this.liquidate();
             return;
         }
-        if (Math.random() < 0.05) {
+        if (Math.random() < 0.5) {
             await this.redeem();
             return;
         }
@@ -609,14 +678,17 @@ class OfflineProtocolTracker extends Agent {
             eth: BigInt(0)
         }
     }
+    this.safeMapping = {};
   }
 
   async addBorrower(borrowerAgent) {
     this.borrowers[borrowerAgent.id] = borrowerAgent;
+    this.safeMapping[BigInt(borrowerAgent.safeId)] = borrowerAgent;
   }
 
   async removeBorrower(borrowerAgent) {
     delete this.borrowers[borrowerAgent.id];
+    delete this.safeMapping[BigInt(borrowerAgent.safeId)];
   }
 
   async addStabilityPoolStaker(staker) {
@@ -633,6 +705,36 @@ class OfflineProtocolTracker extends Agent {
     this.stabilityPool.totalStake = this.stabilityPool.stakers.reduce((acc, s) => acc + s.stabilityPool.stake, BigInt(0));
   }
 
+  async updateRedeemedSafes(redeemedSafes) {
+    for (const safe of redeemedSafes) {
+        const collateralToRedeem = safe.params[1];
+        const debtToRedeem = safe.params[2];
+        const toRefund = safe.params[3];
+        const ownerFee = safe.params[4];
+        const redeemerFee = safe.params[5];
+        this.totalCollateral -= collateralToRedeem;
+        this.totalDebt -= debtToRedeem;
+        //console.log(this.safeMapping, safe.safeId);
+        const agent = this.safeMapping[safe.safeId];
+        agent.safe.collateral -= collateralToRedeem;
+        agent.safe.debt -= debtToRedeem;
+        agent.sbdBalance += toRefund;
+        // Update the redemption / liquidation queue.
+        if (this.stabilityPool.totalStake > BigInt(0)) {
+            if (ownerFee > BigInt(0)) {
+                // distribute sbd
+                await this.distributeRedemptionFeeToStabilityPoolStakers(ownerFee);
+            }
+            const redeemerFee = safe.params[5];
+            if (redeemerFee > BigInt(0)) {
+                // distribute fee paid in collateral 
+                await this.distributeCollateralGainsToStabilityPoolStakers(redeemerFee);
+            }
+        }
+    }
+    // Check fee distribution
+  }
+
   async verifyStakerPendingRewards() {
     for (const staker of this.stabilityPool.stakers) {
         const user = await this.contracts.stabilityPool.getUser(staker.account.address);
@@ -643,6 +745,32 @@ class OfflineProtocolTracker extends Agent {
         expect(pendingRewards[0]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
         expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
     }
+  }
+
+  async distributeRedemptionFeeToStabilityPoolStakers(redeemerFee) {
+    let totalStake = this.stabilityPool.totalStake;
+    for (let i = 0; i< this.stabilityPool.stakers.length ; i++) {
+        const staker= this.stabilityPool.stakers[i];
+         const share = (((redeemerFee * staker.stabilityPool.stake * BigInt(1e18))  / (totalStake)) / BigInt(1e18));
+         console.log("Distributing owner fee ", i,  "Fee", fee, "share: ", share, "stake", staker.stabilityPool.stake, "fee share", ((staker.stabilityPool.stake * BigInt(10000)) / totalStake));
+         await staker.distributeSbdRewards(share);
+         distributed += share;
+     }
+     this.stabilityPool.totalRewards.sbd += distributed;
+  }
+
+
+  async distributeCollateralGainsToStabilityPoolStakers(collateral) {
+    let totalStake = this.stabilityPool.totalStake;
+    let distributed = BigInt(0);
+    for (let i = 0; i< this.stabilityPool.stakers.length ; i++) {
+        const staker= this.stabilityPool.stakers[i];
+         const share = (((collateral * staker.stabilityPool.stake * BigInt(1e18))  / (totalStake)) / BigInt(1e18));
+         console.log("Distributing collateral from redemption ", i,  "Fee", collateral, "share: ", share, "stake", staker.stabilityPool.stake, "fee share", ((staker.stabilityPool.stake * BigInt(10000)) / totalStake));
+         await staker.distributeCollateralGain(share);
+         distributed += share;
+     }
+     this.stabilityPool.totalRewards.eth += distributed;
   }
 
   async distributeShieldingFee(fee) {
@@ -744,11 +872,27 @@ class OfflineProtocolTracker extends Agent {
     expect(totalRewards.eth).to.be.closeTo(await ethers.provider.getBalance(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool ETH balance mismatch");
   }
 
+  async validateSafes() {
+    let totalCollateral = BigInt(0);
+    let totalDebt = BigInt(0);
+    for (const borrowerId of Object.keys(this.borrowers)) {
+        const borrower = this.borrowers[borrowerId];
+        totalCollateral += borrower.safe.collateral;
+        totalDebt += borrower.safe.debt;
+        const safe = await this.contracts.stableBaseCDP.safes(borrower.safeId);
+        expect(safe.collateralAmount).to.equal(borrower.safe.collateral, "Collateral mismatch");
+        expect(safe.borrowedAmount).to.equal(borrower.safe.debt, "Debt mismatch");
+    }
+    expect(totalCollateral).to.equal(await this.contracts.stableBaseCDP.totalCollateral(), "Total collateral mismatch");
+    expect(totalDebt).to.equal(await this.contracts.stableBaseCDP.totalDebt(), "Total debt mismatch");
+  }
+
   async step() {
     //this.checkForLiquidation(collateralPrice);
     await this.validateDebtAndCollateral();
     await this.validateTotalSupply();
     await this.validateStabilityPool();
+    await this.validateSafes();
   }
 }
 
