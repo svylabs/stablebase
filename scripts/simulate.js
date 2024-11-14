@@ -856,8 +856,11 @@ class OfflineProtocolTracker extends Agent {
 
   async cleanupBorrower(safeId) {
     let borrower = this.safeMapping[safeId];
-    if (borrower == undefined) {
+    if (borrower === undefined) {
         borrower = this.safeMapping[BigInt(safeId)];
+        if (borrower === undefined) {
+            return;
+        }
     }
     await borrower.setSafeClosed();
     await this.removeBorrower(borrower);
