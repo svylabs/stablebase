@@ -14,6 +14,11 @@ function getRandomInRange(min, max) {
     return Math.random() * (max - min) + min;
 }
 
+const totalPrecision = ethers.parseEther("0.00001", 18);
+const aggregatePrecision = ethers.parseEther("0.0000001", 18);
+const individualPrecision = ethers.parseEther("0.000000001", 18);
+
+
 class Actor extends Agent {
     constructor(actorType, account, initialBalance, contracts, market, tracker) {
         super();
@@ -46,7 +51,7 @@ class Actor extends Agent {
         this.stabilityPool.unclaimedRewards.eth += gain;
         if (check) {
             const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
-            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
+            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, aggregatePrecision);
         }
     }
     async claimCollateralGain() {
@@ -58,7 +63,7 @@ class Actor extends Agent {
         const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
         //console.log(await this.contracts.stabilityPool.rewardLoss());
         //console.log("Pending rewards ", pendingRewards[0], this.stabilityPool.unclaimedRewards.sbd);
-        expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
+        expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, aggregatePrecision);
     }
     async claimSbdRewards() {
         this.sbdBalance += this.stabilityPool.unclaimedRewards.sbd;
@@ -77,7 +82,7 @@ class Actor extends Agent {
         const sbdToUse = (BigInt(Math.floor(getRandomInRange(0.1, 0.5) * 100)) * this.sbdBalance / BigInt(100));
         const collateralAmount = sbdToUse / this.market.collateralPrice;
         console.log("Buying ETH ", collateralAmount, " with ", sbdToUse, " SBD");
-        expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
+        expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), aggregatePrecision);
         if (this.market.ethBalance > collateralAmount && this.sbdBalance > BigInt(0) && collateralAmount > BigInt(0)) {
             const sbdRequired = collateralAmount * this.market.collateralPrice;
                 const tx = await this.contracts.sbdToken.connect(this.account).transfer(this.market.account.address, sbdRequired);
@@ -160,14 +165,14 @@ class Actor extends Agent {
                 const detail = await tx.wait();
                 const gas = detail.gasUsed * tx.gasPrice;
                 this.sbdBalance = this.sbdBalance - stakeAmount;
-                expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
-                expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
-                expect(ethBalance + pendingRewards[1] - gas).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.0000000001", 18));
+                expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, aggregatePrecision);
+                expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, aggregatePrecision);
+                expect(ethBalance + pendingRewards[1] - gas).to.be.closeTo(await this.account.provider.getBalance(this.account.address), aggregatePrecision);
                 if (pendingRewards[0] > BigInt(0) || pendingRewards[1] > BigInt(0)) {
                     await this.claimSbdRewards();
                     await this.claimCollateralGain();
                 }
-                expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
+                expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), aggregatePrecision);
                 //expect(this.stabilityPool.stake + stakeAmount).to.equal(await this.contracts.stableBaseCDP.stabilityPoolStake());
                 this.stabilityPool.stake += stakeAmount;
                 const added = await this.tracker.addStabilityPoolStaker(this);
@@ -191,13 +196,13 @@ class Actor extends Agent {
             const tx = await this.contracts.stabilityPool.connect(this.account).unstake(unstakeAmount);
             const detail = await tx.wait();
             const gas = detail.gasUsed * tx.gasPrice;
-            expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
-            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
+            expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd,aggregatePrecision);
+            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, aggregatePrecision);
             await this.claimSbdRewards();
             await this.claimCollateralGain();
             this.sbdBalance = this.sbdBalance + unstakeAmount;
-            expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
-            expect(this.stabilityPool.stake - unstakeAmount).to.be.closeTo((await this.contracts.stabilityPool.getUser(this.account.address)).stake, ethers.parseUnits("0.000000001", 18));
+            expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), aggregatePrecision);
+            expect(this.stabilityPool.stake - unstakeAmount).to.be.closeTo((await this.contracts.stabilityPool.getUser(this.account.address)).stake, aggregatePrecision);
             this.stabilityPool.stake -= unstakeAmount;
             await this.tracker.updateStabilityPoolStake(this);
         }
@@ -209,8 +214,8 @@ class Actor extends Agent {
         if (this.stabilityPool.stake == BigInt(0)) {
             // No need to claim rewards
             const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
-            expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
-            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
+            expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, aggregatePrecision);
+            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, aggregatePrecision);
             const tx = await this.contracts.stabilityPool.connect(this.account).claim();
             const detail = await tx.wait();
             if (pendingRewards[0] > BigInt(0) || pendingRewards[1] > BigInt(0)) {
@@ -224,12 +229,12 @@ class Actor extends Agent {
             const gas = detail.gasUsed * tx.gasPrice;
             //this.sbdBalance += pendingRewards[0];
             //this.ethBalance += pendingRewards[1] - gas;
-            expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
-            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
+            expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, aggregatePrecision);
+            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, aggregatePrecision);
             await this.claimSbdRewards();
             await this.claimCollateralGain();
-            expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
-            expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.0000000001", 18));
+            expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), aggregatePrecision);
+            expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), aggregatePrecision);
         }
     }
 }
@@ -256,8 +261,8 @@ class Borrower extends Actor {
             console.log("Applying pending collateral and debt ", result[0], result[1]);
             const pendingDebtIncrease=  this.safe.pending.debt;
             const pendingCollateralIncrease = this.safe.pending.collateral;
-            expect(pendingDebtIncrease).to.be.closeTo(result[0], ethers.parseUnits("0.0000000001", 18));
-            expect(pendingCollateralIncrease).to.be.closeTo(result[1], ethers.parseUnits("0.0000000001", 18));
+            expect(pendingDebtIncrease).to.be.closeTo(result[0], aggregatePrecision);
+            expect(pendingCollateralIncrease).to.be.closeTo(result[1], aggregatePrecision);
             this.safe.collateral += pendingCollateralIncrease;
             this.safe.pending.collateral = BigInt(0);
             this.safe.debt += pendingDebtIncrease;
@@ -439,7 +444,7 @@ class Borrower extends Actor {
                 const refund = await this.tracker.distributeShieldingFee(topupFee);
                 console.log("Paid topup fee ", topupFee, refund);
                 this.sbdBalance = this.sbdBalance - topupFee + refund;
-                expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
+                expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), aggregatePrecision);
             }
             // Check debt in contract
         }
@@ -619,8 +624,8 @@ class Bot extends Actor {
                 this.ethBalance -= gasUsed;
                 // - redemption fees paid
                 this.ethBalance -= redeemedSafes.reduce((acc, safe) => acc + safe.params[5], BigInt(0));
-                expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
-                expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.0000000001", 18));
+                expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), aggregatePrecision);
+                expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), aggregatePrecision);
                 await this.tracker.updateRedeemedSafes(redeemedSafes);
                 // update safes in tracker to update actors debt and collateral
                 // Check SBD balance in contract
@@ -886,8 +891,8 @@ class OfflineProtocolTracker extends Agent {
         borrower.safe.pending.debt += ((debt * share) / collateral) / BigInt(1e18);
         const pendingIncrease = await this.contracts.stableBaseCDP.getInactiveDebtAndCollateral(borrower.safeId);
         console.log("Distributing debt and collateral to borrower ", borrower.id, share / BigInt(18), borrower.safe.pending.collateral, borrower.safe.pending.debt);
-        expect(pendingIncrease[0]).to.be.closeTo(borrower.safe.pending.debt, ethers.parseUnits("0.0000000001", 18));
-        expect(pendingIncrease[1]).to.be.closeTo(borrower.safe.pending.collateral, ethers.parseUnits("0.0000000001", 18));
+        expect(pendingIncrease[0]).to.be.closeTo(borrower.safe.pending.debt, aggregatePrecision);
+        expect(pendingIncrease[1]).to.be.closeTo(borrower.safe.pending.collateral, aggregatePrecision);
      }
   }
 
@@ -943,12 +948,12 @@ class OfflineProtocolTracker extends Agent {
   async verifyStakerPendingRewards() {
     for (const staker of this.stabilityPool.stakers) {
         const user = await this.contracts.stabilityPool.getUser(staker.account.address);
-        expect(user.stake).to.be.closeTo(staker.stabilityPool.stake, ethers.parseUnits("0.000000001", 18));
+        expect(user.stake).to.be.closeTo(staker.stabilityPool.stake, aggregatePrecision);
         //console.log("Verifying rewards for ", staker.id, staker.account.address);
         const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(staker.account.address);
         console.log("Pending rewards ", pendingRewards[0], staker.stabilityPool.unclaimedRewards.sbd);
-        expect(pendingRewards[0]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.000000001", 18));
-        expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.000000001", 18));
+        expect(pendingRewards[0]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.sbd, aggregatePrecision);
+        expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, aggregatePrecision);
     }
   }
 
@@ -1037,8 +1042,8 @@ class OfflineProtocolTracker extends Agent {
         totalCollateral += borrower.safe.collateral;
         totalDebt += borrower.safe.debt;
     }
-    expect(totalCollateral).to.be.closeTo(await this.contracts.stableBaseCDP.totalCollateral(), ethers.parseEther("0.0000001", 18), "Total collateral mismatch");
-    expect(totalDebt).to.be.closeTo(await this.contracts.stableBaseCDP.totalDebt(), ethers.parseEther("0.0000001", 18), "Total debt mismatch");
+    expect(totalCollateral).to.be.closeTo(await this.contracts.stableBaseCDP.totalCollateral(), totalPrecision, "Total collateral mismatch");
+    expect(totalDebt).to.be.closeTo(await this.contracts.stableBaseCDP.totalDebt(), totalPrecision, "Total debt mismatch");
     //expect(totalDebt).to.equal(await this.contracts.sbdToken.totalSupply(), "Total debt mismatch");
   }
 
@@ -1062,7 +1067,7 @@ class OfflineProtocolTracker extends Agent {
     console.log(sbdTokens);
     console.log(await this.contracts.sbdToken.totalSupply());
     expect(await this.contracts.sbdToken.balanceOf(this.contracts.stableBaseCDP.target)).to.equal(BigInt(0), "SBD token mismatch");
-    expect(sbdTokens).to.be.closeTo(await this.contracts.sbdToken.totalSupply(), ethers.parseEther("0.0001"), "Total SBD tokens mismatch");
+    expect(sbdTokens).to.be.closeTo(await this.contracts.sbdToken.totalSupply(), totalPrecision, "Total SBD tokens mismatch");
     //expect(sbrTokens).to.be.closeTo(await this.contracts.sbrToken.totalSupply(), ethers.parseEther("0.0000000000001"), "Total SBR tokens mismatch");
   }
 
@@ -1075,17 +1080,17 @@ class OfflineProtocolTracker extends Agent {
     }
     for (const staker of this.stabilityPool.stakers) {
         const user = await this.contracts.stabilityPool.getUser(staker.account.address);
-        expect(user.stake).to.be.closeTo(staker.stabilityPool.stake, ethers.parseUnits("0.0001", 18));
+        expect(user.stake).to.be.closeTo(staker.stabilityPool.stake, totalPrecision);
         totalStake += staker.stabilityPool.stake;
         totalRewards.sbd += staker.stabilityPool.unclaimedRewards.sbd;
         totalRewards.eth += staker.stabilityPool.unclaimedRewards.eth;
         const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(staker.account.address);
-        expect(pendingRewards[0]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
-        expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
+        expect(pendingRewards[0]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.sbd, aggregatePrecision);
+        expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, aggregatePrecision);
     }
-    expect(totalStake).to.be.closeTo(await this.contracts.stabilityPool.totalStakedRaw(), ethers.parseEther("0.000000001", 18), "Stability pool stake mismatch");
-    expect(totalRewards.sbd + totalStake + this.stabilityPool.rewardLoss + this.stabilityPool.stakeLoss).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), ethers.parseUnits("0.00001", 18), "Stability pool SBD balance mismatch");
-    expect(totalRewards.eth).to.be.closeTo(await ethers.provider.getBalance(this.contracts.stabilityPool.target), ethers.parseUnits("0.000001", 18), "Stability pool ETH balance mismatch");
+    expect(totalStake).to.be.closeTo(await this.contracts.stabilityPool.totalStakedRaw(), totalPrecision, "Stability pool stake mismatch");
+    expect(totalRewards.sbd + totalStake + this.stabilityPool.rewardLoss + this.stabilityPool.stakeLoss).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), ethers.parseUnits("0.000001", 18), "Stability pool SBD balance mismatch");
+    expect(totalRewards.eth).to.be.closeTo(await ethers.provider.getBalance(this.contracts.stabilityPool.target), totalPrecision, "Stability pool ETH balance mismatch");
   }
 
   async printState() {
@@ -1247,11 +1252,11 @@ class OfflineProtocolTracker extends Agent {
         await this.validateTotalSupply();
         await this.validateStabilityPool();
         await this.validateSafes();
-        /*
-        //if ((id + 1) % 20 == 0) {
-        await this.syncStates();
+        
+       // if ((id + 1) % 20 == 0) {
+        //  await this.syncStates();
         //}
-        */
+        
     } catch (ex) {
         //console.log(this.stabilityPool);
         await this.printState();
