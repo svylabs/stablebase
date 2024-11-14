@@ -268,6 +268,9 @@ class Borrower extends Actor {
     async openSafe() {
         console.log("Opening safe for ", this.safeId, this.id);
         ///console.log("Account balance: ", this.account, );
+        if ((await this.contracts.stableBaseCDP.ownerOf(this.safeId)) != ethers.ZeroAddress) {
+            return;
+        }
         let collateralAmount = (((this.ethBalance / BigInt(1e18)) * BigInt(1e18)) * BigInt(Math.floor(getRandomInRange(0.001, 0.01) * 1000))) / BigInt(1000);
         console.log("OPening safe with collateral ", collateralAmount);
         const tx = await this.contracts.stableBaseCDP.connect(this.account).openSafe(this.safeId, collateralAmount, { value: collateralAmount });
