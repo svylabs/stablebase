@@ -8,6 +8,7 @@ const { takeODLLSnapshot, takeUserSnapshots, takeContractSnapshots, takeSafeSnap
 const numBorrowers = 100;
 const numBots = 5;
 const numThirdpartyStablecoinHolders = 300;
+const numSimulations = 300;
 
 function getRandomInRange(min, max) {
     return Math.random() * (max - min) + min;
@@ -402,7 +403,7 @@ class Borrower extends Actor {
     }
 
     async topupFee() {
-        const topupFee = (this.safe.debt * this.shieldingRate) / BigInt(10000);
+        let topupFee = (this.safe.debt * this.shieldingRate) / BigInt(10000);
         console.log("Paying topup fee ", topupFee, this.safe.debt, this.sbdBalance, this.shieldingRate);
         if (this.safe.collateral == BigInt(0) || this.sbdBalance < topupFee || topupFee == BigInt(0)) {
             try {
@@ -421,7 +422,15 @@ class Borrower extends Actor {
                 assert.fail("This should have failed");
             } catch (ex) {
                 await this.activatePendingCollateralAndDebt();
-                expect(this.safe.debt).to.equal((await this.contracts.stableBaseCDP.safes(this.safeId)).borrowedAmount);
+                topupFee = (this.safe.debt * this.shieldingRate) / BigInt(10000);
+                console.log("Paying topup fee ", topupFee, this.safe.debt, this.sbdBalance, this.shieldingRate);
+                if (topupFee > this.sbdBalance) {
+                    console.log("Adjusting position in the safe instead of paying topup fee at this point.");
+                    const tx1 = await this.contracts.sbdToken.connect(this.account).adjustPosition(this.safeId, BigInt(0));
+                    await tx1.wait();
+                    return;
+                }
+                //expect(this.safe.debt).to.equal((await this.contracts.stableBaseCDP.safes(this.safeId)).borrowedAmount);
                 const tx1= await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, topupFee);
                 await tx1.wait();
                 await this.tracker.verifyStakerPendingRewards();
@@ -445,6 +454,7 @@ class Borrower extends Actor {
     async _printState() {
         console.log("Borrower state ", this.safeId, this.safe);
         console.log("Safe: ", await this.contracts.stableBaseCDP.safes(this.safeId));
+        console.log("Safe pending collateral and debt: ", await this.contracts.stableBaseCDP.getInactiveDebtAndCollateral(this.safeId));
         console.log("Stability Pool State: ", this.stabilityPool);
         console.log("Stability Pool state for user: ", await this.contracts.stabilityPool.getUser(this.account.address));
         console.log("Stability Pool Reward State: ", await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address));
@@ -761,6 +771,7 @@ class OfflineProtocolTracker extends Agent {
         stakers: [],
         totalStake: BigInt(0),
         rewardLoss: BigInt(0),
+        stakeLoss: BigInt(0),
         totalRewards: {
             sbd: BigInt(0),
             eth: BigInt(0),
@@ -823,10 +834,13 @@ class OfflineProtocolTracker extends Agent {
         await this.distributeCollateralGainsToStabilityPoolStakers(collateralAmount - fee, false);
         const totalStake = this.stabilityPool.totalStake;
         const scalingFactor =  ((totalStake - borrowAmount) * BigInt(1e27)) / totalStake;
+        let totalStakeAfterLiquidation = BigInt(0);
         for (const staker of this.stabilityPool.stakers) {
             staker.stabilityPool.stake = (staker.stabilityPool.stake * scalingFactor) / BigInt(1e27);
+            totalStakeAfterLiquidation += staker.stabilityPool.stake;
         }
         this.stabilityPool.totalStake -= borrowAmount;
+        this.stabilityPool.stakeLoss += (this.stabilityPool.totalStake - totalStakeAfterLiquidation);
         if (this.sbrStaking.totalStake > BigInt(0)) {
             await this.distributeCollateralGainsToSBRStakers(liquidationFee);
             //return BigInt(0);
@@ -1038,7 +1052,8 @@ class OfflineProtocolTracker extends Agent {
     sbdTokens += this.market.sbdBalance;
     sbrTokens += this.market.sbrBalance;
     sbdTokens += this.stabilityPool.totalStake;
-    sbdTokens += this.stabilityPool.rewardLoss
+    sbdTokens += this.stabilityPool.rewardLoss;
+    sbdTokens += this.stabilityPool.stakeLoss;
     //sbdTokens += this.stabilityPool.totalRewards.sbd;
 
     console.log(sbdTokens);
@@ -1066,7 +1081,7 @@ class OfflineProtocolTracker extends Agent {
         expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
     }
     expect(totalStake).to.be.closeTo(await this.contracts.stabilityPool.totalStakedRaw(), ethers.parseEther("0.000000001", 18), "Stability pool stake mismatch");
-    expect(totalRewards.sbd + totalStake + this.stabilityPool.rewardLoss).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool SBD balance mismatch");
+    expect(totalRewards.sbd + totalStake + this.stabilityPool.rewardLoss + this.stabilityPool.stakeLoss).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool SBD balance mismatch");
     expect(totalRewards.eth).to.be.closeTo(await ethers.provider.getBalance(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool ETH balance mismatch");
   }
 
@@ -1219,6 +1234,7 @@ class OfflineProtocolTracker extends Agent {
       this.stabilityPool.totalStake = await this.contracts.stabilityPool.totalStakedRaw();
       this.market.sbdBalance = await this.contracts.sbdToken.balanceOf(this.market.account.address);
       this.stabilityPool.rewardLoss = BigInt(0);
+      this.stabilityPool.stakeLoss = BigInt(0);
   }
 
   async step(id) {
@@ -1229,7 +1245,7 @@ class OfflineProtocolTracker extends Agent {
         await this.validateStabilityPool();
         await this.validateSafes();
         //if ((id + 1) % 20 == 0) {
-            await this.syncStates();
+        await this.syncStates();
         //}
     } catch (ex) {
         //console.log(this.stabilityPool);
@@ -1391,7 +1407,7 @@ async function main() {
     tracker.actors = actors;
 
     // Main simulation loop
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < numSimulations; i++) {
         console.log(`--- Simulation Step ${i + 1} ---`);
         
         // Get the updated collateral price from the market
