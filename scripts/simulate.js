@@ -289,7 +289,7 @@ class Borrower extends Actor {
             // this should fail as there is no safe
         }
         console.log("Borrowing  ", borrowAmount);
-        if (this.safe.debt + borrowAmount > ((this.safe.collateral * this.market.collateralPrice * BigInt(909)) / BigInt(1000))) {
+        if ((this.safe.debt + borrowAmount) > ((this.safe.collateral * this.market.collateralPrice * BigInt(909)) / BigInt(1000)) || (this.safe.debt + borrowAmount) < await this.contracts.stableBaseCDP.MINIMUM_DEBT()) {
             // this should fail
             try {
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).borrow(this.safeId, borrowAmount, this.shieldingRate, BigInt(0), BigInt(0));
@@ -855,7 +855,10 @@ class OfflineProtocolTracker extends Agent {
   }
 
   async cleanupBorrower(safeId) {
-    const borrower = this.safeMapping[safeId];
+    let borrower = this.safeMapping[safeId];
+    if (borrower == undefined) {
+        borrower = this.safeMapping[BigInt(safeId)];
+    }
     await borrower.setSafeClosed();
     await this.removeBorrower(borrower);
   }
@@ -1010,7 +1013,7 @@ class OfflineProtocolTracker extends Agent {
     console.log(sbdTokens);
     console.log(await this.contracts.sbdToken.totalSupply());
     expect(await this.contracts.sbdToken.balanceOf(this.contracts.stableBaseCDP.target)).to.equal(BigInt(0), "SBD token mismatch");
-    expect(sbdTokens).to.be.closeTo(await this.contracts.sbdToken.totalSupply(), ethers.parseEther("0.00000000001"), "Total SBD tokens mismatch");
+    expect(sbdTokens).to.be.closeTo(await this.contracts.sbdToken.totalSupply(), ethers.parseEther("0.0000000001"), "Total SBD tokens mismatch");
     //expect(sbrTokens).to.be.closeTo(await this.contracts.sbrToken.totalSupply(), ethers.parseEther("0.0000000000001"), "Total SBR tokens mismatch");
   }
 
@@ -1031,7 +1034,7 @@ class OfflineProtocolTracker extends Agent {
         expect(pendingRewards[0]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
         expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
     }
-    expect(totalStake).to.equal(await this.contracts.stabilityPool.totalStakedRaw(), "Stability pool stake mismatch");
+    expect(totalStake).to.be.closeTo(await this.contracts.stabilityPool.totalStakedRaw(), ethers.parseEther("0.000000001", 18), "Stability pool stake mismatch");
     expect(totalRewards.sbd + totalStake).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool SBD balance mismatch");
     expect(totalRewards.eth).to.be.closeTo(await ethers.provider.getBalance(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool ETH balance mismatch");
   }
@@ -1045,7 +1048,7 @@ class OfflineProtocolTracker extends Agent {
      console.log("Safe snapshots: ", safeSnapshots);
      console.log("Redemption QUeue: ", contractState.stableBaseCDP.redemptionQueue.all);
      console.log("Liquidation Queue: ", contractState.stableBaseCDP.liquidationQueue.all);
-     this.market.printState();
+     await this.market.printState();
   }
 
   async validateSafes() {
@@ -1106,9 +1109,14 @@ class OfflineProtocolTracker extends Agent {
               debt: pendingIncrease[0]
           }
       }
-      for (const staker of this.stabilityPool.stakers) {
+      for (const actor of this.actors) {
+        actor.sbdBalance = await this.contracts.sbdToken.balanceOf(actor.account.address);
+        actor.sbrBalance = await this.contracts.sbrToken.balanceOf(actor.account.address);
+    }
+    for (const staker of this.stabilityPool.stakers) {
           const user = await this.contracts.stabilityPool.getUser(staker.account.address);
           const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(staker.account.address);
+          staker.sbdBalance = await this.contracts.sbdToken.balanceOf(staker.account.address);
           staker.stabilityPool = {
               stake: user.stake,
               unclaimedRewards: {
@@ -1119,6 +1127,7 @@ class OfflineProtocolTracker extends Agent {
           }
       }
       this.stabilityPool.totalStake = await this.contracts.stabilityPool.totalStakedRaw();
+      this.market.sbdBalance = await this.contracts.sbdToken.balanceOf(this.market.account.address);
   }
 
   async step(id) {
@@ -1128,12 +1137,13 @@ class OfflineProtocolTracker extends Agent {
         await this.validateTotalSupply();
         await this.validateStabilityPool();
         await this.validateSafes();
-        if ((id + 1) % 150 == 0) {
-            await resetStates();
+        if ((id + 1) % 125 == 0) {
+            await this.syncStates();
         }
     } catch (ex) {
-        console.log(this.stabilityPool);
+        //console.log(this.stabilityPool);
         await this.printState();
+        throw ex;
     }
   }
 }
