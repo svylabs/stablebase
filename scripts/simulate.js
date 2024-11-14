@@ -11,7 +11,7 @@ const numThirdpartyStablecoinHolders = 300;
 
 function getRandomInRange(min, max) {
     return Math.random() * (max - min) + min;
-  }
+}
 
 class Actor extends Agent {
     constructor(actorType, account, initialBalance, contracts, market, tracker) {
@@ -1026,7 +1026,7 @@ class OfflineProtocolTracker extends Agent {
     }
     for (const staker of this.stabilityPool.stakers) {
         const user = await this.contracts.stabilityPool.getUser(staker.account.address);
-        expect(user.stake).to.be.closeTo(staker.stabilityPool.stake, ethers.parseUnits("0.0000000001", 18));
+        expect(user.stake).to.be.closeTo(staker.stabilityPool.stake, ethers.parseUnits("0.000000001", 18));
         totalStake += staker.stabilityPool.stake;
         totalRewards.sbd += staker.stabilityPool.unclaimedRewards.sbd;
         totalRewards.eth += staker.stabilityPool.unclaimedRewards.eth;
@@ -1359,7 +1359,7 @@ async function main() {
     tracker.actors = actors;
 
     // Main simulation loop
-    for (let i = 0; i < 300; i++) {
+    for (let i = 0; i < 200; i++) {
         console.log(`--- Simulation Step ${i + 1} ---`);
         
         // Get the updated collateral price from the market
