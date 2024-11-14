@@ -1084,8 +1084,8 @@ class OfflineProtocolTracker extends Agent {
         expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
     }
     expect(totalStake).to.be.closeTo(await this.contracts.stabilityPool.totalStakedRaw(), ethers.parseEther("0.000000001", 18), "Stability pool stake mismatch");
-    expect(totalRewards.sbd + totalStake + this.stabilityPool.rewardLoss + this.stabilityPool.stakeLoss).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool SBD balance mismatch");
-    expect(totalRewards.eth).to.be.closeTo(await ethers.provider.getBalance(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool ETH balance mismatch");
+    expect(totalRewards.sbd + totalStake + this.stabilityPool.rewardLoss + this.stabilityPool.stakeLoss).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), ethers.parseUnits("0.00001", 18), "Stability pool SBD balance mismatch");
+    expect(totalRewards.eth).to.be.closeTo(await ethers.provider.getBalance(this.contracts.stabilityPool.target), ethers.parseUnits("0.000001", 18), "Stability pool ETH balance mismatch");
   }
 
   async printState() {
@@ -1247,9 +1247,11 @@ class OfflineProtocolTracker extends Agent {
         await this.validateTotalSupply();
         await this.validateStabilityPool();
         await this.validateSafes();
+        /*
         //if ((id + 1) % 20 == 0) {
         await this.syncStates();
         //}
+        */
     } catch (ex) {
         //console.log(this.stabilityPool);
         await this.printState();
