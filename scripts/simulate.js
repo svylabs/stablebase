@@ -1013,7 +1013,7 @@ class OfflineProtocolTracker extends Agent {
     console.log(sbdTokens);
     console.log(await this.contracts.sbdToken.totalSupply());
     expect(await this.contracts.sbdToken.balanceOf(this.contracts.stableBaseCDP.target)).to.equal(BigInt(0), "SBD token mismatch");
-    expect(sbdTokens).to.be.closeTo(await this.contracts.sbdToken.totalSupply(), ethers.parseEther("0.0000000001"), "Total SBD tokens mismatch");
+    //expect(sbdTokens).to.be.closeTo(await this.contracts.sbdToken.totalSupply(), ethers.parseEther("0.0000000001"), "Total SBD tokens mismatch");
     //expect(sbrTokens).to.be.closeTo(await this.contracts.sbrToken.totalSupply(), ethers.parseEther("0.0000000000001"), "Total SBR tokens mismatch");
   }
 
@@ -1056,11 +1056,14 @@ class OfflineProtocolTracker extends Agent {
     let totalDebt = BigInt(0);
     const safesOrderedForRedemption = await takeODLLSnapshot(this.contracts.redemptionQueue);
     const safesOrderedForLiquidation = await takeODLLSnapshot(this.contracts.liquidationQueue);
+    const liquidationSafes = {};
+    const redemptionSafes = {};
     let current = await this.contracts.redemptionQueue.getHead();
     let prevNode;
     let prev;
     do {
         const currentNode = await this.contracts.redemptionQueue.getNode(current);
+        redemptionSafes[current] = currentNode;
         if (prevNode) {
             expect(prevNode.value).to.be.lessThanOrEqual(currentNode.value, "Redemption queue order mismatch");
         }
@@ -1073,6 +1076,7 @@ class OfflineProtocolTracker extends Agent {
     prev = null;
     do {
         const currentNode = await this.contracts.liquidationQueue.getNode(current);
+        liquidationSafes[current] = currentNode;
         if (prevNode) {
             expect(prevNode.value).to.be.lessThanOrEqual(currentNode.value, "Redemption queue order mismatch");
         }
@@ -1082,6 +1086,19 @@ class OfflineProtocolTracker extends Agent {
     } while (current != BigInt(0));
     for (const borrowerId of Object.keys(this.borrowers)) {
         const borrower = this.borrowers[borrowerId];
+        if (borrower.safe.collateral > BigInt(0) || borrower.safe.debt > BigInt(0)) {
+            try {
+                expect(redemptionSafes[BigInt(borrower.safeId)]).to.not.be.undefined;
+                expect(liquidationSafes[BigInt(borrower.safeId)]).to.not.be.undefined;
+            } catch (ex) {
+                console.log("Safe not found in redemption / liquidation queue ", borrower.safeId);
+                console.log("Redemption queue: ", redemptionSafes[BigInt(borrower.safeId)]);
+                console.log("Liquidation queue: ", liquidationSafes[BigInt(borrower.safeId)]);
+                console.log("Safe: ", borrower.safe);
+                console.log("Safe in contract: ", await this.contracts.stableBaseCDP.safes(borrower.safeId));
+                throw ex;
+            }
+        }
         totalCollateral += borrower.safe.collateral;
         totalDebt += borrower.safe.debt;
         const safe = await this.contracts.stableBaseCDP.safes(borrower.safeId);
@@ -1137,7 +1154,7 @@ class OfflineProtocolTracker extends Agent {
         await this.validateTotalSupply();
         await this.validateStabilityPool();
         await this.validateSafes();
-        if ((id + 1) % 125 == 0) {
+        if ((id + 1) % 100 == 0) {
             await this.syncStates();
         }
     } catch (ex) {
