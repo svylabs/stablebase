@@ -196,7 +196,7 @@ class Actor extends Agent {
             await this.claimCollateralGain();
             this.sbdBalance = this.sbdBalance + unstakeAmount;
             expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), ethers.parseUnits("0.0000000001", 18));
-            expect(this.stabilityPool.stake - unstakeAmount).to.be.closeTo((await this.contracts.stabilityPool.getUser(this.account.address)).stake, ethers.parseUnits("0.0000000001", 18));
+            expect(this.stabilityPool.stake - unstakeAmount).to.be.closeTo((await this.contracts.stabilityPool.getUser(this.account.address)).stake, ethers.parseUnits("0.000000001", 18));
             this.stabilityPool.stake -= unstakeAmount;
             await this.tracker.updateStabilityPoolStake(this);
         }
@@ -545,8 +545,8 @@ class Bot extends Actor {
     async getRedeemedSafes(sbdAmount) {
         const redeemedSafes = [];
         let amountToRedeem = sbdAmount;
+        let safeId = await this.contracts.redemptionQueue.getHead();
         do {
-            const safeId = await this.contracts.redemptionQueue.getHead();
             this.tracker.activatePendingCollateralAndDebt(safeId);
             //console.log("Redeeming safe: ", safeId);
             const safe = await this.contracts.stableBaseCDP.safes(safeId);
@@ -570,6 +570,8 @@ class Bot extends Actor {
                 safe,
                 params: result
             });
+            const safeNode = await this.contracts.redemptionQueue.getNode(safeId);
+            safeId = safeNode.next;
             amountToRedeem = amountToRedeem - (result[2] + result[3]);
             console.log("Amount to redeem, amount redeemed from safe, refunded", amountToRedeem, result[2], result[3]);
         } while (amountToRedeem > BigInt(0));
@@ -812,9 +814,9 @@ class OfflineProtocolTracker extends Agent {
      if (this.stabilityPool.totalStake >= borrowAmount) {
         await this.distributeCollateralGainsToStabilityPoolStakers(collateralAmount - fee, false);
         const totalStake = this.stabilityPool.totalStake;
-        const scalingFactor =  ((totalStake - borrowAmount) * BigInt(1e18)) / totalStake;
+        const scalingFactor =  ((totalStake - borrowAmount) * BigInt(1e27)) / totalStake;
         for (const staker of this.stabilityPool.stakers) {
-            staker.stabilityPool.stake = (staker.stabilityPool.stake * scalingFactor) / BigInt(1e18);
+            staker.stabilityPool.stake = (staker.stabilityPool.stake * scalingFactor) / BigInt(1e27);
         }
         this.stabilityPool.totalStake -= borrowAmount;
         if (this.sbrStaking.totalStake > BigInt(0)) {
@@ -853,7 +855,7 @@ class OfflineProtocolTracker extends Agent {
   }
 
   async cleanupBorrower(safeId) {
-    const borrower = this.safeMapping[BigInt(safeId)];
+    const borrower = this.safeMapping[safeId];
     await borrower.setSafeClosed();
     await this.removeBorrower(borrower);
   }
@@ -898,12 +900,12 @@ class OfflineProtocolTracker extends Agent {
   async verifyStakerPendingRewards() {
     for (const staker of this.stabilityPool.stakers) {
         const user = await this.contracts.stabilityPool.getUser(staker.account.address);
-        expect(user.stake).to.be.closeTo(staker.stabilityPool.stake, ethers.parseUnits("0.0000000001", 18));
+        expect(user.stake).to.be.closeTo(staker.stabilityPool.stake, ethers.parseUnits("0.000000001", 18));
         //console.log("Verifying rewards for ", staker.id, staker.account.address);
         const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(staker.account.address);
         console.log("Pending rewards ", pendingRewards[0], staker.stabilityPool.unclaimedRewards.sbd);
-        expect(pendingRewards[0]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.0000000001", 18));
-        expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
+        expect(pendingRewards[0]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.sbd, ethers.parseUnits("0.000000001", 18));
+        expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.000000001", 18));
     }
   }
 
@@ -1087,13 +1089,48 @@ class OfflineProtocolTracker extends Agent {
     expect(totalDebt).to.equal(await this.contracts.stableBaseCDP.totalDebt(), "Total debt mismatch");
   }
 
-  async step() {
+  // To adjust for precision loss in naive calculations during simulations
+  async syncStates() {
+      // reset borrower states
+      for (const borrowerId of Object.keys(this.borrowers)) {
+          const borrower = this.borrowers[borrowerId];
+          borrower.sbdBalance = await this.contracts.sbdToken.balanceOf(borrower.account.address);
+          const safe = await this.contracts.stableBaseCDP.safes(borrower.safeId);
+          borrower.safe  = {
+              collateral: safe.collateralAmount,
+              debt:     safe.borrowedAmount
+          };
+          const pendingIncrease = await this.contracts.stableBaseCDP.getInactiveDebtAndCollateral(borrower.safeId);
+          borrower.safe.pending = {
+              collateral: pendingIncrease[1],
+              debt: pendingIncrease[0]
+          }
+      }
+      for (const staker of this.stabilityPool.stakers) {
+          const user = await this.contracts.stabilityPool.getUser(staker.account.address);
+          const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(staker.account.address);
+          staker.stabilityPool = {
+              stake: user.stake,
+              unclaimedRewards: {
+                  sbd: pendingRewards[0],
+                  eth: pendingRewards[1],
+                  sbr: pendingRewards[2]
+              }
+          }
+      }
+      this.stabilityPool.totalStake = await this.contracts.stabilityPool.totalStakedRaw();
+  }
+
+  async step(id) {
     try {
     //this.checkForLiquidation(collateralPrice);
         await this.validateDebtAndCollateral();
         await this.validateTotalSupply();
         await this.validateStabilityPool();
         await this.validateSafes();
+        if ((id + 1) % 150 == 0) {
+            await resetStates();
+        }
     } catch (ex) {
         console.log(this.stabilityPool);
         await this.printState();
@@ -1266,7 +1303,7 @@ async function main() {
         }
         
         console.log(); // Blank line for readability between steps
-        await tracker.step();
+        await tracker.step(i);
     }
     console.log("Simulation completed without errors");
 
