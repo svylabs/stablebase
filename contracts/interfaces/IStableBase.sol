@@ -146,6 +146,9 @@ interface IStableBase {
         uint256 totalCollateral,
         uint256 totalDebt
     );
+    event RemovedSafe(
+        uint256 indexed safeId,
+    );
 
     struct Safe {
         uint256 collateralAmount;

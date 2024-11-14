@@ -629,6 +629,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         //safes[_safeId].status = SafeStatus.CLOSED;
         delete safes[_safeId];
         _burn(_safeId);
+        emit RemovedSafe(_safeId);
     }
 
     function _removeSafeFromBothQueues(uint256 safeId) internal {

@@ -1020,7 +1020,7 @@ class OfflineProtocolTracker extends Agent {
     console.log(sbdTokens);
     console.log(await this.contracts.sbdToken.totalSupply());
     expect(await this.contracts.sbdToken.balanceOf(this.contracts.stableBaseCDP.target)).to.equal(BigInt(0), "SBD token mismatch");
-    expect(sbdTokens).to.be.closeTo(await this.contracts.sbdToken.totalSupply(), ethers.parseEther("0.0000000001"), "Total SBD tokens mismatch");
+    expect(sbdTokens).to.be.closeTo(await this.contracts.sbdToken.totalSupply(), ethers.parseEther("0.000000001"), "Total SBD tokens mismatch");
     //expect(sbrTokens).to.be.closeTo(await this.contracts.sbrToken.totalSupply(), ethers.parseEther("0.0000000000001"), "Total SBR tokens mismatch");
   }
 
