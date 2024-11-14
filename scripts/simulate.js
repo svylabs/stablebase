@@ -268,8 +268,12 @@ class Borrower extends Actor {
     async openSafe() {
         console.log("Opening safe for ", this.safeId, this.id);
         ///console.log("Account balance: ", this.account, );
-        if ((await this.contracts.stableBaseCDP.ownerOf(this.safeId)) != ethers.ZeroAddress) {
-            return;
+        try {
+            if ((await this.contracts.stableBaseCDP.ownerOf(this.safeId)) != ethers.ZeroAddress) {
+                return;
+            }
+        } catch (err) {
+            // For now do nothing
         }
         let collateralAmount = (((this.ethBalance / BigInt(1e18)) * BigInt(1e18)) * BigInt(Math.floor(getRandomInRange(0.001, 0.01) * 1000))) / BigInt(1000);
         console.log("OPening safe with collateral ", collateralAmount);
@@ -756,6 +760,7 @@ class OfflineProtocolTracker extends Agent {
     this.stabilityPool = {
         stakers: [],
         totalStake: BigInt(0),
+        rewardLoss: BigInt(0),
         totalRewards: {
             sbd: BigInt(0),
             eth: BigInt(0),
@@ -823,7 +828,7 @@ class OfflineProtocolTracker extends Agent {
         }
         this.stabilityPool.totalStake -= borrowAmount;
         if (this.sbrStaking.totalStake > BigInt(0)) {
-            await this.distributeCollateralGainsToSBRStakers(collateralAmount - fee);
+            await this.distributeCollateralGainsToSBRStakers(liquidationFee);
             //return BigInt(0);
         } else if (this.stabilityPool.totalStake > BigInt(0)) {
             await this.distributeCollateralGainsToStabilityPoolStakers(liquidationFee, true);
@@ -838,6 +843,17 @@ class OfflineProtocolTracker extends Agent {
         const totalCollateral = Object.keys(this.borrowers).reduce((acc, id) => acc + this.borrowers[id].safe.collateral, BigInt(0));
         expect(totalCollateral).to.equal(await this.contracts.stableBaseCDP.totalCollateral());
         await this.distributeDebtAndCollateralToExistingBorrowers(borrowAmount, collateralAmount - fee, totalCollateral);
+        if (this.sbrStaking.totalStake > BigInt(0)) {
+            await this.distributeCollateralGainsToSBRStakers(fee);
+            //return BigInt(0);
+        } else if (this.stabilityPool.totalStake > BigInt(0)) {
+            await this.distributeCollateralGainsToStabilityPoolStakers(liquidationFee, true);
+            //return BigInt(0);
+            //refund = 
+        } else {
+           // return liquidationFee;
+           refund = liquidationFee;
+        }
      }
      //expect(this.totalCollateral).to.equal(await this.contracts.stableBaseCDP.totalCollateral());
      //expect(this.totalDebt).to.equal(await this.contracts.stableBaseCDP.totalDebt());
@@ -925,14 +941,16 @@ class OfflineProtocolTracker extends Agent {
   async distributeRedemptionFeeToStabilityPoolStakers(redeemerFee) {
     let totalStake = this.stabilityPool.totalStake;
     let distributed = BigInt(0);
+    let toDistribute = redeemerFee + this.stabilityPool.rewardLoss;
     for (let i = 0; i< this.stabilityPool.stakers.length ; i++) {
          const staker= this.stabilityPool.stakers[i];
          const share = (((redeemerFee * staker.stabilityPool.stake * BigInt(1e18))  / (totalStake)) / BigInt(1e18));
-         console.log("Distributing owner fee ", i,  "Fee", redeemerFee, "share: ", share, "stake", staker.stabilityPool.stake, "fee share", ((staker.stabilityPool.stake * BigInt(10000)) / totalStake));
+         console.log("Distributing owner fee ", i, staker.id, this.stabilityPool.totalStake, "Fee", redeemerFee, "share: ", share, "stake", staker.stabilityPool.stake, "fee share", ((staker.stabilityPool.stake * BigInt(10000)) / totalStake));
          await staker.distributeSbdRewards(share);
          distributed += share;
      }
      this.stabilityPool.totalRewards.sbd += distributed;
+     this.stabilityPool.rewardLoss = toDistribute - distributed;
   }
 
 
@@ -942,7 +960,7 @@ class OfflineProtocolTracker extends Agent {
     for (let i = 0; i< this.stabilityPool.stakers.length ; i++) {
         const staker= this.stabilityPool.stakers[i];
          const share = (((collateral * staker.stabilityPool.stake * BigInt(1e18))  / (totalStake)) / BigInt(1e18));
-         console.log("Distributing collateral from redemption / liquidation", i,  "Fee", collateral, "share: ", share, "stake", staker.stabilityPool.stake, "fee share", ((staker.stabilityPool.stake * BigInt(10000)) / totalStake));
+         console.log("Distributing collateral from redemption / liquidation", i,  staker.id, this.stabilityPool.totalStake, "Fee", collateral, "share: ", share, "stake", staker.stabilityPool.stake, "fee share", ((staker.stabilityPool.stake * BigInt(10000)) / totalStake));
          await staker.distributeCollateralGain(share, check);
          distributed += share;
      }
@@ -955,13 +973,14 @@ class OfflineProtocolTracker extends Agent {
      if (this.sbrStaking.totalStake == BigInt(0)) {
         proportion = BigInt(10000);
      }
+     let toDistribute = fee + this.stabilityPool.rewardLoss;
      let distributed = BigInt(0);
      console.log(await this.contracts.stabilityPool.totalStakedRaw(), totalStake);
      console.log("Distributing shielding fee ", fee, totalStake, proportion);
      for (let i = 0; i< this.stabilityPool.stakers.length ; i++) {
         const staker= this.stabilityPool.stakers[i];
          const share = (((fee * staker.stabilityPool.stake * proportion * BigInt(1e18))  / (totalStake)) / BigInt(1e18) / BigInt(10000));
-         console.log("Distributing shielding fee ", i,  "Fee", fee, "share: ", share, "stake", staker.stabilityPool.stake, "fee share", ((staker.stabilityPool.stake * BigInt(10000)) / totalStake));
+         console.log("Distributing shielding fee ", i, staker.id, this.stabilityPool.totalStake, "Fee", fee, "share: ", share, "stake", staker.stabilityPool.stake, "fee share", ((staker.stabilityPool.stake * BigInt(10000)) / totalStake));
          await staker.distributeSbdRewards(share);
          distributed += share;
      }
@@ -973,6 +992,7 @@ class OfflineProtocolTracker extends Agent {
          await staker.distributeSbrStakingRewards(share);
          distributedToSbrStakers += share;
      }
+     this.rewardLoss = toDistribute - distributed - distributedToSbrStakers;
      this.stabilityPool.totalRewards.sbd += distributed;
      this.sbrStaking.totalRewards.sbd += distributedToSbrStakers;
      return fee - distributed - distributedToSbrStakers; // return refund
@@ -1045,7 +1065,7 @@ class OfflineProtocolTracker extends Agent {
         expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, ethers.parseUnits("0.0000000001", 18));
     }
     expect(totalStake).to.be.closeTo(await this.contracts.stabilityPool.totalStakedRaw(), ethers.parseEther("0.000000001", 18), "Stability pool stake mismatch");
-    expect(totalRewards.sbd + totalStake).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool SBD balance mismatch");
+    expect(totalRewards.sbd + totalStake + this.stabilityPool.rewardLoss).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool SBD balance mismatch");
     expect(totalRewards.eth).to.be.closeTo(await ethers.provider.getBalance(this.contracts.stabilityPool.target), ethers.parseUnits("0.000000001", 18), "Stability pool ETH balance mismatch");
   }
 
@@ -1197,6 +1217,7 @@ class OfflineProtocolTracker extends Agent {
       }
       this.stabilityPool.totalStake = await this.contracts.stabilityPool.totalStakedRaw();
       this.market.sbdBalance = await this.contracts.sbdToken.balanceOf(this.market.account.address);
+      this.stabilityPool.rewardLoss = BigInt(0);
   }
 
   async step(id) {
