@@ -92,17 +92,17 @@ interface IStableBase {
         uint256 newWeight
     );
     event LiquidationQueueUpdated(
-        uint256 safeId,
+        uint256 indexed safeId,
         uint256 newRatio,
         uint256 nextNode
     );
-    event SafeRemovedFromLiquidationQueue(uint256 safeId);
+    event SafeRemovedFromLiquidationQueue(uint256 indexed safeId);
     event RedemptionQueueUpdated(
-        uint256 safeId,
+        uint256 indexed safeId,
         uint256 newWeight,
         uint256 prevNode
     );
-    event SafeRemovedFromRedemptionQueue(uint256 safeId);
+    event SafeRemovedFromRedemptionQueue(uint256 indexed safeId);
     event FeeDistributed(
         uint256 indexed safeId,
         uint256 fee,

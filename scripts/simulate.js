@@ -106,7 +106,7 @@ class Actor extends Agent {
        }
     }
     async step() {
-        console.log(`[${this.actorType} - ${this.id}] executing step`);
+        console.log(`[${Date.now()}] [${this.actorType} - ${this.id}] executing step`);
         this.ethBalance = await this.account.provider.getBalance(this.account.address);
         try {
             await this._step();
@@ -1051,6 +1051,37 @@ class OfflineProtocolTracker extends Agent {
      await this.market.printState();
   }
 
+  async getTransaction(txHash) {
+    try {
+        const transaction = await ethers.provider.getTransaction(txHash);
+
+        if (!transaction) {
+            console.log("Transaction not found!");
+            return;
+        }
+
+        // Decode input data
+        const parsedData = this.contracts.stableBaseCDP.interface.parseTransaction({
+            data: transaction.data,
+            value: transaction.value,
+        });
+        console.log(parsedData);
+    } catch (error) {
+        console.error("Error fetching transaction:", error);
+    }
+  }
+
+
+  async getTxAndEventsThatRemovedFromQueue(safeId) {
+    const filter = this.contracts.stableBaseCDP.filters.SafeRemovedFromRedemptionQueue(safeId);
+    const events = await this.contracts.stableBaseCDP.queryFilter(filter);
+    events.forEach(async(event) => {
+        console.log("Transaction hash:", event.transactionHash);
+        await this.getTransaction(event.transactionHash);
+    });
+
+  }
+
   async validateSafes() {
     let totalCollateral = BigInt(0);
     let totalDebt = BigInt(0);
@@ -1066,6 +1097,8 @@ class OfflineProtocolTracker extends Agent {
         redemptionSafes[current] = currentNode;
         if (prevNode) {
             expect(prevNode.value).to.be.lessThanOrEqual(currentNode.value, "Redemption queue order mismatch");
+            expect(prevNode.next).to.equal(current);
+            expect(currentNode.prev).to.equal(prev);
         }
         prevNode = currentNode;
         prev = current;
@@ -1079,11 +1112,14 @@ class OfflineProtocolTracker extends Agent {
         liquidationSafes[current] = currentNode;
         if (prevNode) {
             expect(prevNode.value).to.be.lessThanOrEqual(currentNode.value, "Redemption queue order mismatch");
+            expect(prevNode.next).to.equal(current);
+            expect(currentNode.prev).to.equal(prev);
         }
         prevNode = currentNode;
         prev = current;
         current = currentNode.next;
     } while (current != BigInt(0));
+    let keysNotFound = 0;
     for (const borrowerId of Object.keys(this.borrowers)) {
         const borrower = this.borrowers[borrowerId];
         if (borrower.safe.collateral > BigInt(0) || borrower.safe.debt > BigInt(0)) {
@@ -1091,12 +1127,13 @@ class OfflineProtocolTracker extends Agent {
                 expect(redemptionSafes[BigInt(borrower.safeId)]).to.not.be.undefined;
                 expect(liquidationSafes[BigInt(borrower.safeId)]).to.not.be.undefined;
             } catch (ex) {
-                console.log("Safe not found in redemption / liquidation queue ", borrower.safeId);
+                console.log("Safe not found in redemption / liquidation queue ", borrower.safeId, BigInt(borrower.safeId));
                 console.log("Redemption queue: ", redemptionSafes[BigInt(borrower.safeId)]);
                 console.log("Liquidation queue: ", liquidationSafes[BigInt(borrower.safeId)]);
                 console.log("Safe: ", borrower.safe);
                 console.log("Safe in contract: ", await this.contracts.stableBaseCDP.safes(borrower.safeId));
-                throw ex;
+                await this.getTxAndEventsThatRemovedFromQueue(BigInt(borrower.safeId));
+                keysNotFound++;
             }
         }
         totalCollateral += borrower.safe.collateral;
@@ -1105,6 +1142,11 @@ class OfflineProtocolTracker extends Agent {
         expect(safe.collateralAmount).to.equal(borrower.safe.collateral, "Collateral mismatch");
         expect(safe.borrowedAmount).to.equal(borrower.safe.debt, "Debt mismatch");
     }
+    if (keysNotFound > 0) {
+        console.log("Total keys not found in liquidation / redemption queue.", keysNotFound);
+        throw "Some keys not found in liquidation / redemption queue";
+    }
+    
     expect(totalCollateral).to.equal(await this.contracts.stableBaseCDP.totalCollateral(), "Total collateral mismatch");
     expect(totalDebt).to.equal(await this.contracts.stableBaseCDP.totalDebt(), "Total debt mismatch");
   }

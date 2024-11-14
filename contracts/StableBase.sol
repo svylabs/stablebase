@@ -151,7 +151,8 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         safe.feePaid += _shieldingFee;
 
         // Calculate the ratio (borrowAmount per unit collateral)
-        uint256 ratio = (safe.borrowedAmount) / safe.collateralAmount;
+        uint256 ratio = (safe.borrowedAmount * PRECISION) /
+            safe.collateralAmount;
 
         IDoublyLinkedList.Node memory redemptionNode = safesOrderedForRedemption
             .upsert(safeId, safe.weight, nearestSpotInRedemptionQueue);
@@ -439,7 +440,8 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         ) {
             _removeSafeFromBothQueues(_safeId);
         } else {
-            uint256 newRatio = safe.borrowedAmount / safe.collateralAmount;
+            uint256 newRatio = (safe.borrowedAmount * PRECISION) /
+                safe.collateralAmount;
             IDoublyLinkedList.Node
                 memory liquidationNode = safesOrderedForLiquidation.upsert(
                     _safeId,

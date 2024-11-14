@@ -131,7 +131,8 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         );
         sbdToken.burn(msg.sender, amount);
         _safe.borrowedAmount -= amount;
-        uint256 _newRatio = _safe.borrowedAmount / _safe.collateralAmount;
+        uint256 _newRatio = (_safe.borrowedAmount * PRECISION) /
+            _safe.collateralAmount;
         if (_newRatio != 0) {
             IDoublyLinkedList.Node memory node = safesOrderedForLiquidation
                 .upsert(safeId, _newRatio, nearestSpotInLiquidationQueue);
@@ -156,7 +157,8 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         safe.collateralAmount += amount;
         totalCollateral += amount;
 
-        uint256 _newRatio = safe.borrowedAmount / safe.collateralAmount;
+        uint256 _newRatio = (safe.borrowedAmount * PRECISION) /
+            safe.collateralAmount;
         IDoublyLinkedList.Node memory node = safesOrderedForLiquidation.upsert(
             safeId,
             _newRatio,
@@ -192,7 +194,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
                 (safe.borrowedAmount * liquidationRatio * PRECISION) /
                 (price * BASIS_POINTS_DIVISOR);
             require(amount <= maxWithdrawal, "Insufficient collateral");
-            uint256 _newRatio = safe.borrowedAmount /
+            uint256 _newRatio = (safe.borrowedAmount * PRECISION) /
                 (safe.collateralAmount - amount);
             IDoublyLinkedList.Node memory node = safesOrderedForLiquidation
                 .upsert(safeId, _newRatio, nearestSpotInLiquidationQueue);
@@ -461,7 +463,8 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
         require(safe.collateralAmount > 0, "Safe does not exist");
-        uint256 _newRatio = safe.borrowedAmount / safe.collateralAmount;
+        uint256 _newRatio = (safe.borrowedAmount * PRECISION) /
+            safe.collateralAmount;
         IDoublyLinkedList.Node memory node = safesOrderedForLiquidation.upsert(
             safeId,
             _newRatio,
