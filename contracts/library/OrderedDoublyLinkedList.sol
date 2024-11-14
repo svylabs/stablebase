@@ -120,13 +120,17 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList, Ownable {
         Node memory node = nodes[id];
         if (node.prev == 0) {
             head = node.next;
+            nodes[node.next].prev = 0;
         } else {
             nodes[node.prev].next = node.next;
+            nodes[node.next].prev = node.prev;
         }
         if (node.next == 0) {
             tail = node.prev;
+            nodes[node.prev].next = 0;
         } else {
             nodes[node.next].prev = node.prev;
+            nodes[node.prev].next = node.next;
         }
         delete nodes[id];
         return node;

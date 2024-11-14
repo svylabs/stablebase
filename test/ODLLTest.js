@@ -432,4 +432,43 @@ describe("OrderedDoublyLinkedListTest", function () {
         expect(node.value).to.equal(value);
     });
 
+
+    it("Random test", async function() {
+        const randomValues = [];
+        const ids = {};
+        for (i = 0 ;i<150;i++) {
+            randomValues.push({
+                id: Math.floor(Math.random() * 100000000),
+                value: Math.floor(Math.random() * 100),
+                nearestInput: Math.floor(Math.random() * 100)
+            });
+            if (ids[randomValues[i].id] === undefined) {
+                const tx = await orderedDoublyLinkedList.connect(addr1).upsert(randomValues[i].id, randomValues[i].value, randomValues[i].nearestInput);
+                const receipt = await tx.wait();
+            }
+            ids[randomValues[i].id] = true;
+            
+        }
+        for (i=0;i<randomValues.length;i++) {
+            const node = await orderedDoublyLinkedList.getNode(randomValues[i].id);
+            expect(node.value).to.equal(randomValues[i].value);
+        }
+        let current = await orderedDoublyLinkedList.getHead();
+        let prev;
+        let prevId;
+        do {
+            const node = await orderedDoublyLinkedList.getNode(current);
+            if (prev) {
+                expect(prev.value).to.be.lessThanOrEqual(node.value);
+                expect(prev.next).to.equal(current);
+                expect(node.prev).to.equal(prevId);
+            }
+            //console.log("Node: ", node, current);
+            prevId = current;
+            current = node.next;
+            prev = node;
+        } while (current != BigInt(0));
+
+    })
+
 });

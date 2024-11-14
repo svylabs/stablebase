@@ -151,7 +151,8 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         safe.feePaid += _shieldingFee;
 
         // Calculate the ratio (borrowAmount per unit collateral)
-        uint256 ratio = (safe.borrowedAmount) / safe.collateralAmount;
+        uint256 ratio = (safe.borrowedAmount * PRECISION) /
+            safe.collateralAmount;
 
         IDoublyLinkedList.Node memory redemptionNode = safesOrderedForRedemption
             .upsert(safeId, safe.weight, nearestSpotInRedemptionQueue);
@@ -439,7 +440,8 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         ) {
             _removeSafeFromBothQueues(_safeId);
         } else {
-            uint256 newRatio = safe.borrowedAmount / safe.collateralAmount;
+            uint256 newRatio = (safe.borrowedAmount * PRECISION) /
+                safe.collateralAmount;
             IDoublyLinkedList.Node
                 memory liquidationNode = safesOrderedForLiquidation.upsert(
                     _safeId,
@@ -467,13 +469,6 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         uint256 collateralRefund = 0;
         if (redemption.ownerFee > 0) {
             if (stabilityPoolCanReceiveRewards) {
-                require(
-                    sbdToken.approve(
-                        address(stabilityPool),
-                        redemption.ownerFee
-                    ),
-                    "Approve failed"
-                );
                 require(
                     stabilityPool.addReward(redemption.ownerFee),
                     "Add reward failed"
@@ -585,6 +580,15 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
 
             totalCollateral += collateralIncrease;
             _updateTotalDebt(totalDebt, debtIncrease, true);
+            emit SafeUpdated(
+                _safeId,
+                _safe.collateralAmount,
+                _safe.borrowedAmount,
+                collateralIncrease,
+                debtIncrease,
+                totalCollateral,
+                totalDebt
+            );
         }
 
         return _safe;

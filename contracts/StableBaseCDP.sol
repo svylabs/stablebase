@@ -131,7 +131,8 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         );
         sbdToken.burn(msg.sender, amount);
         _safe.borrowedAmount -= amount;
-        uint256 _newRatio = _safe.borrowedAmount / _safe.collateralAmount;
+        uint256 _newRatio = (_safe.borrowedAmount * PRECISION) /
+            _safe.collateralAmount;
         if (_newRatio != 0) {
             IDoublyLinkedList.Node memory node = safesOrderedForLiquidation
                 .upsert(safeId, _newRatio, nearestSpotInLiquidationQueue);
@@ -156,7 +157,8 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         safe.collateralAmount += amount;
         totalCollateral += amount;
 
-        uint256 _newRatio = safe.borrowedAmount / safe.collateralAmount;
+        uint256 _newRatio = (safe.borrowedAmount * PRECISION) /
+            safe.collateralAmount;
         IDoublyLinkedList.Node memory node = safesOrderedForLiquidation.upsert(
             safeId,
             _newRatio,
@@ -192,7 +194,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
                 (safe.borrowedAmount * liquidationRatio * PRECISION) /
                 (price * BASIS_POINTS_DIVISOR);
             require(amount <= maxWithdrawal, "Insufficient collateral");
-            uint256 _newRatio = safe.borrowedAmount /
+            uint256 _newRatio = (safe.borrowedAmount * PRECISION) /
                 (safe.collateralAmount - amount);
             IDoublyLinkedList.Node memory node = safesOrderedForLiquidation
                 .upsert(safeId, _newRatio, nearestSpotInLiquidationQueue);
@@ -249,20 +251,24 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
 
         _redemption = _redeemSafes(_redemption, nearestSpotInLiquidationQueue);
         _redeemToUser(_redemption);
-        totalCollateral -= _redemption.collateralAmount;
+        totalCollateral -= (_redemption.collateralAmount +
+            _redemption.redeemerFee);
+        require(_redemption.redeemedAmount == amount, "Redemption failed");
         //totalDebt -= _redemption.redeemedAmount;
         _updateTotalDebt(
             totalDebt,
             _redemption.redeemedAmount - _redemption.refundedAmount,
             false
         );
-        require(
-            sbdToken.burn(
-                address(this),
-                _redemption.redeemedAmount - _redemption.refundedAmount
-            ),
-            "Burn failed"
-        );
+        if (_redemption.redeemedAmount > _redemption.refundedAmount) {
+            require(
+                sbdToken.burn(
+                    address(this),
+                    _redemption.redeemedAmount - _redemption.refundedAmount
+                ),
+                "Burn failed"
+            );
+        }
 
         emit RedeemedBatch(
             redemptionId,
@@ -388,6 +394,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         uint256 refund = min(gasCompensation, liquidationFee);
         _distributeLiquidationFeeAndGasCompensation(
             _safeId,
+            (gasUsed + 100000),
             liquidationFee,
             refund
         );
@@ -395,6 +402,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
 
     function _distributeLiquidationFeeAndGasCompensation(
         uint256 safeId,
+        uint256 gasPaid,
         uint256 liquidationFee,
         uint256 refund
     ) internal {
@@ -439,7 +447,12 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
             // Refund the remaining liquidation fee to the user
             (bool success, ) = msg.sender.call{value: refund}("");
             require(success, "Transfer failed");
-            emit LiquidationGasCompensationPaid(safeId, msg.sender, refund);
+            emit LiquidationGasCompensationPaid(
+                safeId,
+                gasPaid,
+                msg.sender,
+                refund
+            );
         }
     }
 
@@ -450,13 +463,31 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         Safe storage safe = safes[safeId];
         _updateSafe(safeId, safe);
         require(safe.collateralAmount > 0, "Safe does not exist");
-        uint256 _newRatio = safe.borrowedAmount / safe.collateralAmount;
+        uint256 _newRatio = (safe.borrowedAmount * PRECISION) /
+            safe.collateralAmount;
         IDoublyLinkedList.Node memory node = safesOrderedForLiquidation.upsert(
             safeId,
             _newRatio,
             nearestSpotInLiquidationQueue
         );
         emit LiquidationQueueUpdated(safeId, _newRatio, node.next);
+    }
+
+    function getInactiveDebtAndCollateral(
+        uint256 safeId
+    ) external view returns (uint256, uint256) {
+        Safe memory safe = safes[safeId];
+        LiquidationSnapshot memory liquidationSnapshot = liquidationSnapshots[
+            safeId
+        ];
+        uint debtIncrease = (safe.collateralAmount *
+            (cumulativeDebtPerUnitCollateral -
+                liquidationSnapshot.debtPerCollateralSnapshot)) / PRECISION;
+        uint collateralIncrease = (safe.collateralAmount *
+            (cumulativeCollateralPerUnitCollateral -
+                liquidationSnapshot.collateralPerCollateralSnapshot)) /
+            PRECISION;
+        return (debtIncrease, collateralIncrease);
     }
 
     modifier _onlyOwner(uint256 _tokenId) {

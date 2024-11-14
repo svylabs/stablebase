@@ -307,17 +307,17 @@ describe("Test the flow", function () {
           bobSnapshot2.newSnapshot.stableBaseCDP.liquidationQueue.all.forEach((node) => {
               if (node.safeId == aliceSafeId) {
                   const safe = aliceSnapshot.newSnapshot.safe;
-                  const l2v = safe.borrowedAmount / safe.collateralAmount;
+                  const l2v = (safe.borrowedAmount * BigInt(1e18)) / safe.collateralAmount;
                   expect(node.data.value).to.equal(l2v);
               }
               if (node.safeId == bobSafeId) {
                 const safe = bobSnapshot2.newSnapshot.safe;
-                const l2v = safe.borrowedAmount / safe.collateralAmount;
+                const l2v = (safe.borrowedAmount * BigInt(1e18)) / safe.collateralAmount;
                 expect(node.data.value).to.equal(l2v);
               }
               if (node.safeId == charlieSafeId) {
                 const safe = charlieSnapshot.newSnapshot.safe;
-                const l2v = safe.borrowedAmount / safe.collateralAmount;
+                const l2v = (safe.borrowedAmount * BigInt(1e18)) / safe.collateralAmount;
                 expect(node.data.value).to.equal(l2v);
               }
             });
@@ -446,7 +446,7 @@ describe("Test the flow", function () {
 
         aliceSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.all.forEach((node) => {
           if (node.safeId == aliceSafeId) {
-             const ratio = aliceSnapshot.newSnapshot.safe.borrowedAmount / aliceSnapshot.newSnapshot.safe.collateralAmount;
+             const ratio = (aliceSnapshot.newSnapshot.safe.borrowedAmount * BigInt(1e18) )/ aliceSnapshot.newSnapshot.safe.collateralAmount;
              expect(node.data.value).to.equal(ratio);
           }
         });
@@ -515,7 +515,7 @@ describe("Test the flow", function () {
         expect(charlieSnapshot.existingSnapshot.stableBaseCDP.liquidationQueue.tail).to.equal(charlieSafeId);
         expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.head).to.equal(charlieSafeId);
         expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.tail).to.equal(aliceSafeId);
-        expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.node.value).to.equal(charlieSnapshot.newSnapshot.safe.borrowedAmount / charlieSnapshot.newSnapshot.safe.collateralAmount);
+        expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.node.value).to.equal((charlieSnapshot.newSnapshot.safe.borrowedAmount * BigInt(1e18))/ charlieSnapshot.newSnapshot.safe.collateralAmount);
         
       });
     });
@@ -550,7 +550,7 @@ describe("Test the flow", function () {
         expect(charlieSnapshot.existingSnapshot.stableBaseCDP.liquidationQueue.head).to.equal(charlieSafeId);
 
         expect(charlieSnapshot.newSnapshot.user.ethBalance).to.equal(charlieSnapshot.existingSnapshot.user.ethBalance + withdrawAmount - charlieSnapshot.gasPaid);
-        expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.node.value).to.equal(charlieSnapshot.newSnapshot.safe.borrowedAmount / charlieSnapshot.newSnapshot.safe.collateralAmount);
+        expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.node.value).to.equal((charlieSnapshot.newSnapshot.safe.borrowedAmount * BigInt(1e18))/ charlieSnapshot.newSnapshot.safe.collateralAmount);
 
         expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.tail).to.equal(charlieSafeId);
         expect(charlieSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.head).to.equal(bobSafeId);

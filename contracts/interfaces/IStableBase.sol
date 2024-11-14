@@ -80,6 +80,7 @@ interface IStableBase {
     );
     event LiquidationGasCompensationPaid(
         uint256 indexed safeId,
+        uint256 gasCompensated,
         address receiver,
         uint256 feePaid
     );
@@ -91,17 +92,17 @@ interface IStableBase {
         uint256 newWeight
     );
     event LiquidationQueueUpdated(
-        uint256 safeId,
+        uint256 indexed safeId,
         uint256 newRatio,
         uint256 nextNode
     );
-    event SafeRemovedFromLiquidationQueue(uint256 safeId);
+    event SafeRemovedFromLiquidationQueue(uint256 indexed safeId);
     event RedemptionQueueUpdated(
-        uint256 safeId,
+        uint256 indexed safeId,
         uint256 newWeight,
         uint256 prevNode
     );
-    event SafeRemovedFromRedemptionQueue(uint256 safeId);
+    event SafeRemovedFromRedemptionQueue(uint256 indexed safeId);
     event FeeDistributed(
         uint256 indexed safeId,
         uint256 fee,
@@ -135,6 +136,15 @@ interface IStableBase {
     event RedeemerRedemptionFeeDistributed(
         uint256 indexed redemptionId,
         uint256 feePaid
+    );
+    event SafeUpdated(
+        uint256 indexed safeId,
+        uint256 collateralAmount,
+        uint256 debtAmount,
+        uint256 collateralIncrease,
+        uint256 debtIncrease,
+        uint256 totalCollateral,
+        uint256 totalDebt
     );
 
     struct Safe {
@@ -227,6 +237,10 @@ interface IStableBase {
     ) external;
 
     function liquidate() external;
+
+    function getInactiveDebtAndCollateral(
+        uint256 safeId
+    ) external view returns (uint256, uint256);
 
     function setCanStabilityPoolReceiveRewards(
         bool canReceiveRewards
