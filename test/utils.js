@@ -111,6 +111,11 @@ async function takeSafeSnapshots(contracts, safes) {
     for (let i = 0; i < safes.length; i++) {
         const safeId = safes[i];
         const snapshot = await contracts.stableBaseCDP.safes(safeId);
+        const pendingDebtAndCollateral = await contracts.stableBaseCDP.getInactiveDebtAndCollateral(safeId);
+        snapshot.pending = {
+            debt: pendingDebtAndCollateral[0],
+            collateral: pendingDebtAndCollateral[1]
+        }
         snapshots[safeId] = snapshot;
     }
     return snapshots;

@@ -148,6 +148,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         }
         uint _amountToBorrow = amount - _shieldingFee;
         safe.borrowedAmount += amount;
+        safe.totalBorrowedAmount += amount;
         safe.feePaid += _shieldingFee;
 
         // Calculate the ratio (borrowAmount per unit collateral)
@@ -229,7 +230,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         uint256 collateralValue = (safe.collateralAmount * collateralPrice) /
             PRECISION;
         uint256 feePaidPercentage = ((safe.feePaid * BASIS_POINTS_DIVISOR) /
-            collateralValue);
+            safe.totalBorrowedAmount);
         // Fee tier to apply for this safe(applied to the redeemer)
         uint256 feeTier = min(
             feePaidPercentage + REDEMPTION_BASE_FEE,
@@ -628,6 +629,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         //safes[_safeId].status = SafeStatus.CLOSED;
         delete safes[_safeId];
         _burn(_safeId);
+        emit RemovedSafe(_safeId);
     }
 
     function _removeSafeFromBothQueues(uint256 safeId) internal {

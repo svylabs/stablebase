@@ -11,7 +11,7 @@ contract SBDToken is ERC20, Ownable {
     // Event for burning tokens
     event Burn(address indexed from, uint256 amount);
 
-    constructor() Ownable(msg.sender) ERC20("StableBase USD", "SBD") {}
+    constructor() Ownable(msg.sender) ERC20("StableBase USD", "SBUSD") {}
 
     function setAddresses(address _stableBaseCDP) external onlyOwner {
         transferOwnership(_stableBaseCDP);
