@@ -28,7 +28,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
             collateralAmount: _amount,
             borrowedAmount: 0,
             weight: 0,
-            status: SafeStatus.OPEN,
+            totalBorrowedAmount: 0,
             feePaid: 0
         });
         LiquidationSnapshot memory liquidationSnapshot = LiquidationSnapshot({

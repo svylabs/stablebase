@@ -151,7 +151,7 @@ interface IStableBase {
         uint256 collateralAmount;
         uint256 borrowedAmount;
         uint256 weight;
-        SafeStatus status;
+        uint256 totalBorrowedAmount;
         uint256 feePaid;
     }
 

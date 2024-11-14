@@ -555,7 +555,7 @@ class Bot extends Actor {
                 borrowedAmount: safe.borrowedAmount,
                 feePaid: safe.feePaid,
                 weight: safe.weight,
-                status: safe.status
+                totalBorrowedAmount: safe.totalBorrowedAmount
             };
             //console.log("Safe: ", safeCopy);
             const collateralValue = safe.collateralAmount * this.market.collateralPrice;
@@ -831,9 +831,10 @@ class OfflineProtocolTracker extends Agent {
            refund = liquidationFee;
         }
      } else {
-        const totalCollateral = await this.contracts.stableBaseCDP.totalCollateral();
         await this.cleanupBorrower(safeId);
-        await this.distributeDebtAndCollateralToExistingBorrowers(borrowAmount, collateralAmount, totalCollateral);
+        const totalCollateral = Object.keys(this.borrowers).reduce((acc, id) => acc + this.borrowers[id].safe.collateral, BigInt(0));
+        expect(totalCollateral).to.equal(await this.contracts.stableBaseCDP.totalCollateral());
+        await this.distributeDebtAndCollateralToExistingBorrowers(borrowAmount, collateralAmount - fee, totalCollateral);
      }
      //expect(this.totalCollateral).to.equal(await this.contracts.stableBaseCDP.totalCollateral());
      //expect(this.totalDebt).to.equal(await this.contracts.stableBaseCDP.totalDebt());
@@ -847,10 +848,13 @@ class OfflineProtocolTracker extends Agent {
      console.log("Distributing debt and collateral to existing borrowers ", debt, collateral, totalCollateral);
      for (const borrowerId of Object.keys(this.borrowers)) {
         const borrower = this.borrowers[borrowerId];
-        const share = ((collateral * borrower.safe.collateral) / totalCollateral);
-        borrower.safe.pending.collateral += share;
-        borrower.safe.pending.debt += (debt * share) / collateral;
-        console.log("Distributing debt and collateral to borrower ", borrower.id, share, borrower.safe.pending.collateral, borrower.safe.pending.debt);
+        const share = ((collateral * borrower.safe.collateral * BigInt(1e18)) / totalCollateral);
+        borrower.safe.pending.collateral += share / BigInt(1e18);
+        borrower.safe.pending.debt += ((debt * share) / collateral) / BigInt(1e18);
+        const pendingIncrease = await this.contracts.stableBaseCDP.getInactiveDebtAndCollateral(borrower.safeId);
+        console.log("Distributing debt and collateral to borrower ", borrower.id, share / BigInt(18), borrower.safe.pending.collateral, borrower.safe.pending.debt);
+        expect(pendingIncrease[0]).to.be.closeTo(borrower.safe.pending.debt, ethers.parseUnits("0.0000000001", 18));
+        expect(pendingIncrease[1]).to.be.closeTo(borrower.safe.pending.collateral, ethers.parseUnits("0.0000000001", 18));
      }
   }
 
@@ -1016,7 +1020,7 @@ class OfflineProtocolTracker extends Agent {
     console.log(sbdTokens);
     console.log(await this.contracts.sbdToken.totalSupply());
     expect(await this.contracts.sbdToken.balanceOf(this.contracts.stableBaseCDP.target)).to.equal(BigInt(0), "SBD token mismatch");
-    //expect(sbdTokens).to.be.closeTo(await this.contracts.sbdToken.totalSupply(), ethers.parseEther("0.0000000001"), "Total SBD tokens mismatch");
+    expect(sbdTokens).to.be.closeTo(await this.contracts.sbdToken.totalSupply(), ethers.parseEther("0.0000000001"), "Total SBD tokens mismatch");
     //expect(sbrTokens).to.be.closeTo(await this.contracts.sbrToken.totalSupply(), ethers.parseEther("0.0000000000001"), "Total SBR tokens mismatch");
   }
 
@@ -1125,7 +1129,7 @@ class OfflineProtocolTracker extends Agent {
     let keysNotFound = 0;
     for (const borrowerId of Object.keys(this.borrowers)) {
         const borrower = this.borrowers[borrowerId];
-        if (borrower.safe.collateral > BigInt(0) || borrower.safe.debt > BigInt(0)) {
+        if (borrower.safe.debt > BigInt(0)) {
             try {
                 expect(redemptionSafes[BigInt(borrower.safeId)]).to.not.be.undefined;
                 expect(liquidationSafes[BigInt(borrower.safeId)]).to.not.be.undefined;
@@ -1199,9 +1203,9 @@ class OfflineProtocolTracker extends Agent {
         await this.validateTotalSupply();
         await this.validateStabilityPool();
         await this.validateSafes();
-        if ((id + 1) % 100 == 0) {
+        //if ((id + 1) % 20 == 0) {
             await this.syncStates();
-        }
+        //}
     } catch (ex) {
         //console.log(this.stabilityPool);
         await this.printState();
