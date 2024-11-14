@@ -1038,6 +1038,7 @@ class OfflineProtocolTracker extends Agent {
     sbdTokens += this.market.sbdBalance;
     sbrTokens += this.market.sbrBalance;
     sbdTokens += this.stabilityPool.totalStake;
+    sbdTokens += this.stabilityPool.rewardLoss
     //sbdTokens += this.stabilityPool.totalRewards.sbd;
 
     console.log(sbdTokens);
