@@ -14,7 +14,7 @@ Here are some highlights of the protocol:
 8. Bootstrap mode: No redemptions during bootstrap phase(Until 5 million SBUSD borrowed)
 9. The Protocol issues SBR tokens to Stability Pool contributors for 1 year.
    1. No Premine
-   2. 1 token issued per second for 1 year proportionally to stakers in stability pool.
+   2. 1 token issued per second for 1 year, proportionally split among stakers in stability pool.
 10. SBR stakers capture 10% of the fees paid to the protocol by users.
 11. Stability Pool stakers capture 90% of fees paid to the protocol.
 
