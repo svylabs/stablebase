@@ -81,7 +81,20 @@ MIT
 
 # Disclaimer
 
-- **[Immutable with no governance]** The protocol is immutable, with no one controlling the code once deployed. SVY Labs, the company that developed **StableBase** protocol is only a developer of the protocol and doesn't issue 'SBR' or 'SBUSD' tokens. The company is responsible for the development and deployment of the protocol on Ethereum, with users of the protocol responsible for their actions and for ensuring they follow jurisdictional laws.
-- **[Code Unaudited]** While the core protocol is sufficiently tested by the developer, but the code is unaudited, so may contain bugs resulting in hacks or inability for users to withdraw funds from the protocol. Exercise caution when interacting with the protocol, or when using third-party frontends. The repository only contains the smart contract code developed by the developer.
-- **[Mechanism Unaudited]** The protocol mechanism is also unaudited and may contain flaws. The company or the developer cannot be held responsible / liable if the protocol doesn't work as intended in the whitepaper.
-- **[No Liability For Loss of User funds]** The 'SBR' and 'SBUSD' tokens may not carry any value, nor users will have any means to exchange these tokens for other assets. The developer cannot be held liable nor responsible for the adoption of the protocol, nor the tokens. Users are solely responsible for their actions with regards to supplying liquidity to the protocol, or exchanging assets with value to 'SBR' or 'SBUSD' tokens.
+**[Immutable with no governance]**
+The protocol is immutable, with no one controlling the code once deployed. SVY Labs, the company that developed the StableBase protocol, is only a developer of the protocol and does not issue 'SBR' or 'SBUSD' tokens. The company is responsible for the development and deployment of the protocol on Ethereum and other chains, with users of the protocol responsible for their actions and for ensuring they follow jurisdictional laws.
+
+**[Code Unaudited]**
+While the core protocol is tested by the developer, the code is unaudited and may contain bugs resulting in hacks or the inability for users to withdraw funds from the protocol. Users should exercise caution when interacting with the protocol or using third-party frontends. The repository contains only the smart contract code developed by the developer. Internal testing does not equate to a formal audit, and vulnerabilities may still exist.
+
+**[Mechanism Unaudited]**
+The protocol mechanism is unaudited and may contain flaws. The company or the developer cannot be held responsible or liable if the protocol does not work as intended in the whitepaper. Users are advised to conduct their own research (DYOR) and seek professional advice before interacting with the protocol or its tokens.
+
+**[No Liability for Loss of User Funds]**
+The 'SBR' and 'SBUSD' tokens may not carry any value, nor will users have any means to exchange these tokens for other assets. The developer cannot be held liable or responsible for the adoption of the protocol or the tokens. Users are solely responsible for their actions regarding supplying liquidity to the protocol or exchanging assets with value for 'SBR' or 'SBUSD' tokens. Users acknowledge the risk of permanent loss of funds when interacting with the protocol.
+
+**[Regulatory and Third-Party Risks]**
+Users must ensure compliance with all applicable laws and regulations in their jurisdiction when interacting with the protocol or associated tokens. The company or developer assumes no liability for regulatory implications of using the protocol. Additionally, third-party interfaces or integrations with the protocol are outside the control of the developer and may pose additional risks.
+
+**[No Warranty]**
+The protocol is provided 'as-is' without warranties of any kind, including but not limited to suitability for a particular purpose, accuracy, or functionality. Users assume all risks associated with interacting with the protocol.
