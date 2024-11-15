@@ -29,7 +29,7 @@ Here are some highlights of the protocol:
 
 **1. How is this protocol different?**
 
-The protocol is mostly inspired by the same mechanisms(CDP, Liquidation, Redemptions) from other popular CDP protocols. The key difference between this protocol and other protocols is the pricing structure. Where other popular protocols have interest rates or origination fees, the protocol doesn't impose any minimum nor maximum fees and is purely market driven. The users simply pay as you go to protect themselves from redemptions.
+The protocol is mostly inspired by the same mechanisms(CDP, Liquidation, Redemptions) from other popular CDP protocols. The key difference between StableBase and other protocols is the pricing structure. Where other popular protocols have minimum interest rates or origination fees, the protocol doesn't impose any minimum nor maximum fees and is purely market driven. The users simply pay as you go to protect themselves from redemptions.
 
 **2. Why are redemptions bad?**
 
