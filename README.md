@@ -79,6 +79,10 @@ Oracle contracts for other chains / assets needs to be developed.
 1. Support for ERC20 tokens as collateral
 2. Multi collateral support
 
+# Releases
+
+1. Preview release on Ethereum mainnet (TBA)
+
 # License
 
 MIT
