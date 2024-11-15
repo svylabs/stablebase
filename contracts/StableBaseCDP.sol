@@ -324,6 +324,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         uint256 _last = safesOrderedForLiquidation.getHead();
         Safe storage safe = safes[_safeId];
         _updateSafe(_safeId, safe);
+        safe = safes[_safeId];
         uint256 borrowedAmount = safe.borrowedAmount;
         uint256 collateralAmount = safe.collateralAmount;
         //require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
