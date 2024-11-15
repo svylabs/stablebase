@@ -52,9 +52,13 @@ The protocol earns fees from redeemer(as a percentage of collateral - 0.15%), an
 
 While some mechanisms are directly inspired by Liquity v1, this project is not a fork. All contracts, mechanisms, reward distribution mechanism has been derived and developed independently. We had started working on this project in bits and pieces even before Liquity v2 was announced in public. This project is not associated with Liquity nor any of it's forks.
 
+**6. As a (potential) user what should I keep in mind?**
+
+Read the [disclaimer](#disclaimer).
+
 **6. Can I fork the code and deploy on any chain?**
 
-Yes, you can fork the code and deploy on any chain you wish. The developer does not claim responsibility to any forks. Also read the [disclaimer](#disclaimer).
+Yes, you can fork the code, make changes and deploy to any chain you wish. The developer does not claim responsibility to any forks. Also read the [disclaimer](#disclaimer).
 
 **7. What are the Limitations of this protocol?**
 
