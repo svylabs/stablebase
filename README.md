@@ -52,10 +52,23 @@ The protocol earns fees from redeemer(as a percentage of collateral - 0.15%), an
 
 While some mechanisms are directly inspired by Liquity v1, this project is not a fork. All contracts, mechanisms, reward distribution mechanism has been derived and developed independently. We had started working on this project in bits and pieces even before Liquity v2 was announced in public. This project is not associated with Liquity nor any of it's forks.
 
+**6. Can I fork the code and deploy on any chain?**
+
+Yes, you can fork the code and deploy on any chain you wish. The developer does not claim responsibility to any forks. Also read the [disclaimer](#disclaimer).
+
+**7. What are the Limitations of this protocol?**
+
+The protocol as is, only supports tokens native to the protocol. ERC20 support will be added to the code later. The protocol also relies on price oracle.
+
+On Ethereum mainnet, we plan to reuse the price oracle developed and deployed by Liquity v1 at this [address](https://etherscan.io/address/0x4c517D4e2C851CA76d7eC94B805269Df0f2201De). So this protocol comes with the same guarantees and flaws as exists in Liquity v1 with regards to Price Oracle.
+
+Oracle contracts for other chains / assets needs to be developed.
+
 # Social
 
-1. [X.com](https://x.com/stablebase_org)
+1. [X](https://x.com/stablebase_org)
 2. [Telegram](https://t.me/stablebase_org)
+3. [Discord](Ask the developer for access)
 
 # Roadmap
 
@@ -68,7 +81,7 @@ MIT
 
 # Disclaimer
 
-- The protocol is immutable, with no one controlling the code once deployed. SVY Labs, the company that developed **StableBase** protocol is only a developer of the protocol and doesn't issue 'SBR' or 'SBUSD' tokens. The company is responsible for the development and deployment of the protocol on Ethereum, with users of the protocol responsible for their actions and for ensuring they follow jurisdictional laws.
-- The protocol is sufficiently tested by the developer, but the code is unaudited, so may contain bugs resulting in hacks or inability for users to withdraw funds from the protocol. Exercise caution when interacting with the protocol, or when using third-party frontends. The repository only contains the smart contract code developed by the developer.
-- The protocol mechanism is also unaudited and may contain flaws. The company or the developer cannot be held responsible / liable if the protocol doesn't work as intended in the whitepaper.
-- The 'SBR' and 'SBUSD' tokens may not carry any value, nor users will have any means to exchange these tokens for other assets. The developer cannot be held liable nor responsible for the adoption of the protocol, nor the tokens. Users are solely responsible for their actions with regards to supplying liquidity to the protocol, or exchanging assets with value to 'SBR' or 'SBUSD' tokens.
+- **[Immutable with no governance]** The protocol is immutable, with no one controlling the code once deployed. SVY Labs, the company that developed **StableBase** protocol is only a developer of the protocol and doesn't issue 'SBR' or 'SBUSD' tokens. The company is responsible for the development and deployment of the protocol on Ethereum, with users of the protocol responsible for their actions and for ensuring they follow jurisdictional laws.
+- **[Code Unaudited]** While the core protocol is sufficiently tested by the developer, but the code is unaudited, so may contain bugs resulting in hacks or inability for users to withdraw funds from the protocol. Exercise caution when interacting with the protocol, or when using third-party frontends. The repository only contains the smart contract code developed by the developer.
+- **[Mechanism Unaudited]** The protocol mechanism is also unaudited and may contain flaws. The company or the developer cannot be held responsible / liable if the protocol doesn't work as intended in the whitepaper.
+- **[No Liability For Loss of User funds]** The 'SBR' and 'SBUSD' tokens may not carry any value, nor users will have any means to exchange these tokens for other assets. The developer cannot be held liable nor responsible for the adoption of the protocol, nor the tokens. Users are solely responsible for their actions with regards to supplying liquidity to the protocol, or exchanging assets with value to 'SBR' or 'SBUSD' tokens.
