@@ -29,7 +29,7 @@ Here are some highlights of the protocol:
 
 **1. How is this protocol different?**
 
-The protocol is mostly inspired by the same mechanisms(CDP, Liquidation, Redemptions) from other popular CDP protocols. The key difference between StableBase and other protocols is the pricing structure. Where other popular protocols have minimum interest rates or origination fees, the protocol doesn't impose any minimum nor maximum fees and is purely market driven. The users simply pay as you go to protect themselves from redemptions.
+The protocol is mostly inspired by the same mechanisms(CDP, Liquidation, Redemptions) from other popular CDP protocols. The key difference between StableBase and other protocols is the pricing structure. Where other popular protocols have minimum interest rates or minimum origination fees, the protocol doesn't impose any minimum nor maximum fees and is purely market driven. The users simply pay as you go to protect themselves from redemptions.
 
 **2. Why are redemptions bad?**
 
@@ -39,7 +39,7 @@ Redemptions are not bad, they happen because too much stablecoin is in circulati
 
 Interest rates are ongoing borrowing costs, but in this protocol you only pay when needed.
 
-**4. What are some other innovations in this protocol?**
+**4. What are some innovations in this protocol?**
 
 1. Pricing structure(Pay As You Go model) is the key innovation.
 2. This protocol also treats Redemptions as a way to exchange or provide **exchange liquidity** for the collateral assets. This, we presume would create more demand for the stablecoins, assuming there is supply of collateral into the protocol. The stability pool earns not only from fees paid to the protocol by borrowers, but also collects redemption fees.
