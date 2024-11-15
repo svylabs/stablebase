@@ -32,15 +32,15 @@ Here are some highlights of the protocol:
 The protocol is mostly inspired by the same mechanisms(CDP, Liquidation, Redemptions) from other popular CDP protocols. The key difference between StableBase and other protocols is the pricing structure. Where other popular protocols have minimum interest rates or minimum origination fees, the protocol doesn't impose any minimum nor maximum fees and is purely market driven. The users simply ***pay as you go*** to protect themselves from redemptions.
 
 **2. Why is this pricing structure better?**
-***Pay As You Go*** is a clear pricing mechanism, where you don't pay anything until you need to. CDPs are ordered by the protocol based on the weight of the position calculated from the fee paid. So when you choose to pay, you are paying to jump to a different position in the redemption queue. Whereas with interest rates, the interest keeps accruing whether you jump to a different position or not.
+***Pay As You Go*** is a clear pricing mechanism, where you don't pay anything until you need to. CDPs are ordered by the protocol based on the weight of the position calculated from the fee paid. So when you choose to pay, you are paying to jump to a different position in the redemption queue.
 
-**3. Why are redemptions bad?**
+**3. How is this different from paying interest rates?**
+
+Interest rates are ongoing borrowing costs and keep accruing continuously, but in this protocol you only pay when you need to jump position in redemption queue.
+
+**4. Why are redemptions bad?**
 
 Redemptions are not bad, they happen because too much stablecoin is in circulation than is needed by the market. Redemptions are a way to reduce the circulating supply / keep the peg of the stablecoin. To avoid redemptions, users can pay a market determined fee(as a percentage of borrowing) to protect themselves from redemption.
-
-**4. How is this different from paying interest rates?**
-
-Interest rates are ongoing borrowing costs, but in this protocol you only pay when needed.
 
 **5. What are some innovations in this protocol?**
 
