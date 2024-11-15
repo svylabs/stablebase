@@ -32,11 +32,12 @@ Here are some highlights of the protocol:
 The protocol is mostly inspired by the same mechanisms(CDP, Liquidation, Redemptions) from other popular CDP protocols. The key difference between StableBase and other protocols is the pricing structure. Where other popular protocols have minimum interest rates or minimum origination fees, the protocol doesn't impose any minimum nor maximum fees and is purely market driven. The users simply ***pay as you go*** to protect themselves from redemptions.
 
 **2. Why is this pricing structure better?**
-***Pay As You Go*** is a clear pricing mechanism, where you don't pay anything until you need to. CDPs are ordered by the protocol based on the weight of the position calculated from the fee paid. So when you choose to pay, you are paying to jump to a different position in the redemption queue.
+
+***Pay As You Go*** is a clear pricing mechanism, where you don't pay anything until you need to. CDPs are ordered by the protocol based on the weight of the position calculated from the fee paid. So when you choose to pay, you are paying to jump to a different position in the redemption queue. Payment can be made at any time- at the time of borrowing or later using our ***fee topup*** mechanism.
 
 **3. How is this different from paying interest rates?**
 
-Interest rates are ongoing borrowing costs and keep accruing continuously, but in this protocol you only pay when you need to jump position in redemption queue.
+Interest rates are ongoing borrowing costs and keep accruing continuously, but in this protocol you only pay when you need to jump position in redemption queue. If redemptions doesn't happen, you don't have to pay anything.
 
 **4. Why are redemptions bad?**
 
