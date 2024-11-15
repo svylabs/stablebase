@@ -48,6 +48,10 @@ Here is an example: A user wants to sell 10 ETH for stablecoins. They can use th
 
 The protocol earns fees from redeemer(as a percentage of collateral - 0.15%), and from the user whose collateral is redeemed(0.15%). The numbers are just the minimum. The fee calculation is also dependent on how much the borrower has already paid in fees to the protocol. The protocol does its best to ensure it protects the users that have paid fees from being redeemed by increasing the redemption fees upto a maximum of 0.75%.
 
+**5. Is it a fork of Liquity v1 or v2 or other protocols?**
+
+While some mechanisms are directly inspired by Liquity v1, this project is not a fork. All contracts, mechanisms, reward distribution mechanism has been derived and developed independently. We had started working on this project in bits and pieces even before Liquity v2 was announced in public. This project is not associated with Liquity nor any of it's forks.
+
 # Social
 
 1. [X.com](https://x.com/stablebase_org)
