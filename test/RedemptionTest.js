@@ -209,12 +209,12 @@ describe("Test the flow", function () {
             const bobFeeTier = BigInt(15);
             redeemed += BigInt(5600000 * 1e18);
             const eliCollateralRedeemed = BigInt(50000 * 1e18) / BigInt(7000);
-            const eliFeeTier = BigInt(15) + (((users.eli.borrowAmount * BigInt(10) / BigInt(10000))) * BigInt(10000)) / BigInt(70000 * 1e18);
+            const eliFeeTier = BigInt(15) + (((users.eli.borrowAmount * BigInt(10) / BigInt(10000))) * BigInt(10000)) / users.eli.borrowAmount;
             const eliFeePaid = (users.eli.borrowAmount * BigInt(10) / BigInt(10000));
             const eliFeeToPay = (BigInt(70000 * 1e18) * BigInt(15)) / BigInt(10000) - eliFeePaid;
             redeemed += BigInt(70000 * 1e18);
             const davidCollateralRedeemed = ethers.parseEther("50000") / BigInt(7000);
-            const davidFeeTier = BigInt(15) + (((users.david.borrowAmount * BigInt(25) / BigInt(10000))) * BigInt(10000)) / BigInt(70000 * 1e18);
+            const davidFeeTier = BigInt(15) + (((users.david.borrowAmount * BigInt(25) / BigInt(10000))) * BigInt(10000)) / users.david.borrowAmount;
             const davidFeePaid = (users.david.borrowAmount * BigInt(25) / BigInt(10000));
             const aliceCollateralRedeemed = BigInt(280000 * 1e18) / BigInt(7000);
             const aliceFeeTier = BigInt(75);

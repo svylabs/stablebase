@@ -1001,7 +1001,7 @@ class OfflineProtocolTracker extends Agent {
      } else {
         await this.cleanupBorrower(safeId);
         const totalCollateral = Object.keys(this.borrowers).reduce((acc, id) => acc + this.borrowers[id].safe.collateral, BigInt(0));
-        expect(totalCollateral).to.be.closeTo(await this.contracts.stableBaseCDP.totalCollateral());
+        expect(totalCollateral).to.be.closeTo(await this.contracts.stableBaseCDP.totalCollateral(), totalPrecision);
         await this.distributeDebtAndCollateralToExistingBorrowers(borrowAmount, collateralAmount - fee, totalCollateral);
         if (this.sbrStaking.totalStake > BigInt(0)) {
             await this.distributeCollateralGainsToSBRStakers(fee);
