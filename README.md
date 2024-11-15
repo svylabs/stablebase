@@ -9,7 +9,7 @@ Here are some highlights of the protocol:
 3. 110% collateral requirement
 4. No governance
 5. Immutable
-6. Only native asset(ETH) supported at the moment
+6. Only native asset(ETH) supported.
 7. Market determined **Pay As You Go** model to protect from redemptions.
 8. Bootstrap mode: No redemptions during bootstrap phase(Until 5 million SBUSD borrowed)
 9. The Protocol issues SBR tokens to Stability Pool contributors for 1 year.
