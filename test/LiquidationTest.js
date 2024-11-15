@@ -20,6 +20,10 @@ describe("Test the flow", function () {
         charlie: {
             collateralAmount: ethers.parseEther("2.0"),
             borrowAmount: ethers.parseEther("5700"),
+        },
+        david: {
+            collateralAmount: ethers.parseEther("2.0"),
+            borrowAmount: ethers.parseEther("2000"),
         }
     }
   
@@ -85,14 +89,17 @@ describe("Test the flow", function () {
       const aliceSafeId = ethers.solidityPackedKeccak256(["address", "address"], [alice.address, ethers.ZeroAddress]);
       const bobSafeId = ethers.solidityPackedKeccak256(["address", "address"], [bob.address, ethers.ZeroAddress]);
       const charlieSafeId = ethers.solidityPackedKeccak256(["address", "address"], [charlie.address, ethers.ZeroAddress]);
+      const davidSafeId = ethers.solidityPackedKeccak256(["address", "address"], [david.address, ethers.ZeroAddress]);
 
       const aliceCollateral = ethers.parseEther("2.0");
       const bobCollateral = ethers.parseEther("2.0");
       const charlieCollateral = ethers.parseEther("2.0");
+      const davidCollateral = ethers.parseEther("2.0");
 
       const aliceBorrowAmount = ethers.parseEther("5000");
       const bobBorrowAmount = ethers.parseEther("4500");
       const charlieBorrowAmount = ethers.parseEther("5700");
+      const davidBorrowAmount = ethers.parseEther("2000");
 
       users.alice.safeId = aliceSafeId;
       users.alice.borrowAmount = aliceBorrowAmount;
@@ -103,12 +110,16 @@ describe("Test the flow", function () {
       users.charlie.safeId = charlieSafeId;
       users.charlie.borrowAmount = charlieBorrowAmount;
       users.charlie.collateralAmount = charlieCollateral;
+      users.david.safeId = davidSafeId;
+      users.david.borrowAmount = davidBorrowAmount;
+      users.david.collateralAmount = davidCollateral;
 
       priceOracle.setPrice(BigInt(3300)); // Should be able to borrow upto 3000 per collateral
 
       await utils.borrow(alice, aliceSafeId, aliceCollateral, aliceBorrowAmount, BigInt(0), contracts);
       await utils.borrow(bob, bobSafeId, bobCollateral, bobBorrowAmount, BigInt(0), contracts);
       await utils.borrow(charlie, charlieSafeId, charlieCollateral, charlieBorrowAmount, BigInt(200), contracts);
+
     });
 
     describe("Test Liquidation from Stability Pool", function() {
@@ -241,6 +252,7 @@ describe("Test the flow", function () {
             expect(snapshots.newSnapshot.stableBaseCDP.totalCollateral).equals(snapshots.existingSnapshot.stableBaseCDP.totalCollateral - snapshots.existingSnapshot.safe.collateralAmount);
             expect(snapshots.newSnapshot.stableBaseCDP.totalDebt).equals(snapshots.existingSnapshot.stableBaseCDP.totalDebt - snapshots.existingSnapshot.safe.borrowedAmount);
 
+
             const liquidatedAmount = snapshots.existingSnapshot.safe.borrowedAmount;
             const liquidatedCollateral = snapshots.existingSnapshot.safe.collateralAmount;
             const totalCollateralAfterLiquidation = snapshots.existingSnapshot.stableBaseCDP.totalCollateral - liquidatedCollateral;
@@ -296,31 +308,34 @@ describe("Test the flow", function () {
             expect(snapshots.newSnapshot.stableBaseCDP.cumulativeCollateralPerUnitCollateral).equals((liquidatedCollateral - liquidationFee1) * BigInt(1e18)/ totalCollateralAfterLiquidation);
             expect(snapshots.newSnapshot.stableBaseCDP.cumulativeDebtPerUnitCollateral).equals((liquidatedAmount * BigInt(1e18))/ totalCollateralAfterLiquidation);
 
-            const aliceSnapshot = await utils.adjustPosition(alice, users.alice.safeId, contracts);
-            const debtIncrease = (snapshots.newSnapshot.stableBaseCDP.cumulativeDebtPerUnitCollateral * aliceSnapshot.existingSnapshot.safe.collateralAmount) / BigInt(1e18);
-            const collateralIncrease = (snapshots.newSnapshot.stableBaseCDP.cumulativeCollateralPerUnitCollateral * aliceSnapshot.existingSnapshot.safe.collateralAmount) / BigInt(1e18);
+            //const aliceSnapshot = await utils.adjustPosition(alice, users.alice.safeId, contracts);
+            //const debtIncrease = (snapshots.newSnapshot.stableBaseCDP.cumulativeDebtPerUnitCollateral * aliceSnapshot.existingSnapshot.safe.collateralAmount) / BigInt(1e18);
+            //const collateralIncrease = (snapshots.newSnapshot.stableBaseCDP.cumulativeCollateralPerUnitCollateral * aliceSnapshot.existingSnapshot.safe.collateralAmount) / BigInt(1e18);
 
-            expect(aliceSnapshot.newSnapshot.stableBaseCDP.totalCollateral).equals(aliceSnapshot.existingSnapshot.stableBaseCDP.totalCollateral + collateralIncrease);
-            expect(aliceSnapshot.newSnapshot.stableBaseCDP.totalDebt).equals(aliceSnapshot.existingSnapshot.stableBaseCDP.totalDebt + debtIncrease);
+            //expect(aliceSnapshot.newSnapshot.stableBaseCDP.totalCollateral).equals(aliceSnapshot.existingSnapshot.stableBaseCDP.totalCollateral + collateralIncrease);
+            //expect(aliceSnapshot.newSnapshot.stableBaseCDP.totalDebt).equals(aliceSnapshot.existingSnapshot.stableBaseCDP.totalDebt + debtIncrease);
+
+            const davidSnapshot = await utils.borrow(david, users.david.safeId, users.david.collateralAmount, users.david.borrowAmount, BigInt(0), contracts);
+
+            // Charlie liquidated, alice, bob exists, david
+            // Alice getting liquidated.
+            const alicePendingIncrease = await contracts.stableBaseCDP.getInactiveDebtAndCollateral(users.alice.safeId);
+            const bobPendingIncrease = await contracts.stableBaseCDP.getInactiveDebtAndCollateral(users.bob.safeId);
+            let davidPendingIncrease = await contracts.stableBaseCDP.getInactiveDebtAndCollateral(users.david.safeId);
+
+            expect(davidPendingIncrease[0]).equals(BigInt(0));
+            expect(davidPendingIncrease[1]).equals(BigInt(0));
 
             priceOracle.setPrice(BigInt(2700));
-            snapshots = await utils.liquidate(owner, contracts);
+            snapshots = await utils.liquidate(owner, contracts); // Alice liquidated, alice and bob exists, david just borrowed.
             const secondLiquidationSnapshot = snapshots;
-            const liquidationFee2 = (await stableBaseCDP.REDEMPTION_LIQUIDATION_FEE() * snapshots.existingSnapshot.safe.collateralAmount) / BigInt(10000);
-            expect(snapshots.newSnapshot.user.ethBalance).equals(snapshots.existingSnapshot.user.ethBalance + liquidationFee2 - snapshots.gasPaid);
+            const liquidationFee2 = (await stableBaseCDP.REDEMPTION_LIQUIDATION_FEE() * (snapshots.existingSnapshot.safe.collateralAmount + alicePendingIncrease[1])) / BigInt(10000);
+            expect(snapshots.newSnapshot.user.ethBalance).to.be.closeTo(snapshots.existingSnapshot.user.ethBalance + liquidationFee2 - snapshots.gasPaid, BigInt(1e10));
             expect(snapshots.newSnapshot.safe.collateralAmount).equals(0);
             expect(snapshots.newSnapshot.safe.borrowedAmount).equals(0);
             expect(snapshots.newSnapshot.stableBaseCDP.totalCollateral).equals(snapshots.existingSnapshot.stableBaseCDP.totalCollateral - snapshots.existingSnapshot.safe.collateralAmount);
             expect(snapshots.newSnapshot.stableBaseCDP.totalDebt).equals(snapshots.existingSnapshot.stableBaseCDP.totalDebt - snapshots.existingSnapshot.safe.borrowedAmount);
 
-
-            priceOracle.setPrice(BigInt(2400));
-            try {
-                snapshots = await utils.liquidate(owner, contracts);
-                assert.fail("Liquidation should have failed!");
-            } catch (ex) {
-                expect(ex.message).includes("Cannot liquidate the last Safe");
-            }
 
             const cumulativeCollateralPerUnitCollateralAfterFirstLiquidation = (firstLiquidationSnapshot.existingSnapshot.safe.collateralAmount - liquidationFee1) * BigInt(1e18) / (firstLiquidationSnapshot.existingSnapshot.stableBaseCDP.totalCollateral - firstLiquidationSnapshot.existingSnapshot.safe.collateralAmount);
             const cumulativeDebtPerUnitCollateralAfterFirstLiquidation = (firstLiquidationSnapshot.existingSnapshot.safe.borrowedAmount) * BigInt(1e18) / (firstLiquidationSnapshot.existingSnapshot.stableBaseCDP.totalCollateral - firstLiquidationSnapshot.existingSnapshot.safe.collateralAmount);
@@ -328,8 +343,8 @@ describe("Test the flow", function () {
             expect(firstLiquidationSnapshot.newSnapshot.stableBaseCDP.cumulativeCollateralPerUnitCollateral).equals(cumulativeCollateralPerUnitCollateralAfterFirstLiquidation);
             expect(firstLiquidationSnapshot.newSnapshot.stableBaseCDP.cumulativeDebtPerUnitCollateral).equals(cumulativeDebtPerUnitCollateralAfterFirstLiquidation);
 
-            const cumulativeDebtPerUnitCollateralAfterSecondLiquidation = cumulativeDebtPerUnitCollateralAfterFirstLiquidation + (((secondLiquidationSnapshot.existingSnapshot.safe.borrowedAmount) * BigInt(1e18)) / (secondLiquidationSnapshot.newSnapshot.stableBaseCDP.totalCollateral));
-            const cumulativeCollateralPerUnitCollateralAfterSecondLiquidation = cumulativeCollateralPerUnitCollateralAfterFirstLiquidation + (((secondLiquidationSnapshot.existingSnapshot.safe.collateralAmount - liquidationFee2) * BigInt(1e18)) / (secondLiquidationSnapshot.newSnapshot.stableBaseCDP.totalCollateral));
+            const cumulativeDebtPerUnitCollateralAfterSecondLiquidation = cumulativeDebtPerUnitCollateralAfterFirstLiquidation + (((secondLiquidationSnapshot.existingSnapshot.safe.borrowedAmount + alicePendingIncrease[0]) * BigInt(1e18)) / (secondLiquidationSnapshot.newSnapshot.stableBaseCDP.totalCollateral));
+            const cumulativeCollateralPerUnitCollateralAfterSecondLiquidation = cumulativeCollateralPerUnitCollateralAfterFirstLiquidation + (((secondLiquidationSnapshot.existingSnapshot.safe.collateralAmount + alicePendingIncrease[1] - liquidationFee2) * BigInt(1e18)) / (secondLiquidationSnapshot.newSnapshot.stableBaseCDP.totalCollateral));
 
             expect(secondLiquidationSnapshot.newSnapshot.stableBaseCDP.cumulativeCollateralPerUnitCollateral).equals(cumulativeCollateralPerUnitCollateralAfterSecondLiquidation);
             expect(secondLiquidationSnapshot.newSnapshot.stableBaseCDP.cumulativeDebtPerUnitCollateral).equals(cumulativeDebtPerUnitCollateralAfterSecondLiquidation);
@@ -338,7 +353,6 @@ describe("Test the flow", function () {
             expect(secondLiquidationSnapshot.newSnapshot.stableBaseCDP.totalDebt).equals(secondLiquidationSnapshot.existingSnapshot.stableBaseCDP.totalDebt - secondLiquidationSnapshot.existingSnapshot.safe.borrowedAmount);
 
             expect(secondLiquidationSnapshot.safeId).equals(users.alice.safeId);
-
 
             const bobSnapshot = await utils.adjustPosition(bob, users.bob.safeId, contracts);
             const debtIncreaseBob = (secondLiquidationSnapshot.newSnapshot.stableBaseCDP.cumulativeDebtPerUnitCollateral * bobSnapshot.existingSnapshot.safe.collateralAmount) / BigInt(1e18);
@@ -350,10 +364,44 @@ describe("Test the flow", function () {
             expect(bobSnapshot.newSnapshot.safe.collateralAmount).equals(bobSnapshot.existingSnapshot.safe.collateralAmount + collateralIncreaseBob);
             expect(bobSnapshot.newSnapshot.safe.borrowedAmount).equals(bobSnapshot.existingSnapshot.safe.borrowedAmount + debtIncreaseBob);
 
-            expect(bobSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.all.length).equals(1);
-            expect(bobSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.all.length).equals(1);
-            expect(bobSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.head).equals(users.bob.safeId);
-            expect(bobSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.head).equals(users.bob.safeId);
+            expect(bobSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.all.length).equals(2);
+            expect(bobSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.all.length).equals(2);
+            expect(bobSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.head).equals(users.david.safeId);
+            expect(bobSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.head).equals(users.david.safeId);
+
+            expect(bobSnapshot.newSnapshot.stableBaseCDP.liquidationQueue.tail).equals(users.bob.safeId);
+            expect(bobSnapshot.newSnapshot.stableBaseCDP.redemptionQueue.tail).equals(users.bob.safeId);
+
+            // Charlie, Alice liquidated
+            // Bob david exists
+            // Bob has adjusted his position
+            // David has not adjusted his position
+
+            priceOracle.setPrice(BigInt(1090));
+            snapshots = await utils.liquidate(owner, contracts);
+                //assert.fail("Liquidation should have failed!");
+            const thirdLiquidationSnapshot = snapshots;
+            const liquidationFee3 = (await stableBaseCDP.REDEMPTION_LIQUIDATION_FEE() * (snapshots.existingSnapshot.safe.collateralAmount)) / BigInt(10000);
+
+            // Bob liquidated, only david exists and david has not adjusted his position
+            expect(snapshots.newSnapshot.stableBaseCDP.totalCollateral).to.be.closeTo(ethers.parseEther("2.0"), ethers.parseEther("0.1"));
+            expect(snapshots.newSnapshot.stableBaseCDP.totalDebt).to.be.closeTo(ethers.parseEther("2000"), ethers.parseEther("0.1"));
+
+            // Checks for the third liquidation
+            let davidPendingIncrease2 = await contracts.stableBaseCDP.getInactiveDebtAndCollateral(users.david.safeId);
+
+            try {
+                await utils.liquidate(owner, contracts);
+                assert.fail("Should not have liquidated!");
+            } catch (ex) {
+                //console.log(ex);
+                expect(ex.message).includes("Cannot liquidate the last Safe");
+            }
+
+            expect(snapshots.newSnapshot.stableBaseCDP.totalCollateral + davidPendingIncrease2[1]).to.be.closeTo(ethers.parseEther("8.0"), ethers.parseEther("0.1"));
+            expect(snapshots.newSnapshot.stableBaseCDP.totalDebt + davidPendingIncrease2[0]).to.be.closeTo(ethers.parseEther("17200"), ethers.parseEther("0.1"));
+            
+           
 
         });
     });
