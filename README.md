@@ -20,9 +20,26 @@ Here are some highlights of the protocol:
 
 # Docs
 
-1. [WHITEPAPER.md](./WHITEPAPER.md)
+1. [Whitepaper](./WHITEPAPER.md)
 2. [Website](https://stablebase.org)
-3. [Simulation](./scripts/simulate.js)
+3. [Contracts](./contracts)
+4. [Tests/Simulations](./scripts/simulate.js)
+
+# FAQ
+
+**1. How is this protocol different?**
+The protocol is mostly inspired by the same mechanisms(CDP, Liquidation, Redemptions) from other popular CDP protocols. The key difference between this protocol and other protocols is the pricing structure. Where other popular protocols have interest rates or origination fees, the protocol doesn't impose any minimum nor maximum fees and is purely market driven. The users simply pay as you go to protect themselves from redemptions.
+
+**2. Why are redemptions bad?**
+Redemptions are not bad, they happen because too much stablecoin is in circulation than is needed by the market. Redemptions are a way to reduce the circulating supply. To avoid redemptions, users can pay a market determined fee(as a percentage of borrowing) to protect themselves from redemption.
+
+**3. How is this different from paying interest rates?**
+Interest rates are ongoing borrowing costs, but in this protocol you only pay when needed.
+
+**4. What are some other innovations in this protocol?**
+1. Pricing structure(Pay As You Go model) is the key innovation.
+2. This protocol also treats Redemptions as a way to exchange or provide **exchange liquidity** for the collateral assets. This, we presume would create more demand for the stablecoins. The stability pool earns not only from fees paid to the protocol by borrowers, but also during redemptions.
+Here is an example: A user wants to sell 10 ETH for stablecoins. They can use this protocol to borrow (90.9%) stablecoins upfront. For the remainder, they can wait to get redeemed. This is similar to placing a market order, and getting upfront liquidity(in the form of stablecoins). If the liquidity and actors are sufficiently high, the users can get better fees / low slippage from the protocol than traditional exchanges. This mechanism is also dependent on price oracle, so prone to manipulation / MEV.
 
 # Social
 1. [X.com](https://x.com/stablebase_org)
