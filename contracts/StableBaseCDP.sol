@@ -274,6 +274,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
             redemptionId,
             amount,
             _redemption.collateralAmount,
+            price,
             totalCollateral,
             totalDebt
         );

@@ -56,6 +56,7 @@ interface IStableBase {
         uint256 indexed redemptionId,
         uint256 amount,
         uint256 redeemedCollateral,
+        uint256 price,
         uint256 totalCollateral,
         uint256 totalDebt
     );
