@@ -50,7 +50,7 @@ The protocol earns fees from redeemer(as a percentage of collateral - 0.15%), an
 
 **5. Is it a fork of Liquity v1 or v2 or other protocols?**
 
-While some mechanisms are directly inspired by Liquity v1, this project is not a fork. All contracts, mechanisms, reward distribution mechanism has been derived and developed independently. We had started working on this project in bits and pieces even before Liquity v2 was announced in public. This project is not associated with Liquity nor any of it's forks.
+This project is in no way connected with Liquity nor any of it's forks. While some mechanisms are directly inspired by Liquity v1, this project is not a fork. All contracts, mechanisms, reward distribution mechanism has been derived and developed independently. We had started working on this project in bits and pieces even before Liquity v2 / user-defined interest rates was announced in public. True origin of the protocol was a few days/weeks before this [tweet](https://x.com/sginams/status/1732368209972543804) when the developer was actively researching flaws in existing stablecoin protocols and came up with a market driven mechanism to address redemptions independently of Liquity team.
 
 **6. As a (potential) user what should I keep in mind?**
 
