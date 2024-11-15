@@ -8,14 +8,15 @@ Here are some highlights of the protocol:
 2. 0% origination fees
 3. 110% collateral requirement
 4. No governance
-5. Only native asset(ETH) supported at the moment
-6. Market determined **Pay As You Go** model to protect from redemptions.
-7. Bootstrap mode: No redemptions during bootstrap phase(Until 5 million SBUSD borrowed)
-8. The Protocol issues SBR tokens to stability pool contributors for 1 year.
-  - No Premine
-  - 1 token issued per second for 1 year.
-9. SBR stakers capture 10% of the fees paid to the protocol by users.
-10. Stability Pool stakers capture 90% of fees paid to the protocol.
+5. Immutable
+6. Only native asset(ETH) supported at the moment
+7. Market determined **Pay As You Go** model to protect from redemptions.
+8. Bootstrap mode: No redemptions during bootstrap phase(Until 5 million SBUSD borrowed)
+10. The Protocol issues SBR tokens to Stability Pool contributors for 1 year.
+    1. No Premine
+    2. 1 token issued per second for 1 year proportionally to stakers in stability pool.
+11. SBR stakers capture 10% of the fees paid to the protocol by users.
+12. Stability Pool stakers capture 90% of fees paid to the protocol.
 
 # Docs
 
