@@ -389,6 +389,7 @@ class Borrower extends Actor {
             this.safe.pending.debt = BigInt(0);
             await this.tracker.increaseDebtAndCollateral(pendingDebtIncrease, pendingCollateralIncrease);
         }
+        return this.safe;
     }
 
     async openSafe() {
@@ -642,7 +643,7 @@ class Bot extends Actor {
         if (collateralValue < (safe.borrowedAmount * BigInt(1100) / BigInt(1000))) {
             // liquidate
             console.log("Attempting to liquidate ", safeId);
-            this.tracker.activatePendingCollateralAndDebt(safeId);
+            const updatedSafe = await this.tracker.activatePendingCollateralAndDebt(safeId);
             const safeBeforeLiquidation = await this.contracts.stableBaseCDP.safes(safeId);
             console.log("Safe before liquidation: ", safeBeforeLiquidation);
             console.log("Total debt/collateral", await this.contracts.stableBaseCDP.totalDebt(), await this.contracts.stableBaseCDP.totalCollateral(), this.tracker.totalDebt, this.tracker.totalCollateral);
@@ -657,6 +658,11 @@ class Bot extends Actor {
                         console.log("Gas compensation for liquidation: ", event.args.gasCompensated, txDetail.gasUsed, tx.gasPrice);
                         gasCompensation = event.args.refund;
                     }
+                    if (event.name === 'SafeUpdated') {
+                        console.log("Safe updated: ", event.args);
+                        safe.collateralAmount = event.args.collateralAmount;
+                        safe.borrowedAmount = event.args.debtAmount;
+                    }
                 }
             });
             // Check debt and collateral in contract
@@ -664,6 +670,8 @@ class Bot extends Actor {
             const safeAfterLiquidation = await this.contracts.stableBaseCDP.safes(safeId);
             expect(safeAfterLiquidation.borrowedAmount).to.equal(BigInt(0));
             expect(safeAfterLiquidation.collateralAmount).to.equal(BigInt(0));
+            //safe.borrowedAmount = updatedSafe.debt;
+            //safe.collateralAmount = updatedSafe.collateral;
             const liquidationFee = safe.collateralAmount * (await this.contracts.stableBaseCDP.REDEMPTION_LIQUIDATION_FEE()) / BigInt(10000);
             const refund = await this.tracker.liquidate(safe, safeId, liquidationFee - gasCompensation);
             //this.ethBalance += refund;
@@ -939,7 +947,7 @@ class OfflineProtocolTracker extends Agent {
 
   async activatePendingCollateralAndDebt(safeId) {
     const borrower = this.safeMapping[BigInt(safeId)];
-    await borrower.activatePendingCollateralAndDebt();
+    return await borrower.activatePendingCollateralAndDebt();
   }
 
   async addStabilityPoolStaker(staker) {
