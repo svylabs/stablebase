@@ -42,7 +42,7 @@ Interest rates are ongoing borrowing costs, but in this protocol you only pay wh
 **4. What are some other innovations in this protocol?**
 
 1. Pricing structure(Pay As You Go model) is the key innovation.
-2. This protocol also treats Redemptions as a way to exchange or provide **exchange liquidity** for the collateral assets. This, we presume would create more demand for the stablecoins. The stability pool earns not only from fees paid to the protocol by borrowers, but also collects redemption fees.
+2. This protocol also treats Redemptions as a way to exchange or provide **exchange liquidity** for the collateral assets. This, we presume would create more demand for the stablecoins, assuming there is supply of collateral into the protocol. The stability pool earns not only from fees paid to the protocol by borrowers, but also collects redemption fees.
 
 Here is an example: A user wants to sell 10 ETH for stablecoins. They can use this protocol to borrow (90.9%) stablecoins upfront. For the remainder, they can wait to get redeemed. This is similar to placing a market order, and getting upfront liquidity(in the form of stablecoins, of course- they risk liquidations). Assuming the liquidity and actors are sufficiently high, the users can get better fees / low slippage from the protocol than traditional exchanges. This mechanism is also dependent on price oracle, so users have to be careful when it comes to price feed manipulation / MEV. This is not a replacement for traditional exchanges nor AMMs, nor it helps with price discovery of collateral assets. It is simply an exchange mechanism at prices determined by the oracle.
 
