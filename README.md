@@ -72,7 +72,7 @@ Oracle contracts for other chains / assets needs to be developed.
 
 1. [X](https://x.com/stablebase_org)
 2. [Telegram](https://t.me/stablebase_org)
-3. [Discord](Ask the developer for access)
+3. Discord(Ask the developer for access)
 
 # Future improvements
 
