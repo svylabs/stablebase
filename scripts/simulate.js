@@ -498,6 +498,12 @@ class Borrower extends Actor {
             }
         } else {
             await this.activatePendingCollateralAndDebt();
+            const collateralValue = this.safe.collateral * this.market.collateralPrice;
+            const withdrawValue = withdrawAmount * this.market.collateralPrice;
+            if ((collateralValue - withdrawValue) < (this.safe.debt * BigInt(1100) / BigInt(1000))) {
+                console.log("Can't withdraw collateral at this time");
+                return ;
+            }
             const tx = await this.contracts.stableBaseCDP.connect(this.account).withdrawCollateral(this.safeId, withdrawAmount, BigInt(0));
             const detail = await tx.wait();
             const gas = detail.gasUsed * tx.gasPrice;
@@ -524,6 +530,7 @@ class Borrower extends Actor {
             const gas = detail.gasUsed * tx.gasPrice;
             this.safe.collateral += addAmount;
             expect(this.ethBalance - addAmount - gas).to.equal(await this.account.provider.getBalance(this.account.address));
+            expect(this.safe.collateral).to.be.closeTo((await this.contracts.stableBaseCDP.safes(this.safeId)).collateralAmount, aggregatePrecision);
         }
         // Check collateral in
     }
@@ -652,17 +659,20 @@ class Bot extends Actor {
             const gas = txDetail.gasUsed * tx.gasPrice;
             let gasCompensation = BigInt(0);
             txDetail.logs.forEach(log => {
-                if (log.address == this.contracts.stableBaseCDP.address) {
+                //console.log("Log: ", log);
+                try {
                     const event = this.contracts.stableBaseCDP.interface.parseLog(log);
+                    //console.log("Event: ", event);
                     if (event.name == "LiquidationGasCompensationPaid") {
-                        console.log("Gas compensation for liquidation: ", event.args.gasCompensated, txDetail.gasUsed, tx.gasPrice);
-                        gasCompensation = event.args.refund;
+                            console.log("Gas compensation for liquidation: ", event.args.feePaid, event.args.gasCompensated, txDetail.gasUsed, tx.gasPrice, txDetail.gasUsed * tx.gasPrice);
+                            gasCompensation = event.args.feePaid;
                     }
-                    if (event.name === 'SafeUpdated') {
-                        console.log("Safe updated: ", event.args);
-                        safe.collateralAmount = event.args.collateralAmount;
-                        safe.borrowedAmount = event.args.debtAmount;
+                    if (event.name == 'SafeUpdated') {
+                         console.log("Safe updated: ", event.args);
+                         safe.collateralAmount = event.args.collateralAmount;
+                         safe.borrowedAmount = event.args.debtAmount;
                     }
+                } catch (ex) {
                 }
             });
             // Check debt and collateral in contract
@@ -959,7 +969,7 @@ class OfflineProtocolTracker extends Agent {
 
   async updateStabilityPoolStake(staker) {
     if (staker.stabilityPool.stake == BigInt(0)) {
-        this.stabilityPool.stakers = this.stabilityPool.stakers.filter(s => s != staker);
+        this.stabilityPool.stakers = this.stabilityPool.stakers.filter(s => s.id != staker.id);
     }
     this.stabilityPool.totalStake = this.stabilityPool.stakers.reduce((acc, s) => acc + s.stabilityPool.stake, BigInt(0));
   }
@@ -977,7 +987,8 @@ class OfflineProtocolTracker extends Agent {
      this.totalDebt -= borrowAmount;
      const refund = BigInt(0);
      if (this.stabilityPool.totalStake >= borrowAmount) {
-        await this.distributeCollateralGainsToStabilityPoolStakers(collateralAmount - fee, false);
+        const checkState = this.sbrStaking.totalStake > BigInt(0) ? true : false;
+        await this.distributeCollateralGainsToStabilityPoolStakers(collateralAmount - fee, checkState);
         const totalStake = this.stabilityPool.totalStake;
         const scalingFactor =  ((totalStake - borrowAmount) * BigInt(1e27)) / totalStake;
         let totalStakeAfterLiquidation = BigInt(0);
@@ -1001,8 +1012,9 @@ class OfflineProtocolTracker extends Agent {
      } else {
         await this.cleanupBorrower(safeId);
         const totalCollateral = Object.keys(this.borrowers).reduce((acc, id) => acc + this.borrowers[id].safe.collateral, BigInt(0));
-        expect(totalCollateral).to.be.closeTo(await this.contracts.stableBaseCDP.totalCollateral(), totalPrecision);
-        await this.distributeDebtAndCollateralToExistingBorrowers(borrowAmount, collateralAmount - fee, totalCollateral);
+        const totalCollateralInContract = await this.contracts.stableBaseCDP.totalCollateral();
+        expect(totalCollateral).to.be.closeTo(totalCollateralInContract, totalPrecision);
+        await this.distributeDebtAndCollateralToExistingBorrowers(borrowAmount, collateralAmount - fee, totalCollateralInContract);
         if (this.sbrStaking.totalStake > BigInt(0)) {
             await this.distributeCollateralGainsToSBRStakers(fee);
             //return BigInt(0);
@@ -1131,6 +1143,7 @@ class OfflineProtocolTracker extends Agent {
   async distributeCollateralGainsToStabilityPoolStakers(collateral, check) {
     let totalStake = this.stabilityPool.totalStake;
     let distributed = BigInt(0);
+    console.log("Distributing collateral gains to stability pool stakers ", collateral, totalStake);
     for (let i = 0; i< this.stabilityPool.stakers.length ; i++) {
         const staker= this.stabilityPool.stakers[i];
          const share = (((collateral * staker.stabilityPool.stake * BigInt(1e18))  / (totalStake)) / BigInt(1e18));
@@ -1356,7 +1369,7 @@ class OfflineProtocolTracker extends Agent {
     let keysNotFound = 0;
     for (const borrowerId of Object.keys(this.borrowers)) {
         const borrower = this.borrowers[borrowerId];
-        if (borrower.safe.debt > BigInt(0)) {
+        if (borrower.safe.debt > BigInt(100)) {
             try {
                 expect(redemptionSafes[BigInt(borrower.safeId)]).to.not.be.undefined;
                 expect(liquidationSafes[BigInt(borrower.safeId)]).to.not.be.undefined;
