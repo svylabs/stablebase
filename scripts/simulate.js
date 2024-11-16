@@ -366,6 +366,7 @@ class Borrower extends Actor {
         this.safe = {
             collateral: BigInt(0),
             debt: BigInt(0),
+            totalBorrowedAmount: BigInt(0),
             pending: {
                 collateral: BigInt(0),
                 debt: BigInt(0)
@@ -387,6 +388,7 @@ class Borrower extends Actor {
             this.safe.pending.collateral = BigInt(0);
             this.safe.debt += pendingDebtIncrease;
             this.safe.pending.debt = BigInt(0);
+            this.safe.totalBorrowedAmount += pendingDebtIncrease;
             await this.tracker.increaseDebtAndCollateral(pendingDebtIncrease, pendingCollateralIncrease);
         }
         return this.safe;
@@ -436,6 +438,7 @@ class Borrower extends Actor {
             const tx = await this.contracts.stableBaseCDP.connect(this.account).borrow(this.safeId, borrowAmount, this.shieldingRate, BigInt(0), BigInt(0));
             const detail = await tx.wait();
             this.safe.debt += borrowAmount;
+            this.safe.totalBorrowedAmount += borrowAmount;
             const shieldingFee = (borrowAmount * this.shieldingRate) / BigInt(10000);
             this.sbdBalance = this.sbdBalance + borrowAmount - shieldingFee;
             const refund = await this.tracker.distributeShieldingFee(shieldingFee);
@@ -682,10 +685,10 @@ class Bot extends Actor {
             expect(safeAfterLiquidation.collateralAmount).to.equal(BigInt(0));
             //safe.borrowedAmount = updatedSafe.debt;
             //safe.collateralAmount = updatedSafe.collateral;
-            const liquidationFee = safe.collateralAmount * (await this.contracts.stableBaseCDP.REDEMPTION_LIQUIDATION_FEE()) / BigInt(10000);
             const safeCopy = {...safe};
             safeCopy.collateralAmount = updatedSafe.collateral;
             safeCopy.borrowedAmount = updatedSafe.debt;
+            const liquidationFee = safeCopy.collateralAmount * (await this.contracts.stableBaseCDP.REDEMPTION_LIQUIDATION_FEE()) / BigInt(10000);
             const refund = await this.tracker.liquidate(safeCopy, safeId, liquidationFee - gasCompensation);
             //this.ethBalance += refund;
             //expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.1", 18));
@@ -717,10 +720,10 @@ class Bot extends Actor {
             const safe = await this.contracts.stableBaseCDP.safes(safeId);
             const safeCopy = {
                 collateralAmount: updatedSafe.collateral,
-                borrowedAmount: updatedSafe.borrowedAmount,
+                borrowedAmount: updatedSafe.debt,
                 feePaid: safe.feePaid,
                 weight: safe.weight,
-                totalBorrowedAmount: safe.totalBorrowedAmount
+                totalBorrowedAmount: updatedSafe.totalBorrowedAmount
             };
 
             //console.log("Safe: ", safeCopy);
@@ -733,7 +736,7 @@ class Bot extends Actor {
             expect(this.validateRedeemParams(safe, result, amountToRedeem, this.market.collateralPrice)).to.be.true;
             redeemedSafes.push({
                 safeId,
-                safeCopy,
+                safe: safeCopy,
                 params: result
             });
             const safeNode = await this.contracts.redemptionQueue.getNode(safeId);
