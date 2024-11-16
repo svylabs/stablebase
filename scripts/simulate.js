@@ -669,8 +669,8 @@ class Bot extends Actor {
                     }
                     if (event.name == 'SafeUpdated') {
                          console.log("Safe updated: ", event.args);
-                         safe.collateralAmount = event.args.collateralAmount;
-                         safe.borrowedAmount = event.args.debtAmount;
+                         expect(event.args.collateralAmount).to.be.closeTo(updatedSafe.collateral, aggregatePrecision);
+                         expect(event.args.debtAmount).to.be.closeTo(updatedSafe.debt, aggregatePrecision);
                     }
                 } catch (ex) {
                 }
@@ -683,7 +683,10 @@ class Bot extends Actor {
             //safe.borrowedAmount = updatedSafe.debt;
             //safe.collateralAmount = updatedSafe.collateral;
             const liquidationFee = safe.collateralAmount * (await this.contracts.stableBaseCDP.REDEMPTION_LIQUIDATION_FEE()) / BigInt(10000);
-            const refund = await this.tracker.liquidate(safe, safeId, liquidationFee - gasCompensation);
+            const safeCopy = {...safe};
+            safeCopy.collateralAmount = updatedSafe.collateral;
+            safeCopy.borrowedAmount = updatedSafe.debt;
+            const refund = await this.tracker.liquidate(safeCopy, safeId, liquidationFee - gasCompensation);
             //this.ethBalance += refund;
             //expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.1", 18));
 
