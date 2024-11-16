@@ -567,6 +567,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
                 (cumulativeDebtPerUnitCollateral -
                     liquidationSnapshot.debtPerCollateralSnapshot)) / PRECISION;
             _safe.borrowedAmount += debtIncrease;
+            _safe.totalBorrowedAmount += debtIncrease;
             liquidationSnapshot
                 .debtPerCollateralSnapshot = cumulativeDebtPerUnitCollateral;
 
