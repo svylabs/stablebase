@@ -712,16 +712,17 @@ class Bot extends Actor {
         let amountToRedeem = sbdAmount;
         let safeId = await this.contracts.redemptionQueue.getHead();
         do {
-            this.tracker.activatePendingCollateralAndDebt(safeId);
+            const updatedSafe = await this.tracker.activatePendingCollateralAndDebt(safeId);
             //console.log("Redeeming safe: ", safeId);
             const safe = await this.contracts.stableBaseCDP.safes(safeId);
             const safeCopy = {
-                collateralAmount: safe.collateralAmount,
-                borrowedAmount: safe.borrowedAmount,
+                collateralAmount: updatedSafe.collateral,
+                borrowedAmount: updatedSafe.borrowedAmount,
                 feePaid: safe.feePaid,
                 weight: safe.weight,
                 totalBorrowedAmount: safe.totalBorrowedAmount
             };
+
             //console.log("Safe: ", safeCopy);
             const collateralValue = safe.collateralAmount * this.market.collateralPrice;
             const borrowedAmount = safe.borrowedAmount;
@@ -732,13 +733,13 @@ class Bot extends Actor {
             expect(this.validateRedeemParams(safe, result, amountToRedeem, this.market.collateralPrice)).to.be.true;
             redeemedSafes.push({
                 safeId,
-                safe,
+                safeCopy,
                 params: result
             });
             const safeNode = await this.contracts.redemptionQueue.getNode(safeId);
             safeId = safeNode.next;
             amountToRedeem = amountToRedeem - (result[2] + result[3]);
-            console.log("Amount to redeem, amount redeemed from safe, refunded", amountToRedeem, result[2], result[3]);
+            console.log("Collateral to redeem, Amount to redeem, amount redeemed from safe, refunded", result[1], amountToRedeem, result[2], result[3]);
         } while (amountToRedeem > BigInt(0));
         console.log("RedeemedSafes: ", redeemedSafes);
         return redeemedSafes;
