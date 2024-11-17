@@ -27,9 +27,9 @@ Here are some highlights of the protocol:
 
 # FAQ
 
-**1. How is this protocol different?**
+**1. How is the StableBase protocol different from other protocols?**
 
-The protocol is mostly inspired by the same mechanisms(CDP, Liquidation, Redemptions) from other popular CDP protocols. The key difference between StableBase and other protocols is the pricing structure. Where other popular protocols have minimum interest rates or minimum origination fees, the protocol doesn't impose any minimum nor maximum fees and is purely market driven. The users simply **_pay as you go_** to protect themselves from redemptions.
+The protocol is mostly inspired by the same mechanisms(CDP, Liquidation, Redemptions) from other popular CDP protocols. The key difference between StableBase and other protocols is the pricing structure. Where other popular protocols have minimum interest rates or minimum origination fees, the protocol doesn't impose any one time fee, nor interest rates and is purely market driven. The users simply ***pay as you go*** to protect themselves from redemptions.
 
 **2. Why is this pricing structure better?**
 
@@ -43,18 +43,18 @@ Interest rates are ongoing borrowing costs and keep accruing continuously, but i
 
 Redemptions are not bad, they happen because too much stablecoin is in circulation than is needed by the market. Redemptions are a way to reduce the circulating supply / keep the peg of the stablecoin. To avoid redemptions, users can pay a market determined fee(as a percentage of borrowing) to protect themselves from redemption.
 
-**5. What are some innovations in this protocol?**
+**5. What are some innovations in StableBase protocol?**
 
 1. Pricing structure(Pay As You Go model) is the key innovation.
-2. This protocol also treats Redemptions as a way to exchange or provide **exchange liquidity** for the collateral assets. This, we presume would create more demand for the stablecoins, assuming there is supply of collateral into the protocol. The stability pool earns not only from fees paid to the protocol by borrowers, but also collects redemption fees.
+2. This protocol also treats redemptions as a way to exchange or provide **exchange liquidity** for the collateral assets. This, we presume would create more demand for the stablecoins, assuming there is supply of collateral into the protocol. The stability pool earns not only from fees paid to the protocol by borrowers, but also collects redemption fees.
 
 Here is an example: A user wants to sell 10 ETH for stablecoins. They can use this protocol to borrow (90.9%) stablecoins upfront. For the remainder, they can wait to get redeemed. This is similar to placing a market order, and getting upfront liquidity(in the form of stablecoins, of course- they risk liquidations). Assuming the liquidity and actors are sufficiently high, the users can get better fees / low slippage from the protocol than traditional exchanges. This mechanism is also dependent on price oracle, so users have to be careful when it comes to price feed manipulation / MEV. This is not a replacement for traditional exchanges nor AMMs, nor it helps with price discovery of collateral assets. It is simply an exchange mechanism at prices determined by the oracle.
 
 The protocol earns fees from redeemer(as a percentage of collateral - 0.15%), and from the user whose collateral is redeemed(0.15%). The numbers are just the minimum. The fee calculation is also dependent on how much the borrower has already paid in fees to the protocol. The protocol does its best to ensure it protects the users that have paid fees from being redeemed by increasing the redemption fees upto a maximum of 0.75%.
 
-**6. Is it a fork of Liquity v1 or v2 or other protocols?**
+**6. Is the protocol a fork of Liquity v1 or v2 or other protocols?**
 
-This project is in no way connected with Liquity nor any of it's forks. While some mechanisms are directly inspired by Liquity v1, this project is not a fork. All contracts, mechanisms, reward distribution mechanism has been derived and developed independently. We had started working on this project in bits and pieces even before Liquity v2 / user-defined interest rates was announced in public. True origin of the protocol was a few days/weeks before this [tweet](https://x.com/sginams/status/1732368209972543804) when the developer was actively researching flaws in existing stablecoin protocols and came up with a market driven mechanism to address redemptions independently of Liquity team.
+This project is in no way connected with Liquity nor any of it's forks. While some mechanisms are directly inspired by Liquity v1, this project is not a fork. All contracts, mechanisms, reward distribution mechanism has been derived and developed independently. We had started working on this project in bits and pieces even before Liquity v2 / user-defined interest rates was announced in public. The origin of the protocol was a few days/weeks before this [tweet](https://x.com/sginams/status/1732368209972543804) when the developer was actively researching flaws in existing stablecoin protocols and came up with a market driven mechanism to address redemptions independently of Liquity team.
 
 **7. As a (potential) user what should I keep in mind?**
 
@@ -66,7 +66,7 @@ Yes, you can fork the code, make changes and deploy to any chain you wish. The d
 
 **9. What are the Limitations of this protocol?**
 
-The protocol as is, only supports tokens native to the protocol. ERC20 support will be added to the code later. The protocol also relies on price oracle.
+The protocol as is, only supports tokens native to the blockchain. ERC20 support will be added to the code later. The protocol also relies on price oracle.
 
 On Ethereum mainnet, we plan to reuse the price oracle developed and deployed by Liquity v1 at this [address](https://etherscan.io/address/0x4c517D4e2C851CA76d7eC94B805269Df0f2201De). So this protocol comes with the same guarantees and flaws as exists in Liquity v1 with regards to Price Oracle.
 
@@ -83,6 +83,7 @@ Oracle contracts for other chains / assets needs to be developed.
 1. Support for ERC20 tokens as collateral
 2. Multi collateral support
 3. Implementation of the protocol in other smart contract languages.
+4. Liquidation Protection mechanism.
 
 # Releases
 
