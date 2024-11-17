@@ -1281,8 +1281,8 @@ class OfflineProtocolTracker extends Agent {
         totalRewards.sbd += staker.stabilityPool.unclaimedRewards.sbd;
         totalRewards.eth += staker.stabilityPool.unclaimedRewards.eth;
         const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(staker.account.address);
-        expect(pendingRewards[0]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.sbd, aggregatePrecision);
-        expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, aggregatePrecision);
+        expect(pendingRewards[0]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.sbd, totalPrecision);
+        expect(pendingRewards[1]).to.be.closeTo(staker.stabilityPool.unclaimedRewards.eth, totalPrecision);
     }
     expect(totalStake).to.be.closeTo(await this.contracts.stabilityPool.totalStakedRaw(), totalPrecision, "Stability pool stake mismatch");
     expect(totalRewards.sbd + totalStake + this.stabilityPool.rewardLoss + this.stabilityPool.stakeLoss).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), ethers.parseUnits("0.000001", 18), "Stability pool SBD balance mismatch");
