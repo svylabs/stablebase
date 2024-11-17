@@ -337,10 +337,12 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         uint256 collateralPrice = priceOracle.fetchPrice();
         uint256 collateralValue = (collateralAmount * collateralPrice) /
             PRECISION;
-        uint256 collateralRatio = (collateralValue * BASIS_POINTS_DIVISOR) /
-            borrowedAmount;
         // Check if the collateral is sufficient for liquidation
-        require(collateralRatio <= liquidationRatio, "Can't liquidate yet");
+        require(
+            collateralValue <
+                ((borrowedAmount * liquidationRatio) / BASIS_POINTS_DIVISOR),
+            "Can't liquidate yet"
+        );
         bool possible = stabilityPool.isLiquidationPossible(borrowedAmount);
 
         // Pay liquidation fee

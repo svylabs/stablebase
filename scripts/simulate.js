@@ -664,7 +664,7 @@ class Bot extends Actor {
         const safeId = await this.contracts.liquidationQueue.getTail();
         const safe = await this.contracts.stableBaseCDP.safes(safeId);
         const collateralValue = safe.collateralAmount * this.market.collateralPrice;
-        if (collateralValue < (safe.borrowedAmount * BigInt(1100) / BigInt(1000))) {
+        if (collateralValue < ((safe.borrowedAmount * BigInt(11000)) / BigInt(10000))) {
             // liquidate
             this.consolelog("Attempting to liquidate ", safeId);
             const updatedSafe = await this.tracker.activatePendingCollateralAndDebt(safeId);
@@ -718,8 +718,10 @@ class Bot extends Actor {
                 const safeBeforeLiquidation = await this.contracts.stableBaseCDP.safes(safeId);
                 this.consolelog("Safe before liquidation: ", safeBeforeLiquidation);
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).liquidate();
+                const txDetail = await tx.wait();
                 assert.fail("Liquidation should have failed");
             } catch (ex) {
+                this.consolelog(ex);
                 this.consolelog("Liquidation failed as expected");
             }
         }
