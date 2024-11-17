@@ -29,7 +29,7 @@ Here are some highlights of the protocol:
 
 **1. How is the StableBase protocol different from other protocols?**
 
-The protocol is mostly inspired by the same mechanisms(CDP, Liquidation, Redemptions) from other popular CDP protocols. The key difference between StableBase and other protocols is the pricing structure. Where other popular protocols have minimum interest rates or minimum origination fees, the protocol doesn't impose any one time fee, nor interest rates and is purely market driven. The users simply ***pay as you go*** to protect themselves from redemptions.
+The protocol is mostly inspired by the same mechanisms(CDP, Liquidation, Redemptions) from other popular CDP protocols. The key difference between StableBase and other protocols is the pricing structure. Where other popular protocols have minimum interest rates or minimum origination fees, the protocol doesn't impose any one time fee, nor interest rates and is purely market driven. The users simply **_pay as you go_** to protect themselves from redemptions.
 
 **2. Why is this pricing structure better?**
 
@@ -105,7 +105,7 @@ While the core protocol is tested by the developer, the code is unaudited and ma
 The protocol mechanism is unaudited and may contain flaws. The company or the developer cannot be held responsible or liable if the protocol does not work as intended in the whitepaper. Users are advised to conduct their own research (DYOR) and seek professional advice before interacting with the protocol or its tokens.
 
 **[No Liability for Loss of User Funds]**
-The 'DFIR' and 'SBUSD' tokens may not carry any value, nor will users have any means to exchange these tokens for other assets. The developer cannot be held liable or responsible for the adoption of the protocol or the tokens. Users are solely responsible for their actions regarding supplying liquidity to the protocol or exchanging assets with value for 'DFIR' or 'SBUSD' tokens. Users acknowledge the risk of permanent loss of funds when interacting with the protocol.
+While the protocol pegs the 'SBUSD' token to the USD, the 'DFIR' and 'SBUSD' tokens may not have any value, nor will users have any means to exchange these tokens for other assets. The developer cannot be held liable or responsible for the adoption of the protocol or the tokens. Users are solely responsible for their actions regarding supplying liquidity to the protocol and minting 'SBUSD' tokens or exchanging assets with value for 'DFIR' or 'SBUSD' tokens. Users acknowledge the risk of permanent loss of funds when interacting with the protocol.
 
 **[Regulatory and Third-Party Risks]**
 Users must ensure compliance with all applicable laws and regulations in their jurisdiction when interacting with the protocol or associated tokens. The company or developer assumes no liability for regulatory implications of using the protocol. Additionally, third-party interfaces or integrations with the protocol are outside the control of the developer and may pose additional risks.

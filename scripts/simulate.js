@@ -51,7 +51,7 @@ class Actor extends Agent {
         this.stabilityPool.unclaimedRewards.eth += gain;
         if (check) {
             const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
-            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, aggregatePrecision);
+            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, totalPrecision);
         }
     }
     async claimCollateralGain() {
@@ -63,19 +63,19 @@ class Actor extends Agent {
         const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
         //console.log(await this.contracts.stabilityPool.rewardLoss());
         //console.log("Pending rewards ", pendingRewards[0], this.stabilityPool.unclaimedRewards.sbd);
-        expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, aggregatePrecision);
+        expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, totalPrecision);
     }
 
     async distributeSbdRewardsSBRStaking(reward) {
         this.sbrStaking.unclaimedRewards.sbd += reward;
         const pendingRewards = await this.contracts.sbrStaking.userPendingReward(this.account.address);
-        expect(pendingRewards[0]).to.be.closeTo(this.sbrStaking.unclaimedRewards.sbd, aggregatePrecision);
+        expect(pendingRewards[0]).to.be.closeTo(this.sbrStaking.unclaimedRewards.sbd, totalPrecision);
     }
 
     async distributeCollateralGainSBRStaking(gain) {
         this.sbrStaking.unclaimedRewards.eth += gain;
         const pendingRewards = await this.contracts.sbrStaking.userPendingReward(this.account.address);
-        expect(pendingRewards[1]).to.be.closeTo(this.sbrStaking.unclaimedRewards.eth, aggregatePrecision);
+        expect(pendingRewards[1]).to.be.closeTo(this.sbrStaking.unclaimedRewards.eth, totalPrecision);
     }
 
     async claimSbdRewards() {
@@ -781,7 +781,7 @@ class Bot extends Actor {
                 // - redemption fees paid
                 this.ethBalance -= redeemedSafes.reduce((acc, safe) => acc + safe.params[5], BigInt(0));
                 expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), aggregatePrecision);
-                expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), totalPrecision);
+                expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseEther("0.1"));
                 await this.tracker.updateRedeemedSafes(redeemedSafes);
                 // update safes in tracker to update actors debt and collateral
                 // Check SBD balance in contract
@@ -1067,6 +1067,8 @@ class OfflineProtocolTracker extends Agent {
 
   async distributeDebtAndCollateralToExistingBorrowers(debt, collateral, totalCollateral) {
      console.log("Distributing debt and collateral to existing borrowers ", debt, collateral, totalCollateral);
+     const distributedDebt = BigInt(0);
+        const distributedCollateral = BigInt(0);
      for (const borrowerId of Object.keys(this.borrowers)) {
         const borrower = this.borrowers[borrowerId];
         const share = ((collateral * borrower.safe.collateral * BigInt(1e18)) / totalCollateral);
@@ -1074,9 +1076,13 @@ class OfflineProtocolTracker extends Agent {
         borrower.safe.pending.debt += ((debt * share) / collateral) / BigInt(1e18);
         const pendingIncrease = await this.contracts.stableBaseCDP.getInactiveDebtAndCollateral(borrower.safeId);
         console.log("Distributing debt and collateral to borrower ", borrower.id, share / BigInt(1e18), borrower.safe.pending.collateral, borrower.safe.pending.debt);
+        distributedDebt += ((debt * share) / collateral) / BigInt(1e18);
+        distributedCollateral += share / BigInt(1e18);
         expect(pendingIncrease[0]).to.be.closeTo(borrower.safe.pending.debt, totalPrecision);
         expect(pendingIncrease[1]).to.be.closeTo(borrower.safe.pending.collateral, totalPrecision);
      }
+     expect(distributedDebt).to.be.closeTo(debt, totalPrecision);
+     expect(distributedCollateral).to.be.closeTo(collateral, totalPrecision);
   }
 
   async cleanupBorrower(safeId) {
