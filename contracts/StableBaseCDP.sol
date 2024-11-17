@@ -411,7 +411,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         // Try to send the liquidation fee to sbr stakers
         if (liquidationFee > refund) {
             if (sbrStakingPoolCanReceiveRewards) {
-                bool success = sbrTokenStaking.addCollateralReward{
+                bool success = dfirTokenStaking.addCollateralReward{
                     value: liquidationFee - refund
                 }(liquidationFee - refund);
                 if (!success && stabilityPoolCanReceiveRewards) {
@@ -424,7 +424,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
                 } else if (success) {
                     emit LiquidationFeePaid(
                         safeId,
-                        address(sbrTokenStaking),
+                        address(dfirTokenStaking),
                         liquidationFee - refund
                     );
                 }

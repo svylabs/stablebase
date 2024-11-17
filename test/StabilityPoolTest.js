@@ -28,7 +28,7 @@ describe("StabilityPool", function () {
     await sbdToken.mint(eli.address, initialSupply);
     await sbdToken.mint(fabio.address, initialSupply);
 
-    const SBRToken = await ethers.getContractFactory("SBRToken");
+    const SBRToken = await ethers.getContractFactory("DFIRToken");
     sbrToken = await SBDToken.deploy();
     await sbrToken.waitForDeployment();
 

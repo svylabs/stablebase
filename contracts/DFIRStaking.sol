@@ -1,7 +1,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./interfaces/ISBRStaking.sol";
+import "./interfaces/IDFIRStaking.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IRewardSender {
@@ -10,7 +10,7 @@ interface IRewardSender {
     ) external returns (bool);
 }
 
-contract SBRStaking is ISBRStaking, Ownable {
+contract DFIRStaking is IDFIRStaking, Ownable {
     mapping(address => Stake) public stakes;
 
     uint256 public totalStake;

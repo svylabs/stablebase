@@ -688,9 +688,14 @@ class Bot extends Actor {
             expect(safeAfterLiquidation.collateralAmount).to.equal(BigInt(0));
             //safe.borrowedAmount = updatedSafe.debt;
             //safe.collateralAmount = updatedSafe.collateral;
-            const safeCopy = {...safe};
-            safeCopy.collateralAmount = updatedSafe.collateral;
-            safeCopy.borrowedAmount = updatedSafe.debt;
+            const safeCopy = {
+                collateralAmount: updatedSafe.collateral,
+                borrowedAmount: updatedSafe.debt,
+                feePaid: safe.feePaid,
+                weight: safe.weight,
+                totalBorrowedAmount: updatedSafe.totalBorrowedAmount
+            };
+            console.log("Updated Safe:", safeCopy, safe);
             const liquidationFee = safeCopy.collateralAmount * (await this.contracts.stableBaseCDP.REDEMPTION_LIQUIDATION_FEE()) / BigInt(10000);
             const refund = await this.tracker.liquidate(safeCopy, safeId, liquidationFee - gasCompensation);
             //this.ethBalance += refund;
@@ -760,6 +765,7 @@ class Bot extends Actor {
             if (this.sbdBalance > BigInt(0)) {
                 // Calculate expected collateral return, fees, etc.
                 const ethBal = await this.account.provider.getBalance(this.account.address);
+                this.ethBalance = ethBal;
                 const redeemedSafes = await this.getRedeemedSafes(redeemAmount);
                 const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, redeemAmount);
                 let detail = await tx1.wait();
@@ -1019,6 +1025,7 @@ class OfflineProtocolTracker extends Agent {
            // return liquidationFee;
            refund = liquidationFee;
         }
+        await this.cleanupBorrower(safeId);
      } else {
         await this.cleanupBorrower(safeId);
         const totalCollateral = Object.keys(this.borrowers).reduce((acc, id) => acc + this.borrowers[id].safe.collateral, BigInt(0));
@@ -1041,7 +1048,6 @@ class OfflineProtocolTracker extends Agent {
      //expect(this.totalDebt).to.equal(await this.contracts.stableBaseCDP.totalDebt());
      expect(await this.contracts.redemptionQueue.getNode(safeId)).to.deep.equal([BigInt(0), BigInt(0), BigInt(0)]);
      expect(await this.contracts.liquidationQueue.getNode(safeId)).to.deep.equal([BigInt(0), BigInt(0), BigInt(0)]);
-     await this.cleanupBorrower(safeId);
      return refund;
   }
 
@@ -1067,9 +1073,9 @@ class OfflineProtocolTracker extends Agent {
         borrower.safe.pending.collateral += share / BigInt(1e18);
         borrower.safe.pending.debt += ((debt * share) / collateral) / BigInt(1e18);
         const pendingIncrease = await this.contracts.stableBaseCDP.getInactiveDebtAndCollateral(borrower.safeId);
-        console.log("Distributing debt and collateral to borrower ", borrower.id, share / BigInt(18), borrower.safe.pending.collateral, borrower.safe.pending.debt);
-        expect(pendingIncrease[0]).to.be.closeTo(borrower.safe.pending.debt, aggregatePrecision);
-        expect(pendingIncrease[1]).to.be.closeTo(borrower.safe.pending.collateral, aggregatePrecision);
+        console.log("Distributing debt and collateral to borrower ", borrower.id, share / BigInt(1e18), borrower.safe.pending.collateral, borrower.safe.pending.debt);
+        expect(pendingIncrease[0]).to.be.closeTo(borrower.safe.pending.debt, totalPrecision);
+        expect(pendingIncrease[1]).to.be.closeTo(borrower.safe.pending.collateral, totalPrecision);
      }
   }
 
@@ -1476,87 +1482,87 @@ async function deployContracts() {
     // Get the deployer's wallet address
     const [deployer] = await ethers.getSigners();
     console.log("Deploying contracts with the account:", deployer.address);
+
+  // Display the deployer's balance
+  const balance = await ethers.provider.getBalance(deployer.address);
+  console.log("Deployer balance:", balance);
+
+  const SBDToken = await ethers.getContractFactory("SBDToken");
+    const sbdToken = await SBDToken.deploy();
+    await sbdToken.waitForDeployment();
+    console.log("Deployed SBDToken to:", sbdToken.target);
   
-    // Display the deployer's balance
-    const balance = await ethers.provider.getBalance(deployer.address);
-    console.log("Deployer balance:", balance);
-  
-    const SBDToken = await ethers.getContractFactory("SBDToken");
-      const sbdToken = await SBDToken.deploy();
-      await sbdToken.waitForDeployment();
-      console.log("Deployed SBDToken to:", sbdToken.target);
+    const DFIRToken = await ethers.getContractFactory("DFIRToken");
+    const dfirToken = await DFIRToken.deploy();
+    await dfirToken.waitForDeployment();
+    console.log("Deployed DFIRToken to:", dfirToken.target);
+
+    const StabilityPool = await ethers.getContractFactory("StabilityPool");
+    const stabilityPool = await StabilityPool.deploy(true);
+    await stabilityPool.waitForDeployment();
+    console.log("Deployed StabilityPool to:", stabilityPool.target);
     
-      const SBRToken = await ethers.getContractFactory("SBRToken");
-      const sbrToken = await SBRToken.deploy();
-      await sbrToken.waitForDeployment();
-      console.log("Deployed SBRToken to:", sbrToken.target);
-  
-      const StabilityPool = await ethers.getContractFactory("StabilityPool");
-      const stabilityPool = await StabilityPool.deploy(true);
-      await stabilityPool.waitForDeployment();
-      console.log("Deployed StabilityPool to:", stabilityPool.target);
-      
-      const PriceOracle = await ethers.getContractFactory("MockPriceOracle");
-      const priceOracle = await PriceOracle.deploy();
-      await priceOracle.waitForDeployment();
-      console.log("Deployed PriceOracle to:", priceOracle.target);
-  
-      const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
-      const stableBaseCDP = await StableBaseCDPFactory.deploy();
-      await stableBaseCDP.waitForDeployment();
-      console.log("Deployed StableBaseCDP to:", stableBaseCDP.target);
-  
-      const SBRStaking = await ethers.getContractFactory("SBRStaking");
-      const sbrStaking = await SBRStaking.deploy(true);
-      await sbrStaking.waitForDeployment();
-      console.log("Deployed SBRStaking to:", sbrStaking.target);
-  
-      const OrderedDoublyLinkedList = await ethers.getContractFactory("OrderedDoublyLinkedList");
-      const redemptionQueue = await OrderedDoublyLinkedList.deploy();
-      await redemptionQueue.waitForDeployment();
-      console.log("Deployed LiquidationQueue to:", redemptionQueue.target);
-  
-      
-  
-      const liquidationQueue = await OrderedDoublyLinkedList.deploy();
-      await liquidationQueue.waitForDeployment();
-      console.log("Deployed RedemptionQueue to:", liquidationQueue.target);
-  
-  
-  
-      console.log("Setting addresses...");
-      console.log("Setting StableBase address to SBDToken...");
-      let tx= await sbdToken.setAddresses(stableBaseCDP.target);
-      await tx.wait();
-      console.log("Setting StabilityPool address to SBRToken...");
-      tx = await sbrToken.setAddresses(stabilityPool.target);
-      await tx.wait();
-      console.log("Setting SBDToken, StableBaseCDP, and SBRToken addresses to StabilityPool...");
-      tx = await stabilityPool.setAddresses(sbdToken.target, stableBaseCDP.target, sbrToken.target);
-      await tx.wait();
-      console.log("Setting SBRToken, SBDToken, and StableBaseCDP addresses to SBRStaking...");
-      tx = await sbrStaking.setAddresses(sbrToken.target, sbdToken.target, stableBaseCDP.target);
-      await tx.wait();
-      console.log("Setting StableBaseCDP address to RedemptionQueue...");
-      tx = await redemptionQueue.setAddresses(stableBaseCDP.target);
-      await tx.wait();
-      console.log("Setting StableBaseCDP address to LiquidationQueue...");
-      tx = await liquidationQueue.setAddresses(stableBaseCDP.target);
-      await tx.wait();
-      console.log("Setting SBDToken, PriceOracle, StabilityPool, SBRStaking, LiquidationQueue, and RedemptionQueue addresses to StableBaseCDP...");
-      tx = await stableBaseCDP.setAddresses(sbdToken.target, priceOracle.target, stabilityPool.target, sbrStaking.target, liquidationQueue.target, redemptionQueue.target);
-      await tx.wait();
-  
-      return {
-          sbdToken,
-          sbrToken,
-          stabilityPool,
-          priceOracle,
-          stableBaseCDP,
-          sbrStaking,
-          redemptionQueue,
-          liquidationQueue
-      }
+    const PriceOracle = await ethers.getContractFactory("MockPriceOracle");
+    const priceOracle = await PriceOracle.deploy();
+    await priceOracle.waitForDeployment();
+    console.log("Deployed PriceOracle to:", priceOracle.target);
+
+    const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
+    const stableBaseCDP = await StableBaseCDPFactory.deploy();
+    await stableBaseCDP.waitForDeployment();
+    console.log("Deployed StableBaseCDP to:", stableBaseCDP.target);
+
+    const DFIRStaking = await ethers.getContractFactory("DFIRStaking");
+    const dfirStaking = await DFIRStaking.deploy(true);
+    await dfirStaking.waitForDeployment();
+    console.log("Deployed DFIRStaking to:", dfirStaking.target);
+
+    const OrderedDoublyLinkedList = await ethers.getContractFactory("OrderedDoublyLinkedList");
+    const redemptionQueue = await OrderedDoublyLinkedList.deploy();
+    await redemptionQueue.waitForDeployment();
+    console.log("Deployed LiquidationQueue to:", redemptionQueue.target);
+
+    
+
+    const liquidationQueue = await OrderedDoublyLinkedList.deploy();
+    await liquidationQueue.waitForDeployment();
+    console.log("Deployed RedemptionQueue to:", liquidationQueue.target);
+
+
+
+    console.log("Setting addresses...");
+    console.log("Setting StableBase address to SBDToken...");
+    let tx= await sbdToken.setAddresses(stableBaseCDP.target);
+    await tx.wait();
+    console.log("Setting StabilityPool address to DFIRToken...");
+    tx = await dfirToken.setAddresses(stabilityPool.target);
+    await tx.wait();
+    console.log("Setting SBDToken, StableBaseCDP, and DFIRToken addresses to StabilityPool...");
+    tx = await stabilityPool.setAddresses(sbdToken.target, stableBaseCDP.target, dfirToken.target);
+    await tx.wait();
+    console.log("Setting DFIRToken, SBDToken, and StableBaseCDP addresses to SBRStaking...");
+    tx = await dfirStaking.setAddresses(dfirToken.target, sbdToken.target, stableBaseCDP.target);
+    await tx.wait();
+    console.log("Setting StableBaseCDP address to RedemptionQueue...");
+    tx = await redemptionQueue.setAddresses(stableBaseCDP.target);
+    await tx.wait();
+    console.log("Setting StableBaseCDP address to LiquidationQueue...");
+    tx = await liquidationQueue.setAddresses(stableBaseCDP.target);
+    await tx.wait();
+    console.log("Setting SBDToken, PriceOracle, StabilityPool, SBRStaking, LiquidationQueue, and RedemptionQueue addresses to StableBaseCDP...");
+    tx = await stableBaseCDP.setAddresses(sbdToken.target, priceOracle.target, stabilityPool.target, dfirStaking.target, liquidationQueue.target, redemptionQueue.target);
+    await tx.wait();
+
+    return {
+        sbdToken,
+        sbrToken: dfirToken,
+        stabilityPool,
+        priceOracle,
+        stableBaseCDP,
+        sbrStaking: dfirStaking,
+        redemptionQueue,
+        liquidationQueue
+    };
   }
 
   function shuffleArray(array) {
@@ -1578,7 +1584,7 @@ async function main() {
     const env = new Environment();
 
     const contracts = await deployContracts();
-    //console.log(contracts);
+    console.log(contracts);
 
     // Initialize the Market agent
     const market = new Market(marketAccount, marketAccount.balance, contracts);

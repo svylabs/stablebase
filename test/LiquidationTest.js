@@ -37,7 +37,7 @@ describe("Test the flow", function () {
       sbdToken = await SBDToken.deploy();
       await sbdToken.waitForDeployment();
     
-      const SBRToken = await ethers.getContractFactory("SBRToken");
+      const SBRToken = await ethers.getContractFactory("DFIRToken");
       sbrToken = await SBRToken.deploy();
       await sbrToken.waitForDeployment();
   
@@ -53,7 +53,7 @@ describe("Test the flow", function () {
       stableBaseCDP = await StableBaseCDPFactory.deploy();
       await stableBaseCDP.waitForDeployment();
   
-      const SBRStaking = await ethers.getContractFactory("SBRStaking");
+      const SBRStaking = await ethers.getContractFactory("DFIRStaking");
       sbrStaking = await SBRStaking.deploy(true);
       await sbrStaking.waitForDeployment();
   
