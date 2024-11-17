@@ -565,7 +565,7 @@ class Borrower extends Actor {
                 console.log("Paying topup fee ", topupFee, this.safe.debt, this.sbdBalance, this.shieldingRate);
                 if (topupFee > this.sbdBalance) {
                     console.log("Adjusting position in the safe instead of paying topup fee at this point.");
-                    const tx1 = await this.contracts.sbdToken.connect(this.account).adjustPosition(this.safeId, BigInt(0));
+                    const tx1 = await this.contracts.stableBaseCDP.connect(this.account).adjustPosition(this.safeId, BigInt(0));
                     await tx1.wait();
                     return;
                 }

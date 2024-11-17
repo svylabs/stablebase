@@ -94,12 +94,12 @@ While there are no ongoing fees or upfront fees charged, stability of the stable
 ## Distribution Schedule
 
 - **No Premine**: Tokens are distributed without any initial premining.
-- **Rate**: 1 SBR token is minted per second over 365 days.
+- **Rate**: 1 DFIR token is minted per second over 365 days.
 - **Proportional Allocation**: Tokens are distributed to Stability Pool stakers in proportion to their stake.
 
-## Staking SBR Tokens
+## Staking DFIR Tokens
 
-- **Secondary Staking**: SBR tokens can be staked in a dedicated contract.
+- **Secondary Staking**: DFIR tokens can be staked in a dedicated contract.
 - **Additional Rewards**: Stakers receive 10% of the fees collected from borrowers and 0.75% from redeemers.
 
 # Supported Collateral
@@ -114,7 +114,7 @@ While there are no ongoing fees or upfront fees charged, stability of the stable
 - **Single Collateral:** The protocol exclusively supports a single collateral type, simplifying the system and reducing complexity.
 - **Governance-Free:** StableBase operates without governance tokens or mechanisms, minimizing potential points of centralization and complexity.
 - **90% of Fees to Stability Pool Stakers:** A majority of the fees collected from users are distributed to Stability Pool stakers, incentivizing system support.
-- **10% of Fees to SBR Stakers:** A portion of the fees is allocated to SBR token stakers, encouraging long-term commitment.
+- **10% of Fees to DFIR Stakers:** A portion of the fees is allocated to DFIR token stakers, encouraging long-term commitment.
 - **SBR Token Issuance for 1 Year with 0 Initial Supply:** SBR tokens are issued over one year at the rate of 1 token per second, with zero initial supply, distributed proportionally based on users' stakes in stability pool.
 
 # Conclusion
