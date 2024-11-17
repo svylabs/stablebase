@@ -13,7 +13,7 @@ describe("SBRStaking Contract", function () {
     [owner, addr1, addr2, stableBaseContract, ...addrs] = await ethers.getSigners();
 
     // Deploy mock ERC20 tokens for staking and rewards
-    StakingToken = await ethers.getContractFactory("SBRToken");
+    StakingToken = await ethers.getContractFactory("DFIRToken");
     stakingToken = await StakingToken.deploy();
     await stakingToken.waitForDeployment();
 
@@ -22,7 +22,7 @@ describe("SBRStaking Contract", function () {
     await rewardToken.waitForDeployment();
 
     // Deploy the SBRStaking contract
-    const SBRStakingContract = await ethers.getContractFactory("SBRStaking");
+    const SBRStakingContract = await ethers.getContractFactory("DFIRStaking");
     sbrStaking = await SBRStakingContract.deploy(false);
     await sbrStaking.waitForDeployment();
 

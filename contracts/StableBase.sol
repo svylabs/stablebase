@@ -7,7 +7,7 @@ import "./interfaces/IDoublyLinkedList.sol";
 import "./interfaces/IStableBase.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "./interfaces/IStabilityPool.sol";
-import "./interfaces/ISBRStaking.sol";
+import "./interfaces/IDFIRStaking.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IMintableToken is IERC20 {
@@ -41,7 +41,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
 
     IStabilityPool public stabilityPool;
 
-    ISBRStaking public sbrTokenStaking;
+    IDFIRStaking public dfirTokenStaking;
 
     uint256 public constant SBR_FEE_REWARD = 1000; // 10% of the fee goes to SBR Stakers
 
@@ -77,14 +77,14 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         address _sbdToken,
         address _priceOracle,
         address _stabilityPool,
-        address _sbrTokenStaking,
+        address _dfirTokenStaking,
         address _safesOrderedForLiquidation,
         address _safesOrderedForRedemption
     ) external onlyOwner {
         sbdToken = IMintableToken(_sbdToken);
         priceOracle = IPriceOracle(_priceOracle);
         stabilityPool = IStabilityPool(_stabilityPool);
-        sbrTokenStaking = ISBRStaking(_sbrTokenStaking);
+        dfirTokenStaking = IDFIRStaking(_dfirTokenStaking);
         // Initialize the contract
         safesOrderedForLiquidation = IDoublyLinkedList(
             _safesOrderedForLiquidation
@@ -92,7 +92,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         safesOrderedForRedemption = IDoublyLinkedList(
             _safesOrderedForRedemption
         );
-        sbdToken.approve(address(sbrTokenStaking), type(uint256).max);
+        sbdToken.approve(address(dfirTokenStaking), type(uint256).max);
         sbdToken.approve(address(stabilityPool), type(uint256).max);
         renounceOwnership();
     }
@@ -512,7 +512,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         uint256 sbrStakersFee = (fee * SBR_FEE_REWARD) / 10000;
         uint256 stabilityPoolFee = fee;
         canRefund = fee;
-        bool feeAdded1 = sbrTokenStaking.addReward(sbrStakersFee);
+        bool feeAdded1 = dfirTokenStaking.addReward(sbrStakersFee);
         if (feeAdded1) {
             stabilityPoolFee = fee - sbrStakersFee;
             feePaid = fee;
@@ -651,7 +651,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
     function setCanSBRStakingPoolReceiveRewards(
         bool canReceiveRewards
     ) external returns (bool) {
-        require(msg.sender == address(sbrTokenStaking), "Only SBR Staking");
+        require(msg.sender == address(dfirTokenStaking), "Only SBR Staking");
         sbrStakingPoolCanReceiveRewards = canReceiveRewards;
         return true;
     }

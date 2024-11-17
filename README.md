@@ -12,10 +12,10 @@ Here are some highlights of the protocol:
 6. Only native asset(ETH) supported.
 7. Market determined **Pay As You Go** model to protect from redemptions.
 8. Bootstrap mode: No redemptions during bootstrap phase(Until 5 million SBUSD borrowed)
-9. The Protocol issues SBR tokens to Stability Pool contributors for 1 year.
+9. The Protocol issues DFIR tokens to Stability Pool contributors for 1 year.
    1. No Premine
    2. 1 token issued per second for 1 year, proportionally split among stakers in stability pool.
-10. SBR stakers capture 10% of the fees paid to the protocol by users.
+10. DFIR stakers capture 10% of the fees paid to the protocol by users.
 11. Stability Pool stakers capture 90% of fees paid to the protocol.
 
 # Docs
@@ -27,13 +27,13 @@ Here are some highlights of the protocol:
 
 # FAQ
 
-**1. How is StableBase protocol different from other protocols?**
+**1. How is the StableBase protocol different from other protocols?**
 
 The protocol is mostly inspired by the same mechanisms(CDP, Liquidation, Redemptions) from other popular CDP protocols. The key difference between StableBase and other protocols is the pricing structure. Where other popular protocols have minimum interest rates or minimum origination fees, the protocol doesn't impose any one time fee, nor interest rates and is purely market driven. The users simply ***pay as you go*** to protect themselves from redemptions.
 
 **2. Why is this pricing structure better?**
 
-***Pay As You Go*** is a clear pricing mechanism, where you don't pay anything until you need to. CDPs are ordered by the protocol based on the weight of the position calculated from the fee paid. So when you choose to pay, you are paying to jump to a different position in the redemption queue. Payment can be made at any time- at the time of borrowing or later using our ***fee topup*** mechanism.
+**_Pay As You Go_** is a clear pricing mechanism, where you don't pay anything until you need to. CDPs are ordered by the protocol based on the weight of the position calculated from the fee paid. So when you choose to pay, you are paying to jump to a different position in the redemption queue. Payment can be made at any time- at the time of borrowing or later using our **_fee topup_** mechanism.
 
 **3. How is this different from paying interest rates?**
 
@@ -96,7 +96,7 @@ MIT
 # Disclaimer
 
 **[Immutable with no governance]**
-The protocol is immutable, with no individual or entity controlling the contracts once deployed. SVY Labs, the company that developed the StableBase protocol, is only a developer of the protocol and does not issue 'SBR' or 'SBUSD' tokens. The company is responsible for the development and deployment of the protocol on Ethereum and other chains, with users of the protocol responsible for their actions and for ensuring they follow jurisdictional laws.
+The protocol is immutable, with no individual or entity controlling the contracts once deployed. SVY Labs, the company that developed the StableBase protocol, is only a developer of the protocol and does not issue 'DFIR' or 'SBUSD' tokens. The company is responsible for the development and deployment of the protocol on Ethereum and other chains, with users of the protocol responsible for their actions and for ensuring they follow jurisdictional laws.
 
 **[Code Unaudited]**
 While the core protocol is tested by the developer, the code is unaudited and may contain bugs resulting in hacks or the inability for users to withdraw funds from the protocol. Internal testing does not equate to a formal audit, and vulnerabilities may still exist. Users should exercise caution when interacting with the protocol or using third-party frontends. The repository contains only the smart contract code developed by the developer.
@@ -105,7 +105,7 @@ While the core protocol is tested by the developer, the code is unaudited and ma
 The protocol mechanism is unaudited and may contain flaws. The company or the developer cannot be held responsible or liable if the protocol does not work as intended in the whitepaper. Users are advised to conduct their own research (DYOR) and seek professional advice before interacting with the protocol or its tokens.
 
 **[No Liability for Loss of User Funds]**
-The 'SBR' and 'SBUSD' tokens may not carry any value, nor will users have any means to exchange these tokens for other assets. The developer cannot be held liable or responsible for the adoption of the protocol or the tokens. Users are solely responsible for their actions regarding supplying liquidity to the protocol or exchanging assets with value for 'SBR' or 'SBUSD' tokens. Users acknowledge the risk of permanent loss of funds when interacting with the protocol.
+The 'DFIR' and 'SBUSD' tokens may not carry any value, nor will users have any means to exchange these tokens for other assets. The developer cannot be held liable or responsible for the adoption of the protocol or the tokens. Users are solely responsible for their actions regarding supplying liquidity to the protocol or exchanging assets with value for 'DFIR' or 'SBUSD' tokens. Users acknowledge the risk of permanent loss of funds when interacting with the protocol.
 
 **[Regulatory and Third-Party Risks]**
 Users must ensure compliance with all applicable laws and regulations in their jurisdiction when interacting with the protocol or associated tokens. The company or developer assumes no liability for regulatory implications of using the protocol. Additionally, third-party interfaces or integrations with the protocol are outside the control of the developer and may pose additional risks.
