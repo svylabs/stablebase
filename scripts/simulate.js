@@ -172,7 +172,7 @@ class Actor extends Agent {
                 const tx = await this.contracts.stabilityPool.connect(this.account).stake(stakeAmount);
                 assert.fail("Stake SBD should have failed");
             } catch (error) {
-                this.consolelog("Stake SBD failed as expected");
+                this.consolelog(error, "Stake SBD failed as expected");
             }
         } else {
             if (Math.random < 0.3) {
@@ -183,6 +183,7 @@ class Actor extends Agent {
                     const tx = await this.contracts.stabilityPool.connect(this.account).stake(stakeAmount);
                     assert.fail("Stake SBD should have failed");
                 } catch (ex) {
+                    this.consolelog(ex, "Stake SBD failed as expected");
                     //this.consolelog("Stake SBD failed as expected");
                 }
             } else {
@@ -222,7 +223,7 @@ class Actor extends Agent {
                 const tx = await this.contracts.stabilityPool.connect(this.account).unstake(unstakeAmount);
                 assert.fail("Unstake SBD should have failed");
             } catch (error) {
-                this.consolelog("Unstake SBD failed as expected");
+                this.consolelog(error, "Unstake SBD failed as expected");
             }
         } else {
             const pendingRewards = await this.contracts.stabilityPool.userPendingRewardAndCollateral(this.account.address);
@@ -300,7 +301,7 @@ class Actor extends Agent {
                 await tx.wait();
                 assert.fail("Stake SBR should have failed");
             } catch (error) {
-                this.consolelog("Stake SBR failed as expected");
+                this.consolelog(error, "Stake SBR failed as expected");
             }
         } else {
             if (Math.random < 0.3) {
@@ -351,7 +352,7 @@ class Actor extends Agent {
                 const tx = await this.contracts.sbrStaking.connect(this.account).unstake(unstakeAmount);
                 assert.fail("Unstake SBR should have failed");
             } catch (error) {
-                this.consolelog("Unstake SBR failed as expected");
+                this.consolelog(error, "Unstake SBR failed as expected");
             }
         } else {
             const pendingRewards = await this.contracts.sbrStaking.userPendingReward(this.account.address);
@@ -440,13 +441,14 @@ class Borrower extends Actor {
             // this should fail as there is no safe
         }
         this.consolelog("Borrowing  ", borrowAmount);
-        if ((this.safe.debt + borrowAmount) > ((this.safe.collateral * this.market.collateralPrice * BigInt(909)) / BigInt(1000)) || (this.safe.debt + borrowAmount) < await this.contracts.stableBaseCDP.MINIMUM_DEBT()) {
+        let collateralValue = (this.safe.collateral + this.safe.pending.collateral) * this.market.collateralPrice;
+        if (((this.safe.debt + borrowAmount + this.safe.pending.debt) * BigInt(11000)) > (collateralValue * BigInt(10000)) || (this.safe.pending.debt + this.safe.debt + borrowAmount) < await this.contracts.stableBaseCDP.MINIMUM_DEBT()) {
             // this should fail
             try {
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).borrow(this.safeId, borrowAmount, this.shieldingRate, BigInt(0), BigInt(0));
                 assert.fail("Borrow should have failed");
             } catch (error) {
-                this.consolelog("Borrow failed as expected");
+                this.consolelog(error, "Borrow failed as expected");
             }
         } else {
             await this.activatePendingCollateralAndDebt();
@@ -479,8 +481,7 @@ class Borrower extends Actor {
                 const txDetail = await tx.wait();
                 assert.fail(`Repay should have failed ${repayAmount} ${this.sbdBalance} ${this.safe.debt}`);
             } catch (error) {
-                console.log(error);
-                this.consolelog("Repay failed as expected");
+                this.consolelog(error, "Repay failed as expected");
             }
         } else {
             await this.activatePendingCollateralAndDebt();
@@ -508,14 +509,14 @@ class Borrower extends Actor {
         this.consolelog("Withdrawing collateral ", withdrawAmount);
         const collateralValue = (this.safe.collateral + this.safe.pending.collateral) * this.market.collateralPrice;
         const withdrawValue = withdrawAmount * this.market.collateralPrice;
-        if ((this.safe.collateral == BigInt(0)) || (collateralValue  - withdrawValue) < ((this.safe.debt + this.safe.pending.debt) * BigInt(11000) / BigInt(10000))) {
+        if ((this.safe.collateral == BigInt(0)) || (collateralValue  - withdrawValue) < (((this.safe.debt + this.safe.pending.debt) * BigInt(11000)) / BigInt(10000))) {
             // this should fail
             try {
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).withdrawCollateral(this.safeId, withdrawAmount, BigInt(0));
                 const detail = await tx.wait();
                 assert.fail("Withdraw should have failed");
             } catch (error) {
-                this.consolelog("Withdraw failed as expected");
+                this.consolelog(error, "Withdraw failed as expected");
             }
         } else {
             await this.activatePendingCollateralAndDebt();
@@ -542,7 +543,7 @@ class Borrower extends Actor {
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).addCollateral(this.safeId, addAmount, BigInt(0), { value: addAmount });
                 assert.fail("Add collateral should have failed");
             } catch (ex) {
-                this.consolelog("Add collateral failed as expected");
+                this.consolelog(ex, "Add collateral failed as expected");
             }
         } else {
             await this.activatePendingCollateralAndDebt();
@@ -566,7 +567,7 @@ class Borrower extends Actor {
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, BigInt(0));
                 assert.fail("Topup fee should have failed");
             } catch (error) {
-                this.consolelog("Topup fee failed as expected");
+                this.consolelog(error, "Topup fee failed as expected");
             }
         } else {
             try {
@@ -725,8 +726,7 @@ class Bot extends Actor {
                 const txDetail = await tx.wait();
                 assert.fail("Liquidation should have failed");
             } catch (ex) {
-                this.consolelog(ex);
-                this.consolelog("Liquidation failed as expected");
+                this.consolelog(ex, "Liquidation failed as expected");
             }
         }
     }
