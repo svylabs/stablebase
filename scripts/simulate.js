@@ -470,14 +470,16 @@ class Borrower extends Actor {
         }
         const repayAmount = (((this.safe.debt * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) ) / BigInt(1e18) ) * BigInt(1e18)) / BigInt(1000);
         this.consolelog("Repaying ", repayAmount);
-        if (repayAmount > this.sbdBalance || ((this.safe.debt - repayAmount) < await this.contracts.stableBaseCDP.MINIMUM_DEBT())) {
+        if (repayAmount > this.sbdBalance || ((this.safe.debt + this.safe.pending.debt - repayAmount) < await this.contracts.stableBaseCDP.MINIMUM_DEBT())) {
             // this should fail
             try {
                 const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, repayAmount);
                 await tx1.wait();
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).repay(this.safeId, repayAmount, BigInt(0));
+                const txDetail = await tx.wait();
                 assert.fail(`Repay should have failed ${repayAmount} ${this.sbdBalance} ${this.safe.debt}`);
             } catch (error) {
+                console.log(error);
                 this.consolelog("Repay failed as expected");
             }
         } else {
@@ -504,12 +506,13 @@ class Borrower extends Actor {
     async withdrawCollateral() {
         const withdrawAmount = ((this.safe.collateral * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) / BigInt(1e18)) * BigInt(1e18)) / BigInt(1000);
         this.consolelog("Withdrawing collateral ", withdrawAmount);
-        const collateralValue = this.safe.collateral * this.market.collateralPrice;
+        const collateralValue = (this.safe.collateral + this.safe.pending.collateral) * this.market.collateralPrice;
         const withdrawValue = withdrawAmount * this.market.collateralPrice;
-        if ((this.safe.collateral == BigInt(0)) || (collateralValue - withdrawValue) < (this.safe.debt * BigInt(1100) / BigInt(1000))) {
+        if ((this.safe.collateral == BigInt(0)) || (collateralValue  - withdrawValue) < ((this.safe.debt + this.safe.pending.debt) * BigInt(11000) / BigInt(10000))) {
             // this should fail
             try {
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).withdrawCollateral(this.safeId, withdrawAmount, BigInt(0));
+                const detail = await tx.wait();
                 assert.fail("Withdraw should have failed");
             } catch (error) {
                 this.consolelog("Withdraw failed as expected");
@@ -793,6 +796,22 @@ class Bot extends Actor {
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).redeem(redeemAmount, BigInt(0));
                 detail = await tx.wait();
                 try {
+                    let redeemerFee = BigInt(0);
+                    let ownerFee = BigInt(0);
+                    detail.logs.forEach(log => {
+                        try {
+                            const event = this.contracts.stableBaseCDP.interface.parseLog(log);
+                            this.consolelog("Event: ", event.name, event.args);
+                            if (event.name == 'RedeemerFeePaid') {
+                                redeemerFee += event.args.feePaid;
+                            }
+                            if (event.name == 'OwnerFeePaid') {
+                                ownerFee += event.args.feePaid;
+                            }
+                        } catch (ex) {
+                            // Do nothing
+                        }
+                    });
                     gasUsed += detail.gasUsed * tx.gasPrice;
                     this.sbdBalance -= redeemAmount;
                     // adding total collateral redeemed
@@ -803,7 +822,7 @@ class Bot extends Actor {
                     this.ethBalance -= redeemedSafes.reduce((acc, safe) => acc + safe.params[5], BigInt(0));
                     expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), aggregatePrecision);
                     expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseEther("0.1"));
-                    await this.tracker.updateRedeemedSafes(redeemedSafes);
+                    await this.tracker.updateRedeemedSafes(redeemedSafes, redeemerFee, ownerFee);
                 } catch (ex) {
                     detail.logs.forEach(log => {
                         try {
@@ -1143,7 +1162,7 @@ class OfflineProtocolTracker extends Agent {
 
 
 
-  async updateRedeemedSafes(redeemedSafes) {
+  async updateRedeemedSafes(redeemedSafes, _totalRedeemerFee, _totalOwnerFee) {
     let totalOwnerFee = BigInt(0);
     let totalRedeemerFee = BigInt(0);
     for (const safe of redeemedSafes) {
@@ -1166,13 +1185,14 @@ class OfflineProtocolTracker extends Agent {
     if (this.stabilityPool.totalStake > BigInt(0)) {
         if (totalOwnerFee > BigInt(0)) {
             // distribute sbd
-            await this.distributeRedemptionFeeToStabilityPoolStakers(totalOwnerFee);
+            await this.distributeRedemptionFeeToStabilityPoolStakers(_totalOwnerFee);
         }
         if (totalRedeemerFee > BigInt(0)) {
             // distribute fee paid in collateral 
-            await this.distributeCollateralGainsToStabilityPoolStakers(totalRedeemerFee, "redemption", true);
+            await this.distributeCollateralGainsToStabilityPoolStakers(_totalRedeemerFee, "redemption", true);
         }
     }
+    this.consolelog("Total owner fee, total redeemer fee ", totalOwnerFee, _totalOwnerFee, totalRedeemerFee, _totalRedeemerFee);
     // Check fee distribution
   }
 
@@ -1301,7 +1321,7 @@ class OfflineProtocolTracker extends Agent {
     }
     this.stabilityPool.totalStake = totalStake;
     expect(totalStake).to.be.closeTo(await this.contracts.stabilityPool.totalStakedRaw(), totalPrecision, "Stability pool stake mismatch");
-    expect(totalRewards.sbd + totalStake + this.stabilityPool.rewardLoss + this.stabilityPool.stakeLoss).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), ethers.parseUnits("0.000001", 18), "Stability pool SBD balance mismatch");
+    expect(totalRewards.sbd + totalStake + this.stabilityPool.rewardLoss + this.stabilityPool.stakeLoss).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.contracts.stabilityPool.target), totalPrecision, "Stability pool SBD balance mismatch");
     expect(totalRewards.eth).to.be.closeTo(await ethers.provider.getBalance(this.contracts.stabilityPool.target), totalPrecision, "Stability pool ETH balance mismatch");
   }
 

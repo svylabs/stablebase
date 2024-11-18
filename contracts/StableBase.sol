@@ -236,17 +236,18 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
             "Safe can't be redeemed"
         );
 
-        uint256 feePaidPercentage = ((safe.feePaid * BASIS_POINTS_DIVISOR) /
-            safe.totalBorrowedAmount);
+        uint256 feePaidPercentage = ((safe.feePaid *
+            BASIS_POINTS_DIVISOR *
+            PRECISION) / safe.totalBorrowedAmount);
         // Fee tier to apply for this safe(applied to the redeemer)
         uint256 feeTier = min(
-            feePaidPercentage + REDEMPTION_BASE_FEE,
-            REDEMPTION_LIQUIDATION_FEE
+            feePaidPercentage + REDEMPTION_BASE_FEE * PRECISION,
+            REDEMPTION_LIQUIDATION_FEE * PRECISION
         );
         /*
         If the fee paid is less than REDEMPTION_BASE_FEE, the redemption fee is (feePaid + REDEMPTION_BASE_FEE)
          */
-        if (feePaidPercentage <= REDEMPTION_BASE_FEE) {
+        if (feePaidPercentage <= REDEMPTION_BASE_FEE * PRECISION) {
             if (amountToRedeem >= collateralValue) {
                 // redeem the whole collateral, while refunding stablecoins back to the owner of the safe
                 _amountToRedeem = safe.borrowedAmount;
@@ -303,7 +304,9 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
                 //amountToRedeem =
             }
         }
-        _redeemerFee = (_collateralToRedeem * feeTier) / BASIS_POINTS_DIVISOR;
+        _redeemerFee = ((_collateralToRedeem * feeTier) /
+            BASIS_POINTS_DIVISOR /
+            PRECISION);
     }
 
     // Redemption always redeems the whole collateral
