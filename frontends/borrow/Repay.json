@@ -1,0 +1,121 @@
+[
+  {
+    "id": "01",
+    "label": "Safe ID",
+    "type": "text",
+    "placement": "input",
+    "code": "",
+    "config": {
+      "styles": {
+        "color": "#252525",
+        "backgroundColor": "",
+        "fontSize": "14px",
+        "padding": "10",
+        "margin": "10"
+      }
+    },
+    "events": []
+  },
+  {
+    "id": "02",
+    "label": "Total Debt",
+    "type": "text",
+    "placement": "input",
+    "code": "",
+    "config": {
+      "styles": {
+        "color": "",
+        "backgroundColor": "",
+        "fontSize": "",
+        "padding": "",
+        "margin": ""
+      }
+    },
+    "events": []
+  },
+  {
+    "id": "03",
+    "label": "Collateral Ratio",
+    "type": "text",
+    "placement": "input",
+    "code": "",
+    "config": {
+      "styles": {
+        "color": "",
+        "backgroundColor": "",
+        "fontSize": "",
+        "padding": "",
+        "margin": ""
+      }
+    },
+    "events": []
+  },
+  {
+    "id": "04",
+    "label": "Amount",
+    "type": "text",
+    "placement": "input",
+    "code": "",
+    "config": {
+      "styles": {
+        "color": "",
+        "backgroundColor": "",
+        "fontSize": "",
+        "padding": "",
+        "margin": ""
+      }
+    },
+    "events": []
+  },
+  {
+    "id": "05",
+    "label": "Remaining Debt",
+    "type": "text",
+    "placement": "input",
+    "code": "",
+    "config": {
+      "styles": {
+        "color": "",
+        "backgroundColor": "",
+        "fontSize": "",
+        "padding": "",
+        "margin": ""
+      }
+    },
+    "events": []
+  },
+  {
+    "id": "06",
+    "label": "New Collateral ratio",
+    "type": "text",
+    "placement": "input",
+    "code": "",
+    "config": {
+      "styles": {
+        "color": "",
+        "backgroundColor": "",
+        "fontSize": "",
+        "padding": "",
+        "margin": ""
+      }
+    },
+    "events": []
+  },
+  {
+    "id": "07",
+    "label": "Repay",
+    "type": "button",
+    "placement": "action",
+    "code": "07",
+    "config": {
+      "styles": {
+        "color": "#FFFFFF",
+        "backgroundColor": "#354888",
+        "fontSize": "14px",
+        "padding": "10",
+        "margin": "10"
+      }
+    },
+    "events": []
+  }
+]
