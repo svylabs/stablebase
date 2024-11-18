@@ -1115,8 +1115,8 @@ class OfflineProtocolTracker extends Agent {
         borrower.safe.pending.debt += ((debt * share) / collateral) / BigInt(1e18);
         const pendingIncrease = await this.contracts.stableBaseCDP.getInactiveDebtAndCollateral(borrower.safeId);
         this.consolelog("Distributing debt and collateral to borrower ", borrower.id, share / BigInt(1e18), borrower.safe.pending.collateral, borrower.safe.pending.debt);
-        distributedDebt += pendingIncrease[0];
-        distributedCollateral += pendingIncrease[1];
+        distributedDebt += ((debt * share) / collateral) / BigInt(1e18);
+        distributedCollateral += (share / BigInt(1e18));
         expect(pendingIncrease[0]).to.be.closeTo(borrower.safe.pending.debt, totalPrecision);
         expect(pendingIncrease[1]).to.be.closeTo(borrower.safe.pending.collateral, totalPrecision);
      }
