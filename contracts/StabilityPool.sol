@@ -228,12 +228,16 @@ contract StabilityPool is IStabilityPool, Ownable {
     // Claim accumulated rewards
     function claim() external {
         UserInfo storage user = users[msg.sender];
-        _claim(user, msg.sender, 0);
+        if (user.stake > 0) {
+            _claim(user, msg.sender, 0);
+        }
     }
 
     function claim(address frontend, uint256 fee) external {
         UserInfo storage user = users[msg.sender];
-        _claim(user, frontend, fee);
+        if (user.stake > 0) {
+            _claim(user, frontend, fee);
+        }
     }
 
     // Add rewards to the pool
@@ -456,10 +460,18 @@ contract StabilityPool is IStabilityPool, Ownable {
             }
         }
         if (pendingSbrRewards != 0) {
+            uint256 feeReward = (fee * pendingSbrRewards) /
+                BASIS_POINTS_DIVISOR;
             require(
-                sbrToken.mint(msg.sender, pendingSbrRewards),
+                sbrToken.mint(msg.sender, pendingSbrRewards - feeReward),
                 "Mint failed"
             );
+            if (feeReward > 0) {
+                require(
+                    sbrToken.mint(frontend, feeReward),
+                    "Fee transfer failed"
+                );
+            }
         }
     }
 
