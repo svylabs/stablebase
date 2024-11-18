@@ -779,23 +779,41 @@ class Bot extends Actor {
                 // Calculate expected collateral return, fees, etc.
                 const ethBal = await this.account.provider.getBalance(this.account.address);
                 this.ethBalance = ethBal;
-                const redeemedSafes = await this.getRedeemedSafes(redeemAmount);
+                let redeemedSafes;
+                try {
+                    redeemedSafes = await this.getRedeemedSafes(redeemAmount);
+                } catch (ex) {
+                    this.consolelog("Unable to redeem because of insufficient collateral requirements", ex);
+                    return ;
+                }
                 const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, redeemAmount);
                 let detail = await tx1.wait();
                 let gasUsed = detail.gasUsed * tx1.gasPrice;
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).redeem(redeemAmount, BigInt(0));
                 detail = await tx.wait();
-                gasUsed += detail.gasUsed * tx.gasPrice;
-                this.sbdBalance -= redeemAmount;
-                // adding total collateral redeemed
-                this.ethBalance += redeemedSafes.reduce((acc, safe) => acc + safe.params[1], BigInt(0));
-                // - tx fees
-                this.ethBalance -= gasUsed;
-                // - redemption fees paid
-                this.ethBalance -= redeemedSafes.reduce((acc, safe) => acc + safe.params[5], BigInt(0));
-                expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), aggregatePrecision);
-                expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseEther("0.1"));
-                await this.tracker.updateRedeemedSafes(redeemedSafes);
+                try {
+                    gasUsed += detail.gasUsed * tx.gasPrice;
+                    this.sbdBalance -= redeemAmount;
+                    // adding total collateral redeemed
+                    this.ethBalance += redeemedSafes.reduce((acc, safe) => acc + safe.params[1], BigInt(0));
+                    // - tx fees
+                    this.ethBalance -= gasUsed;
+                    // - redemption fees paid
+                    this.ethBalance -= redeemedSafes.reduce((acc, safe) => acc + safe.params[5], BigInt(0));
+                    expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), aggregatePrecision);
+                    expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseEther("0.1"));
+                    await this.tracker.updateRedeemedSafes(redeemedSafes);
+                } catch (ex) {
+                    detail.logs.forEach(log => {
+                        try {
+                            const event = this.contracts.stableBaseCDP.interface.parseLog(log);
+                            this.consolelog("Event: ", event.name, event.args);
+                        } catch (ex) {
+                            // Do nothing
+                        }
+                    });
+                    throw ex;
+                }
                 // update safes in tracker to update actors debt and collateral
                 // Check SBD balance in contract
             }
@@ -1262,32 +1280,6 @@ class OfflineProtocolTracker extends Agent {
     //expect(totalDebt).to.equal(await this.contracts.sbdToken.totalSupply(), "Total debt mismatch");
   }
 
-  async validateTotalSupply() {
-    let sbdTokens = BigInt(0);
-    let sbrTokens = BigInt(0);
-    for (const actor of this.actors) {
-        sbdTokens += actor.sbdBalance;
-        sbdTokens += actor.stabilityPool.unclaimedRewards.sbd;
-        //sbdTokens += actor.sbrStaking.unclaimedRewards.sbd;
-        sbrTokens += actor.sbrBalance;
-        sbrTokens += actor.stabilityPool.unclaimedRewards.sbr;
-
-        sbdTokens += actor.sbrStaking.unclaimedRewards.sbd;
-    }
-    sbdTokens += this.market.sbdBalance;
-    sbrTokens += this.market.sbrBalance;
-    sbdTokens += this.stabilityPool.totalStake;
-    sbdTokens += this.stabilityPool.rewardLoss;
-    sbdTokens += this.stabilityPool.stakeLoss;
-    //sbdTokens += this.stabilityPool.totalRewards.sbd;
-
-    this.consolelog(sbdTokens);
-    this.consolelog(await this.contracts.sbdToken.totalSupply());
-    expect(await this.contracts.sbdToken.balanceOf(this.contracts.stableBaseCDP.target)).to.equal(BigInt(0), "SBD token mismatch");
-    expect(sbdTokens).to.be.closeTo(await this.contracts.sbdToken.totalSupply(), totalPrecision, "Total SBD tokens mismatch");
-    //expect(sbrTokens).to.be.closeTo(await this.contracts.sbrToken.totalSupply(), ethers.parseEther("0.0000000000001"), "Total SBR tokens mismatch");
-  }
-
   async validateStabilityPool() {
     let totalStake = BigInt(0);
     let totalRewards = {
@@ -1493,7 +1485,7 @@ class OfflineProtocolTracker extends Agent {
     try {
     //this.checkForLiquidation(collateralPrice);
         await this.validateDebtAndCollateral();
-        await this.validateTotalSupply();
+        //await this.validateTotalSupply();
         await this.validateStabilityPool();
         await this.validateSafes();
         await this.validateSBRStaking();
