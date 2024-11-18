@@ -66,7 +66,7 @@ class Actor extends Agent {
         //this.consolelog(await this.contracts.stabilityPool.rewardLoss());
         //this.consolelog("Pending rewards ", pendingRewards[0], this.stabilityPool.unclaimedRewards.sbd);
         expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, totalPrecision);
-        this.stabilityPool.unclaimedRewards.sbr = pendingRewards[0]; // resetting the value from the contract
+        this.stabilityPool.unclaimedRewards.sbd = pendingRewards[0]; // resetting the value from the contract
     }
 
     async distributeSbdRewardsSBRStaking(reward) {
