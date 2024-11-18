@@ -217,7 +217,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         uint256 collateralPrice
     )
         public
-        pure
+        view
         returns (
             bool borrowMode,
             uint256 _collateralToRedeem,
@@ -229,6 +229,13 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
     {
         uint256 collateralValue = (safe.collateralAmount * collateralPrice) /
             PRECISION;
+        require(
+            collateralValue >=
+                ((safe.borrowedAmount * liquidationRatio) /
+                    BASIS_POINTS_DIVISOR),
+            "Safe can't be redeemed"
+        );
+
         uint256 feePaidPercentage = ((safe.feePaid * BASIS_POINTS_DIVISOR) /
             safe.totalBorrowedAmount);
         // Fee tier to apply for this safe(applied to the redeemer)
