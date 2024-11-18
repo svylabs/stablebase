@@ -392,17 +392,18 @@ class Borrower extends Actor {
 
     async activatePendingCollateralAndDebt() {
         const result = await this.contracts.stableBaseCDP.getInactiveDebtAndCollateral(this.safeId);
+        const safe = await this.contracts.stableBaseCDP.safes(this.safeId);
         if (result[0] > BigInt(0) || result[1] > BigInt(0)) {
             this.consolelog("Applying pending collateral and debt ", result[0], result[1]);
             const pendingDebtIncrease=  this.safe.pending.debt;
             const pendingCollateralIncrease = this.safe.pending.collateral;
             expect(pendingDebtIncrease).to.be.closeTo(result[0], aggregatePrecision);
             expect(pendingCollateralIncrease).to.be.closeTo(result[1], aggregatePrecision);
-            this.safe.collateral += pendingCollateralIncrease;
+            this.safe.collateral = result[1] + safe.collateralAmount;
             this.safe.pending.collateral = BigInt(0);
-            this.safe.debt += pendingDebtIncrease;
+            this.safe.debt = result[0] + safe.borrowedAmount;
             this.safe.pending.debt = BigInt(0);
-            this.safe.totalBorrowedAmount += pendingDebtIncrease;
+            this.safe.totalBorrowedAmount = safe.totalBorrowedAmount + result[0];
             await this.tracker.increaseDebtAndCollateral(pendingDebtIncrease, pendingCollateralIncrease);
         }
         return this.safe;

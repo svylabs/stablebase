@@ -186,7 +186,24 @@ contract OrderedDoublyLinkedList is IDoublyLinkedList, Ownable {
         return tail;
     }
 
-    function getNode(uint256 id) external view returns (Node memory) {
+    function getNode(uint256 id) public view returns (Node memory) {
         return nodes[id];
+    }
+
+    function getNodes(
+        uint256 beginAt,
+        uint256 total
+    ) external view returns (Node[50] memory nodes, uint256 totalFound) {
+        if (beginAt == 0) {
+            beginAt = head;
+        }
+        for (uint256 i = 0; i < total; i++) {
+            if (beginAt == 0) {
+                break;
+            }
+            nodes[i] = getNode(beginAt);
+            beginAt = nodes[i].next;
+            totalFound++;
+        }
     }
 }

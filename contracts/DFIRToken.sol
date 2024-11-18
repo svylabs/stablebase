@@ -11,7 +11,7 @@ contract DFIRToken is ERC20, Ownable {
     // Event for burning tokens
     event Burn(address indexed from, uint256 amount);
 
-    constructor() Ownable(msg.sender) ERC20("DeFi Renaissance", "DFIRE") {}
+    constructor() Ownable(msg.sender) ERC20("DeFI Renaissance", "DFIRE") {}
 
     function setAddresses(address _stabilityPool) external onlyOwner {
         transferOwnership(_stabilityPool);
