@@ -713,7 +713,7 @@ class Bot extends Actor {
             };
             this.consolelog("Updated Safe:", safeCopy, safe);
             const liquidationFee = safeCopy.collateralAmount * (await this.contracts.stableBaseCDP.REDEMPTION_LIQUIDATION_FEE()) / BigInt(10000);
-            const refund = await this.tracker.liquidate(safeCopy, safeId, liquidationFee - gasCompensation);
+            const refund = await this.tracker.liquidate(safeCopy, safeId, liquidationFee, gasCompensation);
             //this.ethBalance += refund;
             //expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), ethers.parseUnits("0.1", 18));
 
@@ -1053,7 +1053,7 @@ class OfflineProtocolTracker extends Agent {
     this.totalDebt += debt;
   }
 
-  async liquidate(safe, safeId, liquidationFee) { 
+  async liquidate(safe, safeId, liquidationFee, gasCompensated) { 
      const borrowAmount = safe.borrowedAmount;
      const collateralAmount = safe.collateralAmount;
      const fee = liquidationFee;
@@ -1072,11 +1072,11 @@ class OfflineProtocolTracker extends Agent {
         }
         this.stabilityPool.totalStake -= borrowAmount;
         this.stabilityPool.stakeLoss += (this.stabilityPool.totalStake - totalStakeAfterLiquidation);
-        if (this.sbrStaking.totalStake > BigInt(0)) {
-            await this.distributeCollateralGainsToSBRStakers(liquidationFee);
+        if (this.sbrStaking.totalStake > BigInt(0) && liquidationFee > gasCompensated) {
+            await this.distributeCollateralGainsToSBRStakers(liquidationFee -  gasCompensated);
             //return BigInt(0);
-        } else if (this.stabilityPool.totalStake > BigInt(0)) {
-            await this.distributeCollateralGainsToStabilityPoolStakers(liquidationFee, "liquidation-fee", true);
+        } else if (this.stabilityPool.totalStake > BigInt(0) && liquidationFee > gasCompensated) {
+            await this.distributeCollateralGainsToStabilityPoolStakers(liquidationFee - gasCompensated, "liquidation-fee", true);
             //return BigInt(0);
             //refund = 
         } else {
@@ -1090,11 +1090,11 @@ class OfflineProtocolTracker extends Agent {
         const totalCollateralInContract = await this.contracts.stableBaseCDP.totalCollateral();
         expect(totalCollateral).to.be.closeTo(totalCollateralInContract, totalPrecision);
         await this.distributeDebtAndCollateralToExistingBorrowers(borrowAmount, collateralAmount - fee, totalCollateralInContract);
-        if (this.sbrStaking.totalStake > BigInt(0)) {
-            await this.distributeCollateralGainsToSBRStakers(fee);
+        if (this.sbrStaking.totalStake > BigInt(0) && fee > gasCompensated) {
+            await this.distributeCollateralGainsToSBRStakers(fee - gasCompensated);
             //return BigInt(0);
-        } else if (this.stabilityPool.totalStake > BigInt(0)) {
-            await this.distributeCollateralGainsToStabilityPoolStakers(liquidationFee, "liquidation-fee", true);
+        } else if (this.stabilityPool.totalStake > BigInt(0) && liquidationFee > gasCompensated) {
+            await this.distributeCollateralGainsToStabilityPoolStakers(liquidationFee - gasCompensated, "liquidation-fee", true);
             //return BigInt(0);
             //refund = 
         } else {
