@@ -11,7 +11,7 @@ Here are some highlights of the protocol:
 5. Immutable
 6. Only native asset(ETH) supported.
 7. Market determined **Pay As You Go** model to protect from redemptions.
-8. Bootstrap mode: No redemptions during bootstrap phase(Until 5 million SBUSD borrowed)
+8. Bootstrap mode: No redemptions during bootstrap phase(Until 5 million DFID borrowed)
 9. The Protocol issues DFIRE tokens to Stability Pool contributors for 1 year.
    1. No Premine
    2. 1 token issued per second for 1 year, proportionally split among stakers in stability pool.
