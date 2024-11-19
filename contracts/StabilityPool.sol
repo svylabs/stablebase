@@ -74,7 +74,6 @@ contract StabilityPool is IStabilityPool, Ownable {
         uint256 rewardAmount,
         uint256 totalRewardPerToken
     );
-    event SBRRewardClaimed(address indexed user, uint256 rewardAmount);
 
     mapping(address => UserInfo) public users;
 
@@ -176,13 +175,25 @@ contract StabilityPool is IStabilityPool, Ownable {
         if (sbrRewardDistributionStatus != SBRRewardDistribution.ENDED) {
             _addSBRRewards();
         }
-        (uint256 reward, uint256 collateral, ) = _updateRewards(
-            user,
-            frontend,
-            fee
-        );
+        (
+            uint256 reward,
+            uint256 rewardFee,
+            uint256 collateral,
+            uint256 collateralFee,
+            uint256 sbrReward,
+            uint256 sbrRewardFee
+        ) = _updateRewards(user, frontend, fee);
         _updateUserStake(user);
-        emit RewardClaimed(msg.sender, reward, collateral);
+        emit RewardClaimed(
+            msg.sender,
+            reward,
+            rewardFee,
+            collateral,
+            collateralFee
+        );
+        if (sbrReward > 0) {
+            emit DFireRewardClaimed(msg.sender, sbrReward, sbrRewardFee);
+        }
     }
 
     function _addSBRRewards() internal {
@@ -409,8 +420,11 @@ contract StabilityPool is IStabilityPool, Ownable {
         internal
         returns (
             uint256 pendingReward,
+            uint256 rewardFee,
             uint256 pendingCollateral,
-            uint256 pendingSbrRewards
+            uint256 collateralFee,
+            uint256 pendingSbrRewards,
+            uint256 sbrFee
         )
     {
         if (user.cumulativeProductScalingFactor != 0) {
@@ -435,42 +449,37 @@ contract StabilityPool is IStabilityPool, Ownable {
         }
 
         if (pendingReward != 0) {
-            uint256 feeReward = (fee * pendingReward) / BASIS_POINTS_DIVISOR;
+            rewardFee = (fee * pendingReward) / BASIS_POINTS_DIVISOR;
             require(
-                stakingToken.transfer(msg.sender, pendingReward - feeReward),
+                stakingToken.transfer(msg.sender, pendingReward - rewardFee),
                 "Reward transfer failed"
             );
-            if (feeReward > 0) {
+            if (rewardFee > 0) {
                 require(
-                    stakingToken.transfer(frontend, feeReward),
+                    stakingToken.transfer(frontend, rewardFee),
                     "Fee transfer failed"
                 );
             }
         }
         if (pendingCollateral != 0) {
-            uint256 feeReward = (fee * pendingCollateral) /
-                BASIS_POINTS_DIVISOR;
+            collateralFee = (fee * pendingCollateral) / BASIS_POINTS_DIVISOR;
             (bool success, ) = msg.sender.call{
-                value: pendingCollateral - feeReward
+                value: pendingCollateral - collateralFee
             }("");
             require(success, "Collateral transfer failed");
-            if (feeReward > 0) {
-                (success, ) = frontend.call{value: feeReward}("");
+            if (collateralFee > 0) {
+                (success, ) = frontend.call{value: collateralFee}("");
                 require(success, "Fee transfer failed");
             }
         }
         if (pendingSbrRewards != 0) {
-            uint256 feeReward = (fee * pendingSbrRewards) /
-                BASIS_POINTS_DIVISOR;
+            sbrFee = (fee * pendingSbrRewards) / BASIS_POINTS_DIVISOR;
             require(
-                sbrToken.mint(msg.sender, pendingSbrRewards - feeReward),
+                sbrToken.mint(msg.sender, pendingSbrRewards - sbrFee),
                 "Mint failed"
             );
-            if (feeReward > 0) {
-                require(
-                    sbrToken.mint(frontend, feeReward),
-                    "Fee transfer failed"
-                );
+            if (sbrFee > 0) {
+                require(sbrToken.mint(frontend, sbrFee), "Fee transfer failed");
             }
         }
     }

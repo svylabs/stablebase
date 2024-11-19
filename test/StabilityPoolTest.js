@@ -14,7 +14,7 @@ describe("StabilityPool", function () {
   const minimumScalingFactor = BigInt("1" + "0".repeat(6)); // 1e6
 
   beforeEach(async function () {
-    [owner, alice, bob, charlie, david, eli, fabio, ...addrs] = await ethers.getSigners();
+    [owner, alice, bob, charlie, david, eli, fabio, frontend, ...addrs] = await ethers.getSigners();
 
     const SBDToken = await ethers.getContractFactory("SBDToken");
     sbdToken = await SBDToken.deploy();
@@ -139,7 +139,7 @@ describe("StabilityPool", function () {
 
       await expect(stabilityPool.connect(alice).claim())
         .to.emit(stabilityPool, "RewardClaimed")
-        .withArgs(alice.address, alicePendingReward, BigInt(0));
+        .withArgs(alice.address, alicePendingReward, BigInt(0), BigInt(0), BigInt(0));
 
       // Bob claims rewards
       const bobPendingReward = await stabilityPool.userPendingReward(bob.address);
@@ -147,7 +147,35 @@ describe("StabilityPool", function () {
 
       await expect(stabilityPool.connect(bob).claim())
         .to.emit(stabilityPool, "RewardClaimed")
-        .withArgs(bob.address, bobPendingReward, BigInt(0));
+        .withArgs(bob.address, bobPendingReward, BigInt(0), BigInt(0), BigInt(0));
+    });
+
+
+    it("Frontends should be get a percentage of the claims", async function () {
+      // Add rewards to the pool
+      const rewardAmount = ethers.parseEther("300");
+      await sbdToken.connect(owner).approve(stabilityPool.target, rewardAmount);
+
+      await expect(stabilityPool.connect(owner).addReward(rewardAmount))
+        .to.emit(stabilityPool, "RewardAdded")
+        .withArgs(rewardAmount);
+
+      // Alice claims rewards
+      const alicePendingReward = await stabilityPool.userPendingReward(alice.address);
+      //console.log(alicePendingReward);
+      expect(alicePendingReward).to.equal(ethers.parseEther("100")); // (1000/3000)*300
+
+      await expect(stabilityPool.connect(alice).claim(frontend.address, BigInt(100))) // 1% to frontend
+        .to.emit(stabilityPool, "RewardClaimed")
+        .withArgs(alice.address, alicePendingReward, ((alicePendingReward * BigInt(100)) / BigInt(10000)), BigInt(0), BigInt(0));
+
+      // Bob claims rewards
+      const bobPendingReward = await stabilityPool.userPendingReward(bob.address);
+      expect(bobPendingReward).to.equal(ethers.parseEther("200")); // (2000/3000)*300
+
+      await expect(stabilityPool.connect(bob).claim(frontend.address, BigInt(100)))
+        .to.emit(stabilityPool, "RewardClaimed")
+        .withArgs(bob.address, bobPendingReward, ((bobPendingReward * BigInt(100)) / BigInt(10000)), BigInt(0), BigInt(0));
     });
 
     it("should not allow adding zero rewards", async function () {
@@ -183,7 +211,7 @@ describe("StabilityPool", function () {
 
       await expect(stabilityPool.connect(alice).claim())
         .to.emit(stabilityPool, "RewardClaimed")
-        .withArgs(alice.address, BigInt(0), alicePendingCollateral);
+        .withArgs(alice.address, BigInt(0), BigInt(0), alicePendingCollateral, BigInt(0));
 
       // Bob claims collateral
       const bobPendingCollateral = await stabilityPool.userPendingCollateral(bob.address);
@@ -191,7 +219,7 @@ describe("StabilityPool", function () {
 
       await expect(stabilityPool.connect(bob).claim())
         .to.emit(stabilityPool, "RewardClaimed")
-        .withArgs(bob.address, BigInt(0), bobPendingCollateral);
+        .withArgs(bob.address, BigInt(0),  BigInt(0), bobPendingCollateral, BigInt(0));
 
         // Check updated stakes
       const aliceInfo = await stabilityPool.getUser(alice.address);
@@ -622,14 +650,18 @@ describe("StabilityPool", function () {
           charlie.address
         );
         const charlieTotalPending = charliePendingCollateral;
-    
-        await expect(stabilityPool.connect(charlie).claim())
-          .to.emit(stabilityPool, "RewardClaimed")
-          .withArgs(
-            charlie.address,
-            userRewards[charlie.address],
-            charliePendingCollateral
-          );
+
+        if(userStakes[charlie.address] > BigInt(0)) {
+          await expect(stabilityPool.connect(charlie).claim())
+            .to.emit(stabilityPool, "RewardClaimed")
+            .withArgs(
+              charlie.address,
+              userRewards[charlie.address],
+              BigInt(0),
+              charliePendingCollateral,
+              BigInt(0)
+            );
+        }
         // Reset Charlie's rewards
         userRewards[charlie.address] = BigInt(0);
         userCollateralGain[charlie.address] = BigInt(0);

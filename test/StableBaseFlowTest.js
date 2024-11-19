@@ -231,7 +231,7 @@ describe("Test the flow", function () {
           expect(await sbdToken.balanceOf(alice.address)).to.equal(actualBorrowAmount);
           expect(await sbdToken.balanceOf(stabilityPool.target)).to.equal(borrowAmount + fee);
 
-          await expect(stabilityPool.connect(alice).claim()).to.emit(stabilityPool, "RewardClaimed").withArgs(alice.address, fee, BigInt(0));
+          await expect(stabilityPool.connect(alice).claim()).to.emit(stabilityPool, "RewardClaimed").withArgs(alice.address, fee, BigInt(0), BigInt(0), BigInt(0));
           expect(await sbdToken.balanceOf(stabilityPool.target)).to.equal(borrowAmount);
       });
 

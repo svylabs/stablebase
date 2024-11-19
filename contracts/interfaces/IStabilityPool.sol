@@ -57,8 +57,15 @@ interface IStabilityPool {
     event CollateralRewardAdded(uint256 amount);
     event RewardClaimed(
         address indexed user,
+        uint256 totalReward,
+        uint256 rewardFrontendFee,
+        uint256 totalCollateral,
+        uint256 collateralFrontendFee
+    );
+    event DFireRewardClaimed(
+        address indexed user,
         uint256 amount,
-        uint256 collateral
+        uint256 frontendFee
     );
     event CollateralClaimed(address indexed user, uint256 amount);
     event LiquidationPerformed(
