@@ -88,6 +88,7 @@ Oracle contracts for other chains / assets needs to be developed.
 # Releases
 
 1. Preview release on Ethereum mainnet (TBA)
+2. Launch on Bitcoin L2 (TBA)
 
 # License
 
