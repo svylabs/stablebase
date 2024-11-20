@@ -24,6 +24,7 @@ Here are some highlights of the protocol:
 2. [Website](https://stablebase.org)
 3. [Contracts](./contracts)
 4. [Tests/Simulations](./scripts/simulate.js)
+   - The code is unaudited. We have run roughly 200 simulations, each time running close to 300 days worth of transactions(~100k txs per run) to spot issues / bugs. So far we have fixed all the issues that we could find. While we are optimistic there are no bugs, do exercise caution before deploying a reasonable amount of funds depending on your risk tolerance, until the protocol reaches stability.
 
 # FAQ
 
