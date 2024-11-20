@@ -324,7 +324,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         _liquidate(_safeId, gasStart);
     }
 
-    function liquidate(uint256 safeId) external {
+    function liquidateSafe(uint256 safeId) external {
         uint256 gasStart = gasleft();
         _liquidate(safeId, gasStart);
     }

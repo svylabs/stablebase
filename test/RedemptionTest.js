@@ -60,8 +60,6 @@ describe("Test the flow", function () {
       liquidationQueue = await OrderedDoublyLinkedList.deploy();
       await liquidationQueue.waitForDeployment();
   
-  
-  
       await sbdToken.setAddresses(stableBaseCDP.target);
       await sbrToken.setAddresses(stabilityPool.target);
       await stabilityPool.setAddresses(sbdToken.target, stableBaseCDP.target, sbrToken.target);

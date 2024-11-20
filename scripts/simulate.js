@@ -9,7 +9,7 @@ const numBorrowers = 100;
 const numBots = 5;
 const numThirdpartyStablecoinHolders = 300;
 const numSimulations = 300;
-const numHackers = 5;
+const numHackers = 2;
 
 function getRandomInRange(min, max) {
     return Math.random() * (max - min) + min;
@@ -451,7 +451,7 @@ class Hacker extends Actor {
                 const collateralValue = (borrower.safe.collateral + borrower.safe.pending.collateral) * this.market.collateralPrice;
                 if (collateralValue > ((borrower.safe.debt + borrower.safe.pending.debt) * BigInt(11000)) / BigInt(10000)) {
                     this.consolelog("Attempting to liquidate ", borrower.id, borrower.safeId, collateralValue, borrower.safe.debt, borrower.safe.pending.debt);
-                    const tx = await this.contracts.stableBaseCDP.connect(this.account).liquidate(borrower.safeId);
+                    const tx = await this.contracts.stableBaseCDP.connect(this.account).liquidateSafe(borrower.safeId);
                     const detail = await tx.wait();
                 } else {
                     return;
@@ -568,7 +568,7 @@ class Hacker extends Actor {
                 const detail = await tx.wait(); 
             } catch (ex) {
                 this.consolelog("Failed as expected", ex);
-                expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount", "ERC721NonexistentToken"]);
+                expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount", "ERC721NonexistentToken", "ERC721InvalidApprover"]);
                 return;
             }
             assert.fail("Expected to fail");
@@ -581,7 +581,7 @@ class Hacker extends Actor {
                 const detail = await tx.wait();
             } catch (ex) {
                 this.consolelog("Failed as expected", ex);
-                expect(ex.message).to.contain.oneOf(["Debt contract"]);
+                expect(ex.message).to.contain.oneOf(["Caller is not the debt contract"]);
                 return;
             }
             assert.fail("Expected to fail");

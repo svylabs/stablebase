@@ -55,6 +55,10 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
 
     uint256 public cumulativeCollateralPerUnitCollateral;
 
+    uint256 public collateralLoss;
+
+    uint256 public debtLoss;
+
     uint256 public totalCollateral;
 
     uint256 public totalDebt;
@@ -557,12 +561,22 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         uint256 collateralAmount,
         uint256 totalCollateralAfterLiquidation
     ) internal {
-        cumulativeCollateralPerUnitCollateral +=
-            (collateralAmount * PRECISION) /
+        uint256 collateralToDistribute = collateralAmount + collateralLoss;
+        uint256 debtToDistribute = debtAmount + debtLoss;
+        uint256 collPerUnitColl = (collateralToDistribute * PRECISION) /
             totalCollateralAfterLiquidation;
-        cumulativeDebtPerUnitCollateral +=
-            (debtAmount * PRECISION) /
+        cumulativeCollateralPerUnitCollateral += collPerUnitColl;
+        uint256 debtPerUnitColl = (debtToDistribute * PRECISION) /
             totalCollateralAfterLiquidation;
+        cumulativeDebtPerUnitCollateral += debtPerUnitColl;
+        collateralLoss =
+            collateralToDistribute -
+            (collPerUnitColl * totalCollateralAfterLiquidation) /
+            PRECISION;
+        debtLoss =
+            debtToDistribute -
+            (debtPerUnitColl * totalCollateralAfterLiquidation) /
+            PRECISION;
     }
 
     // Internal function to update a safe's borrowed amount and deposited amount
