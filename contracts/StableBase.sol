@@ -67,6 +67,8 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         uint256 debtPerCollateralSnapshot;
     }
 
+    event ConnectedToPriceFeed(address priceFeed, uint256 price);
+
     mapping(uint256 => LiquidationSnapshot) public liquidationSnapshots;
 
     bool public stabilityPoolCanReceiveRewards = false;
@@ -96,6 +98,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         );
         sbdToken.approve(address(dfirTokenStaking), type(uint256).max);
         sbdToken.approve(address(stabilityPool), type(uint256).max);
+        emit ConnectedToPriceFeed(_priceOracle, priceOracle.fetchPrice());
         renounceOwnership();
     }
 
