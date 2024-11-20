@@ -416,6 +416,23 @@ class Hacker extends Actor {
             }   
         }
         if (Math.random() < 0.01) {
+            // borrow from an existing safe
+            const borrowers = this.borrowers.filter((b) =>(borrower.safe.borrowedAmount == BigInt(0) && borrower.safe.collateral > BigInt(0)));
+            if (borrowers.length > 0) {
+                const borrower = borrowers[0];
+                try {
+                    this.consolelog("Try to close a safe", borrower.id, borrower.safeId);
+                    const tx = await this.contracts.stableBaseCDP.connect(this.account).closeSafe(borrower.safeId);
+                    const detail = await tx.wait();
+                } catch (e) {
+                    this.consolelog("Failed as expected", e);
+                    expect(e.message).to.contain.oneOf(["ERC721NonexistentToken", "Not the owner"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }   
+        }
+        if (Math.random() < 0.01) {
             // Repay a loan
             const borrower = this.borrowers[0];
             this.consolelog("Repaying as ", borrower.id, borrower.safeId);
