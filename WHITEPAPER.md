@@ -100,9 +100,12 @@ and the new weight is calculated as below.
 ### Overview of Redemption Behavior:
 
 - If a user's total fees paid are less than the REDEMPTION_BASE_FEE, the full collateral of the Safe (including unused collateral) can be redeemed, subject to the redemption amount, while the rest are returned back to the owner.
+
   **Reason:** Redemptions could be exploited as a slippage-free exchange at market price. If this is what the user wants to do, then they pay the protocol 0.15% on the redeemer side and 0.15% on the owner side. The fee structure may encourage such users, as well as providing fees to stability pool stakers.
+
 - If a user's total fees paid are equal to or exceed the REDEMPTION_BASE_FEE, the collateral redemption is limited to the borrowed amount of the Safe.
-  **Price Manipulation Consideration:** Price manipulation risks are inherent due to reliance on a price oracle, similar to the current redemption mechanism.
+
+  - **Price Manipulation Consideration:** Price manipulation risks are inherent due to reliance on a price oracle, similar to the current redemption mechanism.
 
 ### Fee Calculation:
 
