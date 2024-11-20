@@ -82,8 +82,7 @@ Oracle contracts for other chains / assets needs to be developed.
 
 1. Support for ERC20 tokens as collateral
 2. Multi collateral support
-3. Implementation of the protocol in other smart contract languages.
-4. Liquidation Protection mechanism.
+3. Liquidation Protection mechanism
 
 # Releases
 
