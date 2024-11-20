@@ -1,0 +1,24 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "Constants",
+  "sourceName": "contracts/Constants.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "TOTAL_MINTED_SBD_IN_BOOTSTRAP_BEFORE_NORMAL",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60808060405234601457607b908161001a8239f35b600080fdfe6080806040526004361015601257600080fd5b600090813560e01c63ffd95bb114602857600080fd5b3460415781600319360112604157806298968060209252f35b5080fdfea26469706673582212209b12879164602f450545a0bc7964a9b6d294b94dfdc7c8a697f79f253a14843064736f6c63430008140033",
+  "deployedBytecode": "0x6080806040526004361015601257600080fd5b600090813560e01c63ffd95bb114602857600080fd5b3460415781600319360112604157806298968060209252f35b5080fdfea26469706673582212209b12879164602f450545a0bc7964a9b6d294b94dfdc7c8a697f79f253a14843064736f6c63430008140033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

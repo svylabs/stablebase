@@ -9,6 +9,7 @@ const numBorrowers = 100;
 const numBots = 5;
 const numThirdpartyStablecoinHolders = 300;
 const numSimulations = 300;
+const numHackers = 2;
 
 function getRandomInRange(min, max) {
     return Math.random() * (max - min) + min;
@@ -17,6 +18,17 @@ function getRandomInRange(min, max) {
 const totalPrecision = ethers.parseEther("0.0001", 18);
 const aggregatePrecision = ethers.parseEther("0.000001", 18);
 const individualPrecision = ethers.parseEther("0.00000001", 18);
+
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      // Generate a random index between 0 and i
+      const j = Math.floor(Math.random() * (i + 1));
+  
+      // Swap elements array[i] and array[j]
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
 
 
 class Actor extends Agent {
@@ -374,6 +386,375 @@ class Actor extends Agent {
     }
 }
 
+class Hacker extends Actor {
+    constructor(account, initialBalance, contracts, market, tracker, borrowers, actors) {
+        super("Hacker", account, initialBalance, contracts, market, tracker);
+        this.currentStep = 0;
+        this.borrowers = [...borrowers];
+        this.actors =[...actors];
+    }
+    async _step() {
+        this.borrowers = shuffleArray(this.borrowers);
+        this.actors = shuffleArray(this.actors);
+        if (this.sbdBalance == BigInt(0) && Math.random() < 0.1) {
+            await this.buySBD();
+        }
+        if (Math.random() < 0.01) {
+            // borrow from an existing safe
+            const borrower = this.borrowers[0];
+            if (borrower.safe.collateral > BigInt(0)) {
+                try {
+                    this.consolelog("Borrowing as ", borrower.id, borrower.safeId);
+                    const tx = await this.contracts.stableBaseCDP.connect(this.account).borrow(borrower.safeId, BigInt(2000 * 10 ** 18), BigInt(10), BigInt(0), BigInt(0));
+                    const detail = await tx.wait();
+                } catch (e) {
+                    this.consolelog("Failed as expected", e);
+                    expect(e.message).to.contain.oneOf(["OwnableUnauthorizedAccount", "ERC721NonexistentToken", "Not the owner"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }   
+        }
+        if (Math.random() < 0.01) {
+            // borrow from an existing safe
+            const borrowers = this.borrowers.filter((b) =>(b.safe.borrowedAmount == BigInt(0) && b.safe.collateral > BigInt(0)));
+            if (borrowers.length > 0) {
+                const borrower = borrowers[0];
+                try {
+                    this.consolelog("Try to close a safe", borrower.id, borrower.safeId);
+                    const tx = await this.contracts.stableBaseCDP.connect(this.account).closeSafe(borrower.safeId);
+                    const detail = await tx.wait();
+                } catch (e) {
+                    this.consolelog("Failed as expected", e);
+                    expect(e.message).to.contain.oneOf(["ERC721NonexistentToken", "Not the owner"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }   
+        }
+        if (Math.random() < 0.01) {
+            // Repay a loan
+            const borrower = this.borrowers[0];
+            this.consolelog("Repaying as ", borrower.id, borrower.safeId);
+            try {
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).repay(borrower.safeId, BigInt(2000 * 10 ** 18), BigInt(0));
+                const detail = await tx.wait();
+            } catch (e) {
+                this.consolelog("Failed as expected", e);
+                expect(e.message).to.contain.oneOf(["OwnableUnauthorizedAccount", "ERC721NonexistentToken", "Not the owner"]);
+                return;
+            }
+            assert.fail("Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // Liquidate a safe
+            const borrower = this.borrowers[0];
+            try {
+                this.consolelog("Attempting to withdraw collateral ", borrower.id, borrower.safeId);
+                const toWithdraw = (BigInt(Math.floor(Math.random() * 10000)) * borrower.safe.collateral) / BigInt(10000);
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).withdrawCollateral(borrower.safeId, toWithdraw, BigInt(0));
+                const detail = await tx.wait();
+            } catch (e) {
+                this.consolelog("Failed as expected", e);
+                expect(e.message).to.contain.oneOf(["OwnableUnauthorizedAccount", "ERC721NonexistentToken", "Not the owner"]);
+                return;
+            }
+            assert.fail("Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // Liquidate a safe
+            const borrower = this.borrowers[0];
+            try {
+                const collateralValue = (borrower.safe.collateral + borrower.safe.pending.collateral) * this.market.collateralPrice;
+                if (collateralValue > ((borrower.safe.debt + borrower.safe.pending.debt) * BigInt(11000)) / BigInt(10000)) {
+                    this.consolelog("Attempting to liquidate ", borrower.id, borrower.safeId, collateralValue, borrower.safe.debt, borrower.safe.pending.debt);
+                    const tx = await this.contracts.stableBaseCDP.connect(this.account).liquidateSafe(borrower.safeId);
+                    const detail = await tx.wait();
+                } else {
+                    return;
+                }
+            } catch (e) {
+                this.consolelog("Failed as expected", e);
+                expect(e.message).to.contain.oneOf(["Can't liquidate yet", "Safe does not exist", "Cannot liquidate a Safe with no borrowed amount"]);
+                return;
+            }
+            assert.fail("Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // TransferFrom DFID tokens on behalf of another person
+            const actor = this.actors[0];
+            try {
+                this.consolelog("Attempting to transfer DFID tokens from ", actor.id, this.id);
+                const tx = await this.contracts.sbdToken.connect(this.account).transferFrom(actor.account.address, this.account.address, BigInt(1 * 10 ** 18));
+                const detail = await tx.wait();
+            } catch (e) {
+                this.consolelog("Failed as expected", e);
+                expect(e.message).to.contain.oneOf(["ERC20InsufficientAllowance"]);
+                return;
+            }
+            assert.fail("SBD TransferFrom Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // TransferFrom DFIRE tokens on behalf of another person
+            const actor = this.actors[0];
+            try {
+                this.consolelog("Attempting to transfer DFIRE tokens from ", actor.id, this.id);
+                const tx = await this.contracts.sbrToken.connect(this.account).transferFrom(actor.account.address, this.account.address, BigInt(1 * 10 ** 18));
+                const detail = await tx.wait();
+            } catch (e) {
+                this.consolelog("Failed as expected", e);
+                expect(e.message).to.contain.oneOf(["ERC20InsufficientAllowance"]);
+                return;
+            }
+            assert.fail("Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // TransferFrom Safe from another user
+            const borrower = this.borrowers[0];
+            try {
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).transferFrom(borrower.account.address, this.account.address, borrower.safeId);
+                const detail = await tx.wait();
+            } catch (ex) {
+                this.consolelog("Failed as expected", ex);
+                expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount", "ERC721NonexistentToken", "ERC721InsufficientApproval"]);
+                return;
+            }
+        } 
+        if (Math.random() < 0.01) {
+            // Mint new DFID / DFIRE tokens
+            try {
+                this.consolelog("Attempting to mint DFID tokens");
+                const tx = await this.contracts.sbdToken.connect(this.account).mint(this.account.address, BigInt(1 * 10 ** 18));
+                const detail = await tx.wait();
+            } catch (ex) {
+                this.consolelog("Failed as expected", ex);
+                expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount"]);
+                return;
+            }
+            assert.fail("Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // Mint new DFID / DFIRE tokens
+            try {
+                this.consolelog("Attempting to mint DFIRE tokens");
+                const tx = await this.contracts.sbrToken.connect(this.account).mint(this.account.address, BigInt(1 * 10 ** 18));
+                const detail = await tx.wait();
+            } catch (ex) {
+                this.consolelog("Failed as expected", ex);
+                expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount"]);
+                return;
+            }
+            assert.fail("Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // Burn DFID / DFIRE tokens
+            if (this.sbdBalance > BigInt(0)) {
+                try {
+                    this.consolelog("Attempting to burn DFID tokens");
+                    const tx = await this.contracts.sbdToken.connect(this.account).burn(this.account.address, BigInt(1 * 10 ** 18));
+                    const detail = await tx.wait();
+                } catch (ex) {
+                    this.consolelog("Failed as expected", ex);
+                    expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }
+        }
+        if (Math.random() < 0.01) {
+            // Burn DFID / DFIRE tokens
+            if (this.sbdBalance > BigInt(0)) {
+                try {
+                    this.consolelog("Attempting to burn DFID tokens");
+                    const tx = await this.contracts.sbrToken.connect(this.account).burn(this.account.address, BigInt(1 * 10 ** 18));
+                    const detail = await tx.wait();
+                } catch (ex) {
+                    this.consolelog("Failed as expected", ex);
+                    expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }
+        }
+        if (Math.random() < 0.01) {
+            // Transfer ownership of a safe
+            const borrower = this.borrowers[0];
+            try {
+                this.consolelog("Attempting to transfer ownership of safe ", borrower.id, this.id);
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).approve(this.account.address, borrower.safeId);
+                const detail = await tx.wait(); 
+            } catch (ex) {
+                this.consolelog("Failed as expected", ex);
+                expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount", "ERC721NonexistentToken", "ERC721InvalidApprover"]);
+                return;
+            }
+            assert.fail("Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // Call performLiquidation function in stability pool
+            try {
+                this.consolelog("Attempting to call performLiquidation");
+                const tx = await this.contracts.stabilityPool.connect(this.account).performLiquidation(BigInt(10000), BigInt(10000), {value: BigInt(10000)});
+                const detail = await tx.wait();
+            } catch (ex) {
+                this.consolelog("Failed as expected", ex);
+                expect(ex.message).to.contain.oneOf(["Caller is not the debt contract"]);
+                return;
+            }
+            assert.fail("Expected to fail");
+        }
+        if (Math.random() < 0.02) {
+            // Call setAddresses function on different contracts
+            if (Math.random() < 0.1) {
+                try {
+                    this.consolelog("Attempting to call setAddresses in stability pool");
+                    const tx = await this.contracts.stabilityPool.connect(this.account).setAddresses(ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress);
+                    const detail = await tx.wait();
+                } catch (ex) {
+                    this.consolelog("Failed as expected", ex);
+                    expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }
+            if (Math.random < 0.1) {
+                try {
+                    this.consolelog("Attempting to call setAddresses in SBR staking");
+                    const tx = await this.contracts.sbrStaking.connect(this.account).setAddresses(ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress);
+                    const detail = await tx.wait();
+                } catch (ex) {
+                    this.consolelog("Failed as expected", ex);
+                    expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }
+            if (Math.random < 0.1) {
+                try {
+                    this.consolelog("Attempting to call setAddresses in SBD token");
+                    const tx = await this.contracts.sbdToken.connect(this.account).setAddresses(ethers.ZeroAddress);
+                    const detail = await tx.wait();
+                } catch (ex) {
+                    this.consolelog("Failed as expected", ex);
+                    expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }
+            if (Math.random < 0.1) {
+                try {
+                    this.consolelog("Attempting to call setAddresses in SBR token");
+                    const tx = await this.contracts.sbrToken.connect(this.account).setAddresses(ethers.ZeroAddress);
+                    const detail = await tx.wait();
+                } catch (ex) {
+                    this.consolelog("Failed as expected", ex);
+                    expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }
+            if (Math.random < 0.1) {
+                try {
+                    this.consolelog("Attempting to call setAddresses in stablebase cdp");
+                    const tx = await this.contracts.stableBaseCDP.connect(this.account).setAddresses(ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress);
+                    const detail = await tx.wait();
+                } catch (ex) {
+                    this.consolelog("Failed as expected", ex);
+                    expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }
+            if (Math.random < 0.1) {
+                try {
+                    this.consolelog("Attempting to call setAddresses in redemption queue");
+                    const tx = await this.contracts.redemptionQueue.connect(this.account).setAddresses(ethers.ZeroAddress);
+                    const detail = await tx.wait();
+                } catch (ex) {
+                    this.consolelog("Failed as expected", ex);
+                    expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }
+            if (Math.random < 0.1) {
+                try {
+                    this.consolelog("Attempting to call setAddresses in liquidation queue");
+                    const tx = await this.contracts.liquidationQueue.connect(this.account).setAddresses(ethers.ZeroAddress);
+                    const detail = await tx.wait();
+                } catch (ex) {
+                    this.consolelog("Failed as expected", ex);
+                    expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }
+        }
+        if (Math.random() < 0.01) {
+            // Call setCanReceiveStakingRewards on stablebase cdp contracts
+            if (Math.random() < 0.4) {
+                try {
+                    this.consolelog("Attempting to call setCanReceiveStakingRewards (stabilitypool) in stablebase cdp");
+                    const tx = await this.contracts.stableBaseCDP.connect(this.account).setCanStabilityPoolReceiveRewards(false);
+                    const detail = await tx.wait();
+                } catch (ex) {
+                    this.consolelog("Failed as expected", ex);
+                    expect(ex.message).to.contain.oneOf(["Only stability pool"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            } else {
+                try {
+                    this.consolelog("Attempting to call setCanReceiveStakingRewards (sbrStaking) in stablebase cdp");
+                    const tx = await this.contracts.stableBaseCDP.connect(this.account).setCanSBRStakingPoolReceiveRewards(true);
+                    const detail = await tx.wait();
+                } catch (ex) {
+                    this.consolelog("Failed as expected", ex);
+                    expect(ex.message).to.contain.oneOf(["Only SBR Staking"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            } 
+        }
+        if (Math.random() < 0.01) {
+            // Call delete function in liquidation or redemption queue
+            const queue = Math.random() < 0.5 ? this.contracts.liquidationQueue : this.contracts.redemptionQueue;
+            if (Math.random() < 0.5) {
+                try {
+                    const head = await queue.getHead();
+                    if (head != BigInt(0)) {
+                        this.consolelog("Attempting to delete head from queue ", queue.address, head);
+                        const tx = await queue.connect(this.account).remove(head);
+                        const detail = await tx.wait();
+                    } else {
+                        return ;
+                    }
+                } catch (ex) {
+                    this.consolelog("Failed as expected", ex);
+                    expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }
+            if (Math.random() < 0.5) {
+                try {
+                    this.consolelog("Attempting to insert data to queue ", queue.address, BigInt(1));
+                    const tx = await queue.connect(this.account).upsert(BigInt(1), BigInt(1), BigInt(0));
+                    const detail = await tx.wait();
+                } catch (ex) {
+                    this.consolelog("Failed as expected", ex);
+                    expect(ex.message).to.contain.oneOf(["OwnableUnauthorizedAccount"]);
+                    return;
+                }
+                assert.fail("Expected to fail");
+            }
+        }
+    }
+    async _printState() {
+        this.consolelog("Printing state for hacker");
+    }
+}
+
 class Borrower extends Actor {
     constructor(account, initialBalance, contracts, market, tracker) {
         super("Borrower", account, initialBalance, contracts, market, tracker);
@@ -422,6 +803,9 @@ class Borrower extends Actor {
         }
         let collateralAmount = (((this.ethBalance / BigInt(1e18)) * BigInt(1e18)) * BigInt(Math.floor(getRandomInRange(0.001, 0.01) * 1000))) / BigInt(1000);
         this.consolelog("OPening safe with collateral ", collateralAmount);
+        if (collateralAmount == BigInt(0)) { 
+            collateralAmount = BigInt(1 * 10 ** 18);
+        }
         const tx = await this.contracts.stableBaseCDP.connect(this.account).openSafe(this.safeId, collateralAmount, { value: collateralAmount });
         const detail = await tx.wait();
         const gas = detail.gasUsed * tx.gasPrice;
@@ -967,7 +1351,9 @@ class Market extends Agent {
         this.consolelog("Collateral price: ", this.collateralPrice);
         this.consolelog("SBD price: ", this.sbdPrice);
        //await this.fluctuateCollateralPrice();
-       await this.contracts.priceOracle.setPrice(this.collateralPrice);
+       const tx = await this.contracts.priceOracle.setPrice(this.collateralPrice);
+    await tx.wait();
+       
     }
 
      async printState() {
@@ -1059,7 +1445,7 @@ class OfflineProtocolTracker extends Agent {
      const fee = liquidationFee;
      this.totalCollateral -= collateralAmount;
      this.totalDebt -= borrowAmount;
-     const refund = BigInt(0);
+     let refund = BigInt(0);
      if (this.stabilityPool.totalStake >= borrowAmount) {
         const checkState = this.sbrStaking.totalStake > BigInt(0) ? true : false;
         await this.distributeCollateralGainsToStabilityPoolStakers(collateralAmount - fee, "liquidation-collateral", checkState);
@@ -1255,6 +1641,7 @@ class OfflineProtocolTracker extends Agent {
          await staker.distributeSbdRewards(share);
          distributed += share;
      }
+     this.stabilityPool.totalRewards.sbd += distributed;
      let sbrTotalStake = this.sbrStaking.totalStake;
      let toDistributeSbrStakers = ((fee * BigInt(1000)) / BigInt(10000));
      let distributedToSbrStakers = BigInt(0);
@@ -1266,6 +1653,7 @@ class OfflineProtocolTracker extends Agent {
          await staker.distributeSbdRewardsSBRStaking(share);
          distributedToSbrStakers += share;
      }
+     this.sbrStaking.totalRewards.sbd += distributedToSbrStakers;
      if (this.stabilityPool.totalStake > BigInt(0)) {
         this.stabilityPool.rewardLoss = toDistribute - distributed;
         return BigInt(0);
@@ -1611,17 +1999,6 @@ async function deployContracts() {
         liquidationQueue
     };
   }
-
-  function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-      // Generate a random index between 0 and i
-      const j = Math.floor(Math.random() * (i + 1));
-  
-      // Swap elements array[i] and array[j]
-      [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-  }
   
 
 async function main() {
@@ -1676,6 +2053,17 @@ async function main() {
     console.log(actors);
     tracker.actors = actors;
 
+    const borrowers = env.getAgents().filter(agent => agent instanceof Borrower).map((agent) => agent);
+
+    const hackers = [];
+
+    for (let i=0;i<numHackers;i++) {
+        const hacker = new Hacker(addrs[addressIndex], addrs[addressIndex].balance, contracts, market, tracker, borrowers, actors);
+        env.addAgent(hacker);
+        hackers.push(hacker);
+        addressIndex++;
+    }
+
     // Main simulation loop
     for (let i = 0; i < numSimulations; i++) {
         console.log(`--- Simulation Step ${i + 1} ---`);
@@ -1689,6 +2077,9 @@ async function main() {
         
         for (const actor of shuffled) {
            await actor.step(i);
+        }
+        for (const hacker of hackers) {
+            await hacker.step(i);    
         }
         
         console.log(); // Blank line for readability between steps

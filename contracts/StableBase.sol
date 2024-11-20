@@ -49,9 +49,15 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
 
     uint256 public constant REDEMPTION_BASE_FEE = 15; // 0.15%;
 
+    uint256 public constant EXTRA_GAS_COMPENSATION = 100000;
+
     uint256 public cumulativeDebtPerUnitCollateral;
 
     uint256 public cumulativeCollateralPerUnitCollateral;
+
+    uint256 public collateralLoss;
+
+    uint256 public debtLoss;
 
     uint256 public totalCollateral;
 
@@ -64,6 +70,8 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         uint256 collateralPerCollateralSnapshot;
         uint256 debtPerCollateralSnapshot;
     }
+
+    event ConnectedToPriceFeed(address priceFeed, uint256 price);
 
     mapping(uint256 => LiquidationSnapshot) public liquidationSnapshots;
 
@@ -94,6 +102,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         );
         sbdToken.approve(address(dfirTokenStaking), type(uint256).max);
         sbdToken.approve(address(stabilityPool), type(uint256).max);
+        emit ConnectedToPriceFeed(_priceOracle, priceOracle.fetchPrice());
         renounceOwnership();
     }
 
@@ -447,7 +456,9 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         // Exchange mode; If fee paid <= REDEMPTION_BASE_FEE
         if (
             (safe.borrowedAmount == 0 && borrowMode) ||
-            (!borrowMode && closeToZero(safe.collateralAmount))
+            (!borrowMode &&
+                closeToZero(safe.collateralAmount) &&
+                safe.borrowedAmount == 0)
         ) {
             _removeSafeFromBothQueues(_safeId);
         } else {
@@ -552,12 +563,22 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         uint256 collateralAmount,
         uint256 totalCollateralAfterLiquidation
     ) internal {
-        cumulativeCollateralPerUnitCollateral +=
-            (collateralAmount * PRECISION) /
+        uint256 collateralToDistribute = collateralAmount + collateralLoss;
+        uint256 debtToDistribute = debtAmount + debtLoss;
+        uint256 collPerUnitColl = (collateralToDistribute * PRECISION) /
             totalCollateralAfterLiquidation;
-        cumulativeDebtPerUnitCollateral +=
-            (debtAmount * PRECISION) /
+        cumulativeCollateralPerUnitCollateral += collPerUnitColl;
+        uint256 debtPerUnitColl = (debtToDistribute * PRECISION) /
             totalCollateralAfterLiquidation;
+        cumulativeDebtPerUnitCollateral += debtPerUnitColl;
+        collateralLoss =
+            collateralToDistribute -
+            (collPerUnitColl * totalCollateralAfterLiquidation) /
+            PRECISION;
+        debtLoss =
+            debtToDistribute -
+            (debtPerUnitColl * totalCollateralAfterLiquidation) /
+            PRECISION;
     }
 
     // Internal function to update a safe's borrowed amount and deposited amount
@@ -628,6 +649,146 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         return debt;
     }
 
+    function _liquidate(uint256 _safeId, uint256 gasStart) internal {
+        uint256 _last = safesOrderedForLiquidation.getHead();
+        Safe storage safe = safes[_safeId];
+        _updateSafe(_safeId, safe);
+        safe = safes[_safeId];
+        uint256 borrowedAmount = safe.borrowedAmount;
+        uint256 collateralAmount = safe.collateralAmount;
+        //require(_isApprovedOrOwner(msg.sender, _safeId), "Unauthorized");
+        require(collateralAmount > 0, "Safe does not exist");
+        require(
+            borrowedAmount > 0,
+            "Cannot liquidate a Safe with no borrowed amount"
+        );
+
+        uint256 collateralPrice = priceOracle.fetchPrice();
+        uint256 collateralValue = (collateralAmount * collateralPrice) /
+            PRECISION;
+        // Check if the collateral is sufficient for liquidation
+        require(
+            collateralValue <
+                ((borrowedAmount * liquidationRatio) / BASIS_POINTS_DIVISOR),
+            "Can't liquidate yet"
+        );
+        bool possible = stabilityPool.isLiquidationPossible(borrowedAmount);
+
+        // Pay liquidation fee
+        uint256 liquidationFee = (collateralAmount *
+            REDEMPTION_LIQUIDATION_FEE) / BASIS_POINTS_DIVISOR;
+
+        totalCollateral -= collateralAmount;
+        _updateTotalDebt(totalDebt, borrowedAmount, false);
+
+        if (possible) {
+            require(
+                stabilityPool.performLiquidation{
+                    value: collateralAmount - liquidationFee
+                }(borrowedAmount, collateralAmount - liquidationFee),
+                "Liquidation failed"
+            );
+            // Burn the amount from stability pool
+            require(
+                sbdToken.burn(address(stabilityPool), borrowedAmount),
+                "Burn failed"
+            );
+
+            emit LiquidatedUsingStabilityPool(
+                _safeId,
+                borrowedAmount,
+                collateralAmount,
+                totalCollateral,
+                totalDebt
+            );
+        } else {
+            require(_safeId != _last, "Cannot liquidate the last Safe");
+            // Liquidate by distributing the debt and collateral to the existing borrowers.
+            distributeDebtAndCollateral(
+                borrowedAmount,
+                collateralAmount - liquidationFee,
+                totalCollateral
+            );
+            emit LiquidatedUsingSecondaryMechanism(
+                _safeId,
+                borrowedAmount,
+                collateralAmount,
+                totalCollateral,
+                totalDebt
+            );
+        }
+        _removeSafeFromBothQueues(_safeId);
+
+        // Remove the Safe from the mapping
+        _removeSafe(_safeId);
+        uint256 gasUsed = gasStart - gasleft();
+        uint256 gasCompensation = (gasUsed + EXTRA_GAS_COMPENSATION) *
+            (block.basefee + (block.basefee * 10) / 100); // 10% extra gas cost
+        uint256 refund = min(gasCompensation, liquidationFee);
+        _distributeLiquidationFeeAndGasCompensation(
+            _safeId,
+            (gasUsed + EXTRA_GAS_COMPENSATION),
+            liquidationFee,
+            refund
+        );
+    }
+
+    function _distributeLiquidationFeeAndGasCompensation(
+        uint256 safeId,
+        uint256 gasUsed,
+        uint256 liquidationFee,
+        uint256 refund
+    ) internal {
+        // Try to send the liquidation fee to sbr stakers
+        if (liquidationFee > refund) {
+            if (sbrStakingPoolCanReceiveRewards) {
+                bool success = dfirTokenStaking.addCollateralReward{
+                    value: liquidationFee - refund
+                }(liquidationFee - refund);
+                if (!success && stabilityPoolCanReceiveRewards) {
+                    success = stabilityPool.addCollateralReward{
+                        value: liquidationFee - refund
+                    }(liquidationFee - refund);
+                    if (!success) {
+                        refund = liquidationFee;
+                    }
+                } else if (success) {
+                    emit LiquidationFeePaid(
+                        safeId,
+                        address(dfirTokenStaking),
+                        liquidationFee - refund
+                    );
+                }
+            } else if (stabilityPoolCanReceiveRewards) {
+                bool success = stabilityPool.addCollateralReward{
+                    value: liquidationFee - refund
+                }(liquidationFee - refund);
+                if (!success) {
+                    refund = liquidationFee;
+                } else {
+                    emit LiquidationFeePaid(
+                        safeId,
+                        address(stabilityPool),
+                        liquidationFee - refund
+                    );
+                }
+            } else {
+                refund = liquidationFee;
+            }
+        }
+        if (refund > 0) {
+            // Refund the remaining liquidation fee to the user
+            (bool success, ) = msg.sender.call{value: refund}("");
+            require(success, "Transfer failed");
+            emit LiquidationGasCompensationPaid(
+                safeId,
+                gasUsed,
+                msg.sender,
+                refund
+            );
+        }
+    }
+
     modifier onlyInNormalMode() {
         require(
             PROTOCOL_MODE == SBStructs.Mode.NORMAL,
@@ -638,9 +799,10 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
 
     function _removeSafe(uint256 _safeId) internal {
         //safes[_safeId].status = SafeStatus.CLOSED;
+        Safe memory safe = safes[_safeId];
         delete safes[_safeId];
         _burn(_safeId);
-        emit RemovedSafe(_safeId);
+        emit RemovedSafe(_safeId, safe);
     }
 
     function _removeSafeFromBothQueues(uint256 safeId) internal {

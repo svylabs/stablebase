@@ -16,6 +16,16 @@ module.exports = {
     },
   },
   networks: {
+    eth_mainnet: {
+      url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_API_KEY}`,
+      chainId: 1,
+      accounts: [`0x${process.env.PRIVATE_KEY}`]
+    },
+    "sepolia_network": {
+      url: "https://rpc.sepolia.network",
+      chainId: 0xaa36a7,
+      accounts: [`0x${process.env.PRIVATE_KEY}`]
+    },
     citreatestnet: {
       url: "https://rpc.testnet.citrea.xyz",
       chainId: 5115,

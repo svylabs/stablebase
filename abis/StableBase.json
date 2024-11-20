@@ -287,6 +287,25 @@
       "anonymous": false,
       "inputs": [
         {
+          "indexed": false,
+          "internalType": "address",
+          "name": "priceFeed",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "price",
+          "type": "uint256"
+        }
+      ],
+      "name": "ConnectedToPriceFeed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
           "indexed": true,
           "internalType": "uint256",
           "name": "safeId",
@@ -1069,6 +1088,19 @@
     },
     {
       "inputs": [],
+      "name": "EXTRA_GAS_COMPENSATION",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "MINIMUM_DEBT",
       "outputs": [
         {
@@ -1303,7 +1335,7 @@
           "type": "uint256"
         }
       ],
-      "stateMutability": "pure",
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -1317,6 +1349,19 @@
       "name": "closeSafe",
       "outputs": [],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "collateralLoss",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -1340,6 +1385,32 @@
           "internalType": "uint256",
           "name": "",
           "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "debtLoss",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "dfirTokenStaking",
+      "outputs": [
+        {
+          "internalType": "contract IDFIRStaking",
+          "name": "",
+          "type": "address"
         }
       ],
       "stateMutability": "view",
@@ -1746,19 +1817,6 @@
       "type": "function"
     },
     {
-      "inputs": [],
-      "name": "sbrTokenStaking",
-      "outputs": [
-        {
-          "internalType": "contract ISBRStaking",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
       "inputs": [
         {
           "internalType": "address",
@@ -1777,7 +1835,7 @@
         },
         {
           "internalType": "address",
-          "name": "_sbrTokenStaking",
+          "name": "_dfirTokenStaking",
           "type": "address"
         },
         {

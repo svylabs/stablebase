@@ -1,4 +1,4 @@
-const { ethers } = require("hardhat");
+const { ethers, hardhatArguments } = require("hardhat");
 
 async function main() {
   // Get the deployer's wallet address
@@ -24,10 +24,21 @@ async function main() {
     await stabilityPool.waitForDeployment();
     console.log("Deployed StabilityPool to:", stabilityPool.target);
     
-    const PriceOracle = await ethers.getContractFactory("MockPriceOracle");
-    const priceOracle = await PriceOracle.deploy();
-    await priceOracle.waitForDeployment();
-    console.log("Deployed PriceOracle to:", priceOracle.target);
+    let PriceOracle, priceOracle;
+    if (hardhatArguments.network === "eth_mainnet") {
+      // Use existing price oracle deployed on mainnet
+      priceOracle = await ethers.getContractAt("IPriceFeed", "0x4c517D4e2C851CA76d7eC94B805269Df0f2201De");
+    } else if (hardhatArguments.network === "sepolia_network") {
+      PriceOracle = await ethers.getContractFactory("ChainlinkPriceOracle");
+      priceOracle = await PriceOracle.deploy();
+      await priceOracle.waitForDeployment();
+    } else {
+      PriceOracle = await ethers.getContractFactory("MockPriceOracle");
+      priceOracle = await PriceOracle.deploy();
+      await priceOracle.waitForDeployment();
+    }
+    console.log("Using PriceOracle available at:", priceOracle.target);
+    
 
     const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");
     const stableBaseCDP = await StableBaseCDPFactory.deploy();
