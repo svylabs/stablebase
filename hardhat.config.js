@@ -23,7 +23,7 @@ module.exports = {
     },
     "sepolia_network": {
       url: "https://rpc.sepolia.network",
-      chainId: 5115,
+      chainId: 0xaa36a7,
       accounts: [`0x${process.env.PRIVATE_KEY}`]
     },
     citreatestnet: {

@@ -417,7 +417,7 @@ class Hacker extends Actor {
         }
         if (Math.random() < 0.01) {
             // borrow from an existing safe
-            const borrowers = this.borrowers.filter((b) =>(borrower.safe.borrowedAmount == BigInt(0) && borrower.safe.collateral > BigInt(0)));
+            const borrowers = this.borrowers.filter((b) =>(b.safe.borrowedAmount == BigInt(0) && b.safe.collateral > BigInt(0)));
             if (borrowers.length > 0) {
                 const borrower = borrowers[0];
                 try {
@@ -803,6 +803,9 @@ class Borrower extends Actor {
         }
         let collateralAmount = (((this.ethBalance / BigInt(1e18)) * BigInt(1e18)) * BigInt(Math.floor(getRandomInRange(0.001, 0.01) * 1000))) / BigInt(1000);
         this.consolelog("OPening safe with collateral ", collateralAmount);
+        if (collateralAmount == BigInt(0)) { 
+            collateralAmount = BigInt(1 * 10 ** 18);
+        }
         const tx = await this.contracts.stableBaseCDP.connect(this.account).openSafe(this.safeId, collateralAmount, { value: collateralAmount });
         const detail = await tx.wait();
         const gas = detail.gasUsed * tx.gasPrice;
@@ -1442,7 +1445,7 @@ class OfflineProtocolTracker extends Agent {
      const fee = liquidationFee;
      this.totalCollateral -= collateralAmount;
      this.totalDebt -= borrowAmount;
-     const refund = BigInt(0);
+     let refund = BigInt(0);
      if (this.stabilityPool.totalStake >= borrowAmount) {
         const checkState = this.sbrStaking.totalStake > BigInt(0) ? true : false;
         await this.distributeCollateralGainsToStabilityPoolStakers(collateralAmount - fee, "liquidation-collateral", checkState);
