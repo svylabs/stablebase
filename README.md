@@ -1,6 +1,6 @@
 # StableBase
 
-StableBase is an over-collateralized borrowing protocol issuing DFID(DeFI Dollar) tokens, pegged to USD. It features Collateral Debt Position(CDP) mechanism, with Liquidations and Redemptions to achieve stability.
+StableBase is an over-collateralized borrowing protocol issuing DFID(D.FI.Dollar) tokens, pegged to USD. It features Collateral Debt Position(CDP) mechanism, with Liquidations and Redemptions to achieve stability.
 
 Here are some highlights of the protocol:
 
