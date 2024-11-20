@@ -27,7 +27,7 @@ async function main() {
     let PriceOracle, priceOracle;
     if (hardhatArguments.network === "eth_mainnet") {
       // Use existing price oracle deployed on mainnet
-      priceOracle = await ethers.getContractAt("IPriceFeed", "0x4c517D4e2C851CA76d7eC94B805269Df0f2201De");
+      priceOracle = await ethers.getContractAt("IPriceOracle", "0x4c517D4e2C851CA76d7eC94B805269Df0f2201De");
     } else if (hardhatArguments.network === "sepolia_network") {
       PriceOracle = await ethers.getContractFactory("ChainlinkPriceOracle");
       priceOracle = await PriceOracle.deploy();
