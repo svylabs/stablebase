@@ -7,8 +7,8 @@
     "code": "",
     "config": {
       "styles": {
-        "color": "#252525",
-        "backgroundColor": "",
+        "color": "#000000",
+    "backgroundColor": "#ffffff",
         "fontSize": "14px",
         "padding": "10",
         "margin": "10"
@@ -24,8 +24,8 @@
     "code": "",
     "config": {
       "styles": {
-        "color": "#252525",
-        "backgroundColor": "",
+        "color": "#000000",
+    "backgroundColor": "#ffffff",
         "fontSize": "14px",
         "padding": "10",
         "margin": "10"
@@ -41,8 +41,8 @@
     "code": "",
     "config": {
       "styles": {
-        "color": "#252525",
-        "backgroundColor": "",
+        "color": "#000000",
+    "backgroundColor": "#ffffff",
         "fontSize": "14px",
         "padding": "10",
         "margin": "10"
@@ -58,8 +58,8 @@
     "code": "",
     "config": {
       "styles": {
-        "color": "#252525",
-        "backgroundColor": "",
+        "color": "#000000",
+    "backgroundColor": "#ffffff",
         "fontSize": "14px",
         "padding": "10",
         "margin": "10"
