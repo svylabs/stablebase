@@ -9,6 +9,7 @@ const numBorrowers = 100;
 const numBots = 5;
 const numThirdpartyStablecoinHolders = 300;
 const numSimulations = 300;
+const numHackers = 5;
 
 function getRandomInRange(min, max) {
     return Math.random() * (max - min) + min;
@@ -17,6 +18,17 @@ function getRandomInRange(min, max) {
 const totalPrecision = ethers.parseEther("0.0001", 18);
 const aggregatePrecision = ethers.parseEther("0.000001", 18);
 const individualPrecision = ethers.parseEther("0.00000001", 18);
+
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      // Generate a random index between 0 and i
+      const j = Math.floor(Math.random() * (i + 1));
+  
+      // Swap elements array[i] and array[j]
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
 
 
 class Actor extends Agent {
@@ -371,6 +383,134 @@ class Actor extends Agent {
             expect(this.sbrStaking.stake).equals((await this.contracts.sbrStaking.stakes(this.account.address)).stake);
             await this.tracker.updateSBRStake(this);
         }
+    }
+}
+
+class Hacker extends Actor {
+    constructor(account, initialBalance, contracts, market, tracker, borrowers, actors) {
+        super("Hacker", account, initialBalance, contracts, market, tracker);
+        this.currentStep = 0;
+        this.borrowers = [...borrowers];
+        this.actors =[...actors];
+    }
+    async _step() {
+        this.borrowers = shuffleArray(this.borrowers);
+        this.actors = shuffleArray(this.actors);
+        if (Math.random() < 0.01) {
+            // borrow from an existing safe
+            const borrower = this.borrowers[0];
+            try {
+                this.consolelog("Borrowing as ", borrower.id, borrower.safeId);
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).borrow(borrower.safeId, BigInt(2000 * 10 ** 18), BigInt(10), BigInt(0), BigInt(0));
+                const detail = await tx.wait();
+            } catch (e) {
+                this.consolelog("Failed as expected");
+                return;
+            }
+            assert.fail("Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // Repay a loan
+            const borrower = this.borrowers[0];
+            this.consolelog("Repaying as ", borrower.id, borrower.safeId);
+            try {
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).repay(borrower.safeId, BigInt(2000 * 10 ** 18), BigInt(0));
+                const detail = await tx.wait();
+            } catch (e) {
+                this.consolelog("Failed as expected", e);
+                return;
+            }
+            assert.fail("Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // Liquidate a safe
+            const borrower = this.borrowers[0];
+            try {
+                this.consolelog("Attempting to withdraw collateral ", borrower.id, borrower.safeId);
+                const toWithdraw = (BigInt(Math.floor(Math.random() * 10000)) * borrower.safe.collateral) / BigInt(10000);
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).withdrawCollateral(borrower.safeId, toWithdraw, BigInt(0));
+                const detail = await tx.wait();
+            } catch (e) {
+                this.consolelog("Failed as expected", e);
+                return;
+            }
+            assert.fail("Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // Liquidate a safe
+            const borrower = this.borrowers[0];
+            try {
+                const collateralValue = (borrower.safe.collateral + borrower.safe.pending.collateral) * this.market.collateralPrice;
+                if (collateralValue > ((borrower.safe.debt + borrower.safe.pending.debt) * BigInt(11000)) / BigInt(10000)) {
+                    this.consolelog("Attempting to liquidate ", borrower.id, borrower.safeId, collateralValue, borrower.safe.debt, borrower.safe.pending.debt);
+                    const tx = await this.contracts.stableBaseCDP.connect(this.account).liquidate(borrower.safeId);
+                    const detail = await tx.wait();
+                    return;
+                }
+            } catch (e) {
+                this.consolelog("Failed as expected", e);
+                return;
+            }
+            assert.fail("Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // TransferFrom DFID tokens on behalf of another person
+            const actor = this.actors[0];
+            try {
+                this.consolelog("Attempting to transfer DFID tokens from ", actor.id, this.id);
+                const tx = await this.contracts.sbdToken.connect(this.account).transferFrom(actor.account.address, this.account.address, BigInt(1 * 10 ** 18));
+                const detail = await tx.wait();
+            } catch (e) {
+                this.consolelog("Failed as expected", e);
+                return;
+            }
+            assert.fail("SBD TransferFrom Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // TransferFrom DFIRE tokens on behalf of another person
+            const actor = this.actors[0];
+            try {
+                const tx = await this.contracts.sbrToken.connect(this.account).transferFrom(actor.account.address, this.account.address, BigInt(1 * 10 ** 18));
+                const detail = await tx.wait();
+            } catch (e) {
+                this.consolelog("Failed as expected", e);
+                return;
+            }
+            assert.fail("Expected to fail");
+        }
+        if (Math.random() < 0.01) {
+            // TransferFrom Safe from another user
+        }
+        if (Math.random() < 0.01) {
+            // Mint new DFID / DFIRE tokens
+        }
+        if (Math.random() < 0.01) {
+            // Burn DFID / DFIRE tokens
+        }
+        if (Math.random() < 0.01) {
+            // Adjust position of a safe
+        }
+        if (Math.random() < 0.01) {
+            // Transfer ownership of a safe
+        }
+        if (Math.random() < 0.01) {
+            // Call performLiquidation function in stability pool
+        }
+        if (Math.random() < 0.01) {
+            // Call setAddresses function on different contracts
+        }
+        if (Math.random() < 0.01) {
+            // Call setCanReceiveStakingRewards on stablebase cdp contracts
+        }
+        if (Math.random() < 0.01) {
+            // Call public functions on stability pool
+        }
+        if (Math.random() < 0.01) {
+            // Call public functions on dfir staking
+        }
+    }
+    async _printState() {
+        this.consolelog("Printing state for hacker");
     }
 }
 
@@ -967,7 +1107,9 @@ class Market extends Agent {
         this.consolelog("Collateral price: ", this.collateralPrice);
         this.consolelog("SBD price: ", this.sbdPrice);
        //await this.fluctuateCollateralPrice();
-       await this.contracts.priceOracle.setPrice(this.collateralPrice);
+       const tx = await this.contracts.priceOracle.setPrice(this.collateralPrice);
+    await tx.wait();
+       
     }
 
      async printState() {
@@ -1611,17 +1753,6 @@ async function deployContracts() {
         liquidationQueue
     };
   }
-
-  function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-      // Generate a random index between 0 and i
-      const j = Math.floor(Math.random() * (i + 1));
-  
-      // Swap elements array[i] and array[j]
-      [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-  }
   
 
 async function main() {
@@ -1676,6 +1807,17 @@ async function main() {
     console.log(actors);
     tracker.actors = actors;
 
+    const borrowers = env.getAgents().filter(agent => agent instanceof Borrower).map((agent) => agent);
+
+    const hackers = [];
+
+    for (let i=0;i<numHackers;i++) {
+        const hacker = new Hacker(addrs[addressIndex], addrs[addressIndex].balance, contracts, market, tracker, borrowers, actors);
+        env.addAgent(hacker);
+        hackers.push(hacker);
+        addressIndex++;
+    }
+
     // Main simulation loop
     for (let i = 0; i < numSimulations; i++) {
         console.log(`--- Simulation Step ${i + 1} ---`);
@@ -1689,6 +1831,9 @@ async function main() {
         
         for (const actor of shuffled) {
            await actor.step(i);
+        }
+        for (const hacker of hackers) {
+            await hacker.step(i);    
         }
         
         console.log(); // Blank line for readability between steps
