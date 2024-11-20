@@ -1621,6 +1621,7 @@ class OfflineProtocolTracker extends Agent {
          await staker.distributeSbdRewards(share);
          distributed += share;
      }
+     this.stabilityPool.totalRewards.sbd += distributed;
      let sbrTotalStake = this.sbrStaking.totalStake;
      let toDistributeSbrStakers = ((fee * BigInt(1000)) / BigInt(10000));
      let distributedToSbrStakers = BigInt(0);
@@ -1632,6 +1633,7 @@ class OfflineProtocolTracker extends Agent {
          await staker.distributeSbdRewardsSBRStaking(share);
          distributedToSbrStakers += share;
      }
+     this.sbrStaking.totalRewards.sbd += distributedToSbrStakers;
      if (this.stabilityPool.totalStake > BigInt(0)) {
         this.stabilityPool.rewardLoss = toDistribute - distributed;
         return BigInt(0);

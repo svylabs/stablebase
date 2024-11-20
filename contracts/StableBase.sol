@@ -456,7 +456,9 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         // Exchange mode; If fee paid <= REDEMPTION_BASE_FEE
         if (
             (safe.borrowedAmount == 0 && borrowMode) ||
-            (!borrowMode && closeToZero(safe.collateralAmount))
+            (!borrowMode &&
+                closeToZero(safe.collateralAmount) &&
+                safe.borrowedAmount == 0)
         ) {
             _removeSafeFromBothQueues(_safeId);
         } else {
@@ -797,9 +799,10 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
 
     function _removeSafe(uint256 _safeId) internal {
         //safes[_safeId].status = SafeStatus.CLOSED;
+        Safe memory safe = safes[_safeId];
         delete safes[_safeId];
         _burn(_safeId);
-        emit RemovedSafe(_safeId);
+        emit RemovedSafe(_safeId, safe);
     }
 
     function _removeSafeFromBothQueues(uint256 safeId) internal {
