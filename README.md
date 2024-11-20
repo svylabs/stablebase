@@ -112,3 +112,5 @@ Users must ensure compliance with all applicable laws and regulations in their j
 
 **[No Warranty]**
 The protocol is provided 'as-is' without warranties of any kind, including but not limited to suitability for a particular purpose, accuracy, or functionality. Users assume all risks associated with interacting with the protocol.
+
+# Don't trust, verify.
