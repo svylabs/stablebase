@@ -96,12 +96,12 @@ MIT
 # Disclaimer
 
 **[Immutable with no governance]**
-The protocol is immutable, with no individual or entity controlling the contracts once deployed. SVY Labs, the company that developed the StableBase protocol, is only a developer of the protocol and does not issue 'DFIRE' or 'SBUSD' tokens. The company is responsible for the development and deployment of the protocol on Ethereum and other chains, with users of the protocol responsible for their actions and for ensuring they follow jurisdictional laws.
+The protocol is immutable, with no individual or entity controlling the contracts once deployed. SVY Labs, the company that developed the StableBase protocol, is only a developer of the protocol and does not issue 'DFIRE' or 'DFID' tokens. The company is responsible for the development and deployment of the protocol on Ethereum and other chains, with users of the protocol responsible for their actions and for ensuring they follow jurisdictional laws.
 
-**[Code Unaudited]**
+**[Unaudited code]**
 While the core protocol is tested by the developer, the code is unaudited and may contain bugs resulting in hacks or the inability for users to withdraw funds from the protocol. Internal testing does not equate to a formal audit, and vulnerabilities may still exist. Users should exercise caution when interacting with the protocol or using third-party frontends. The repository contains only the smart contract code developed by the developer.
 
-**[Mechanism Unaudited]**
+**[Unaudited mechanism]**
 The protocol mechanism is unaudited and may contain flaws. The company or the developer cannot be held responsible or liable if the protocol does not work as intended in the whitepaper. Users are advised to conduct their own research (DYOR) and seek professional advice before interacting with the protocol or its tokens.
 
 **[No Liability for Loss of User Funds]**
