@@ -947,7 +947,8 @@ class Borrower extends Actor {
     }
 
     async addCollateral() {
-        const addAmount = ((this.ethBalance * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) / BigInt(1e18)) * BigInt(1e18)) / BigInt(1000);
+        this.ethBalance = await this.account.provider.getBalance(this.account.address);
+        const addAmount = ((this.ethBalance * BigInt(Math.floor(getRandomInRange(0.1, 0.9) * 1000)) / BigInt(1e18)) * BigInt(1e18)) / BigInt(1000);
         this.consolelog("Adding collateral ", addAmount);
         if (addAmount >= this.ethBalance) {
             console.log("Not enough balance to add collateral");
