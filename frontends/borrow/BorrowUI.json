@@ -1,1796 +1,1767 @@
 {
-    "name": "Borrow",
-    "description": "Borrowing",
-    "components": [
-      {
-        "id": "borrow",
-        "label": "Borrowing",
-        "type": "swap",
-        "placement": "input",
-        "code": "",
-        "config": {
-          "styles": {
-            "color": "",
-            "backgroundColor": "",
-            "fontSize": "",
-            "padding": "",
-            "margin": ""
-          },
-          "swapConfig": {
-            "heading": "Borrowing",
-            "fromTokenLabel": "Deposit",
-            "toTokenLabel": "Borrow",
-            "amountLabel": "depositAmount",
-            "estimatedAmountLabel": "borrowAmount",
-            "maxEstimationBorrowLabel": "borrowEstimatedAmount",
-            "tokens": [
-              {
-                "chainId": 137,
-                "name": "Wrapped Matic",
-                "symbol": "WMATIC",
-                "decimals": 18,
-                "address": "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270",
-                "logoURI": "https://raw.githubusercontent.com/Uniswap/assets/master/blockchains/polygon/assets/0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270/logo.png",
-                "listType": "from"
-              },
-              {
-                "chainId": 137,
-                "name": "Dai - PoS",
-                "symbol": "DAI",
-                "decimals": 18,
-                "address": "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063",
-                "logoURI": "https://raw.githubusercontent.com/maticnetwork/polygon-token-assets/main/assets/tokenAssets/dai.svg",
-                "listType": "to"
-              },
-              {
-                "chainId": 137,
-                "name": "USD Coin",
-                "symbol": "USDC",
-                "decimals": 6,
-                "address": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
-                "logoURI": "https://raw.githubusercontent.com/maticnetwork/polygon-token-assets/main/assets/tokenAssets/usdc.svg",
-                "listType": "both"
-              },
-              {
-                "chainId": 137,
-                "name": "Uniswap",
-                "symbol": "UNI",
-                "decimals": 18,
-                "address": "0xb33eaad8d922b1083446dc23f610c2567fb5180f",
-                "logoURI": "https://raw.githubusercontent.com/maticnetwork/polygon-token-assets/main/assets/tokenAssets/uni.svg",
-                "listType": "both"
-              },
-              {
-                "chainId": 137,
-                "name": "Tether USD - PoS",
-                "symbol": "USDT",
-                "decimals": 6,
-                "address": "0xc2132d05d31c914a87c6611c10748aeb04b58e8f",
-                "logoURI": "https://raw.githubusercontent.com/maticnetwork/polygon-token-assets/main/assets/tokenAssets/usdt.svg",
-                "listType": "from"
-              }
-            ]
-          }
-        },
-        "events": [
-          {
-            "event": "onChange",
-            "eventsCode": "const oracleAddress = \"0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419\";\nconst oracleABI = [\n  {\n    \"constant\": true,\n    \"inputs\": [],\n    \"name\": \"latestAnswer\",\n    \"outputs\": [\n      {\n        \"name\": \"\",\n        \"type\": \"int256\"\n      }\n    ],\n    \"payable\": false,\n    \"stateMutability\": \"view\",\n    \"type\": \"function\"\n  }\n];\n\nconst web3 = new Web3(window.ethereum);\n\nasync function estimateAmount() {\n  try {\n    const depositAmount = data[\"borrow\"]?.depositAmount || \"0\"; \n    const amount = BigInt(web3.utils.toWei(depositAmount, \"ether\"));\n\n    const oracleContract = new web3.eth.Contract(oracleABI, oracleAddress);\n\n    const price = BigInt(await oracleContract.methods.latestAnswer().call());\n\n    if (!price) {\n      console.error(\"Failed to fetch the latest price.\");\n      return { estimatedAmount: null };\n    }\n\n    const estimatedAmount = (amount * price) / BigInt(10 ** 8); \n\n    const borrowEstimatedAmount = web3.utils.fromWei(estimatedAmount.toString(), \"ether\");\n\n    console.log(\"Estimated Amount:\", borrowEstimatedAmount);\n\n    return { borrowEstimatedAmount };\n  } catch (error) {\n    console.error(\"Error fetching the price or calculating the estimated amount:\", error);\n    return { estimatedAmount: null };\n  }\n}\n\nestimateAmount();"
-          }
-        ],
-        "order": 0
-      },
-      {
-        "id": "shielding_rate",
-        "label": "Shielding Rate",
-        "type": "slider",
-        "placement": "input",
-        "code": "",
-        "config": {
-          "styles": {
-            "color": "",
-            "backgroundColor": "",
-            "fontSize": "",
-            "padding": "",
-            "margin": ""
-          },
-          "sliderConfig": {
-            "message": "Please specify the range of values. You can customize the minimum, maximum, value and step values below.",
-            "interval": {
-              "min": 0,
-              "max": 1
-            },
-            "value": 0.2,
-            "step": 0.05
-          }
-        },
-        "events": [],
-        "order": 1
-      },
-      {
-        "id": "borrow_amount",
-        "label": "You Get",
-        "type": "text",
-        "placement": "output",
-        "code": "",
-        "config": {
-          "styles": {
-            "color": "",
-            "backgroundColor": "",
-            "fontSize": "",
-            "padding": "",
-            "margin": ""
-          }
-        },
-        "events": [
-          {
-            "event": "onChange",
-            "eventsCode": "const oracleAddress = \"0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419\";\nconst oracleABI = [\n  {\n    \"constant\": true,\n    \"inputs\": [],\n    \"name\": \"latestAnswer\",\n    \"outputs\": [\n      {\n        \"name\": \"\",\n        \"type\": \"int256\"\n      }\n    ],\n    \"payable\": false,\n    \"stateMutability\": \"view\",\n    \"type\": \"function\"\n  }\n];\n\nconst web3 = new Web3(window.ethereum);\n\nasync function estimateAmount() {\n  try {\n    const depositAmount = data[\"borrow\"]?.depositAmount || \"0\"; \n    const amount = BigInt(web3.utils.toWei(depositAmount, \"ether\"));\n\n    const oracleContract = new web3.eth.Contract(oracleABI, oracleAddress);\n\n    const price = BigInt(await oracleContract.methods.latestAnswer().call());\n\n    if (!price) {\n      console.error(\"Failed to fetch the latest price.\");\n      return { estimatedAmount: null };\n    }\n\n    const estimatedAmount = (amount * price) / BigInt(10 ** 8); \n\n    const borrow_amount = web3.utils.fromWei(estimatedAmount.toString(), \"ether\");\n\n    console.log(\"Estimated borrow_amount:\", borrow_amount);\n\n    return { borrow_amount };\n  } catch (error) {\n    console.error(\"Error fetching the price or calculating the estimated amount:\", error);\n    return { estimatedAmount: null };\n  }\n}\n\nestimateAmount();"
-          }
-        ],
-        "order": 2
-      },
-      {
-        "id": "initiate_borrowing",
-        "label": "Initiate Borrowing",
-        "type": "button",
-        "placement": "action",
-        "code": "const stableBaseCDPABI = [\n    {\n      \"inputs\": [\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"_safeId\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"_amount\",\n          \"type\": \"uint256\"\n        }\n      ],\n      \"name\": \"openSafe\",\n      \"outputs\": [],\n      \"stateMutability\": \"payable\",\n      \"type\": \"function\"\n    },\n    {\n      \"inputs\": [\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"safeId\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"amount\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"shieldingRate\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"nearestSpotInLiquidationQueue\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"nearestSpotInRedemptionQueue\",\n          \"type\": \"uint256\"\n        }\n      ],\n      \"name\": \"borrow\",\n      \"outputs\": [],\n      \"stateMutability\": \"nonpayable\",\n      \"type\": \"function\"\n    }\n  ];\n  \n  const stableBaseCDPAddress = \"0x5FbDB2315678afecb367f032d93F642f64180aa3\";\n  const web3 = new Web3(window.ethereum);\n  \n  async function makeTransaction() {\n    try {\n      const account = (await web3.eth.getAccounts())[0]; \n  \n      // Step 1: Open a safe\n      const safeId = 1;\n      const depositAmount = data[\"borrow\"]?.depositAmount || \"0\";\n      const collateralAmount = web3.utils.toWei(depositAmount, \"ether\");\n  \n      console.log(\"Opening safe with ID:\", safeId, \"and collateral amount:\", collateralAmount);\n  \n      const openSafeTx = await new web3.eth.Contract(stableBaseCDPABI, stableBaseCDPAddress)\n        .methods.openSafe(safeId, collateralAmount)\n        .send({ from: account, value: collateralAmount }); // Send collateral amount as value\n  \n      console.log(\"Safe opened successfully:\", openSafeTx);\n  \n      // Step 2: Prepare parameters for borrowing\n      const borrowAmount = data[\"borrow_amount\"];\n      const shieldingRate = data[\"shielding_rate\"]; \n      const nearestSpotInLiquidationQueue = 0;\n      const nearestSpotInRedemptionQueue = 0;\n  \n      console.log(\"Starting borrow transaction with details:\", {\n        safeId,\n        borrowAmount,\n        shieldingRate,\n        nearestSpotInLiquidationQueue,\n        nearestSpotInRedemptionQueue\n      });\n  \n      // Step 3: Make the borrow transaction\n      const borrowTx = await new web3.eth.Contract(stableBaseCDPABI, stableBaseCDPAddress)\n        .methods.borrow(safeId, borrowAmount, shieldingRate, nearestSpotInLiquidationQueue, nearestSpotInRedemptionQueue)\n        .send({ from: account });\n  \n      console.log(\"Borrow transaction successful:\", borrowTx);\n    } catch (error) {\n      console.error(\"Error making the transaction:\", error);\n    }\n  }\n  \n  makeTransaction();",
-        "config": {
-          "styles": {
-            "color": "",
-            "backgroundColor": "",
-            "fontSize": "",
-            "padding": "",
-            "margin": "0 auto",
-            "width": "fit-content"
-          }
-        },
-        "events": [],
-        "order": 3
-      },
-      {
-        "id": "description",
-        "label": "Description",
-        "type": "description",
-        "placement": "output",
-        "code": "",
-        "config": {
-          "styles": {
-            "color": "",
-            "backgroundColor": "",
-            "fontSize": "",
-            "padding": "",
-            "margin": ""
-          }
-        },
-        "events": [
-          {
-            "event": "onChange",
-            "eventsCode": "function descriptionText() {\n    const shieldingRate = data[\"shielding_rate\"];\n    const amount = data[\"borrow_amount\"];\n    let description;\n\n    if (shieldingRate < 0.5) {\n        description = `Shielding rate is below 0.5, indicating a lower level of shielded assets. Borrow estimated amount: ${amount}.`;\n    } else if (shieldingRate == 0.5) {\n        description = `Shielding rate is exactly 0.5, representing a balanced shielded assets ratio. Borrow estimated amount: ${amount}.`;\n    } else if (shieldingRate > 0.5) {\n        description = `Shielding rate is above 0.5, indicating a higher level of shielded assets. Borrow estimated amount: ${amount}.`;\n    }\n\n    const borrowEstimatedAmount = { description };\n    return borrowEstimatedAmount;\n}\n\ndescriptionText();"
-          }
-        ],
-        "order": 4
-      },
-      {
-        "id": "transactionLink",
-        "label": "Transaction Link",
-        "type": "transactionLink",
-        "placement": "output",
-        "code": "",
-        "config": {
-          "styles": {
-            "color": "",
-            "backgroundColor": "",
-            "fontSize": "",
-            "padding": "",
-            "margin": ""
-          }
-        },
-        "events": [],
-        "order": 5
-      }
-    ],
-    "contracts": [
-      {
-        "name": "StableBaseCDP",
-        "address": "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0",
-        "abi": [
-          {
-            "inputs": [],
-            "stateMutability": "nonpayable",
-            "type": "constructor"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "sender",
-                "type": "address"
-              },
-              {
-                "internalType": "uint256",
-                "name": "tokenId",
-                "type": "uint256"
-              },
-              {
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-              }
-            ],
-            "name": "ERC721IncorrectOwner",
-            "type": "error"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "operator",
-                "type": "address"
-              },
-              {
-                "internalType": "uint256",
-                "name": "tokenId",
-                "type": "uint256"
-              }
-            ],
-            "name": "ERC721InsufficientApproval",
-            "type": "error"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "approver",
-                "type": "address"
-              }
-            ],
-            "name": "ERC721InvalidApprover",
-            "type": "error"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "operator",
-                "type": "address"
-              }
-            ],
-            "name": "ERC721InvalidOperator",
-            "type": "error"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-              }
-            ],
-            "name": "ERC721InvalidOwner",
-            "type": "error"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "receiver",
-                "type": "address"
-              }
-            ],
-            "name": "ERC721InvalidReceiver",
-            "type": "error"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "sender",
-                "type": "address"
-              }
-            ],
-            "name": "ERC721InvalidSender",
-            "type": "error"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "tokenId",
-                "type": "uint256"
-              }
-            ],
-            "name": "ERC721NonexistentToken",
-            "type": "error"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-              }
-            ],
-            "name": "OwnableInvalidOwner",
-            "type": "error"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "account",
-                "type": "address"
-              }
-            ],
-            "name": "OwnableUnauthorizedAccount",
-            "type": "error"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "newRatio",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalCollateral",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalDebt",
-                "type": "uint256"
-              }
-            ],
-            "name": "AddedCollateral",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-              },
-              {
-                "indexed": true,
-                "internalType": "address",
-                "name": "approved",
-                "type": "address"
-              },
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "tokenId",
-                "type": "uint256"
-              }
-            ],
-            "name": "Approval",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-              },
-              {
-                "indexed": true,
-                "internalType": "address",
-                "name": "operator",
-                "type": "address"
-              },
-              {
-                "indexed": false,
-                "internalType": "bool",
-                "name": "approved",
-                "type": "bool"
-              }
-            ],
-            "name": "ApprovalForAll",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "_fromTokenId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "_toTokenId",
-                "type": "uint256"
-              }
-            ],
-            "name": "BatchMetadataUpdate",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "weight",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalCollateral",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalDebt",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "nearestSpotInRedemptionQueue",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "nearestSpotInLiquidationQueue",
-                "type": "uint256"
-              }
-            ],
-            "name": "Borrowed",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "fee",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "bool",
-                "name": "mint",
-                "type": "bool"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "sbrStakersFee",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "stabilityPoolFee",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "canRefund",
-                "type": "uint256"
-              }
-            ],
-            "name": "FeeDistributed",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              }
-            ],
-            "name": "FeeRefund",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "topupRate",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "feePaid",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "newWeight",
-                "type": "uint256"
-              }
-            ],
-            "name": "FeeTopup",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "borrowAmount",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "collateral",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalCollateral",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalDebt",
-                "type": "uint256"
-              }
-            ],
-            "name": "LiquidatedUsingSecondaryMechanism",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "borrowAmount",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "collateral",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalCollateral",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalDebt",
-                "type": "uint256"
-              }
-            ],
-            "name": "LiquidatedUsingStabilityPool",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "newRatio",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "nextNode",
-                "type": "uint256"
-              }
-            ],
-            "name": "LiquidationQueueUpdated",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "_tokenId",
-                "type": "uint256"
-              }
-            ],
-            "name": "MetadataUpdate",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": true,
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalCollateral",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalDebt",
-                "type": "uint256"
-              }
-            ],
-            "name": "OpenSafe",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "address",
-                "name": "previousOwner",
-                "type": "address"
-              },
-              {
-                "indexed": true,
-                "internalType": "address",
-                "name": "newOwner",
-                "type": "address"
-              }
-            ],
-            "name": "OwnershipTransferred",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "collateral",
-                "type": "uint256"
-              }
-            ],
-            "name": "Redeemed",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "redeemedCollateral",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalCollateral",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalDebt",
-                "type": "uint256"
-              }
-            ],
-            "name": "RedeemedBatch",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "newWeight",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "prevNode",
-                "type": "uint256"
-              }
-            ],
-            "name": "RedemptionQueueUpdated",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "newRatio",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalCollateral",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalDebt",
-                "type": "uint256"
-              }
-            ],
-            "name": "Repaid",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "refundedCollateral",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalCollateral",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalDebt",
-                "type": "uint256"
-              }
-            ],
-            "name": "SafeClosed",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              }
-            ],
-            "name": "SafeRemovedFromLiquidationQueue",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              }
-            ],
-            "name": "SafeRemovedFromRedemptionQueue",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "address",
-                "name": "from",
-                "type": "address"
-              },
-              {
-                "indexed": true,
-                "internalType": "address",
-                "name": "to",
-                "type": "address"
-              },
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "tokenId",
-                "type": "uint256"
-              }
-            ],
-            "name": "Transfer",
-            "type": "event"
-          },
-          {
-            "anonymous": false,
-            "inputs": [
-              {
-                "indexed": true,
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalCollateral",
-                "type": "uint256"
-              },
-              {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "totalDebt",
-                "type": "uint256"
-              }
-            ],
-            "name": "WithdrawnCollateral",
-            "type": "event"
-          },
-          {
-            "inputs": [],
-            "name": "BOOTSTRAP_MODE_DEBT_THRESHOLD",
-            "outputs": [
-              {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "MINIMUM_DEBT",
-            "outputs": [
-              {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "PROTOCOL_MODE",
-            "outputs": [
-              {
-                "internalType": "enum SBStructs.Mode",
-                "name": "",
-                "type": "uint8"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "REDEMPTION_LIQUIDATION_FEE",
-            "outputs": [
-              {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "SBR_FEE_REWARD",
-            "outputs": [
-              {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "nearestSpotInLiquidationQueue",
-                "type": "uint256"
-              }
-            ],
-            "name": "addCollateral",
-            "outputs": [],
-            "stateMutability": "payable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "nearestSpotInLiquidationQueue",
-                "type": "uint256"
-              }
-            ],
-            "name": "adjustPosition",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "to",
-                "type": "address"
-              },
-              {
-                "internalType": "uint256",
-                "name": "tokenId",
-                "type": "uint256"
-              }
-            ],
-            "name": "approve",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-              }
-            ],
-            "name": "balanceOf",
-            "outputs": [
-              {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "shieldingRate",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "nearestSpotInLiquidationQueue",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "nearestSpotInRedemptionQueue",
-                "type": "uint256"
-              }
-            ],
-            "name": "borrow",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              }
-            ],
-            "name": "closeSafe",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "cumulativeCollateralPerUnitCollateral",
-            "outputs": [
-              {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "cumulativeDebtPerUnitCollateral",
-            "outputs": [
-              {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "topupRate",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "nearestSpotInRedemptionQueue",
-                "type": "uint256"
-              }
-            ],
-            "name": "feeTopup",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "tokenId",
-                "type": "uint256"
-              }
-            ],
-            "name": "getApproved",
-            "outputs": [
-              {
-                "internalType": "address",
-                "name": "",
-                "type": "address"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "owner",
-                "type": "address"
-              },
-              {
-                "internalType": "address",
-                "name": "operator",
-                "type": "address"
-              }
-            ],
-            "name": "isApprovedForAll",
-            "outputs": [
-              {
-                "internalType": "bool",
-                "name": "",
-                "type": "bool"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "liquidate",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-              }
-            ],
-            "name": "liquidationSnapshots",
-            "outputs": [
-              {
-                "internalType": "uint256",
-                "name": "collateralPerCollateralSnapshot",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "debtPerCollateralSnapshot",
-                "type": "uint256"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "mode",
-            "outputs": [
-              {
-                "internalType": "enum SBStructs.Mode",
-                "name": "",
-                "type": "uint8"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "name",
-            "outputs": [
-              {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "_safeId",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "_amount",
-                "type": "uint256"
-              }
-            ],
-            "name": "openSafe",
-            "outputs": [],
-            "stateMutability": "payable",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "owner",
-            "outputs": [
-              {
-                "internalType": "address",
-                "name": "",
-                "type": "address"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "tokenId",
-                "type": "uint256"
-              }
-            ],
-            "name": "ownerOf",
-            "outputs": [
-              {
-                "internalType": "address",
-                "name": "",
-                "type": "address"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "priceOracle",
-            "outputs": [
-              {
-                "internalType": "contract IPriceOracle",
-                "name": "",
-                "type": "address"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "nearestSpotInLiquidationQueue",
-                "type": "uint256"
-              }
-            ],
-            "name": "redeem",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "renounceOwnership",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "nearestSpotInLiquidationQueue",
-                "type": "uint256"
-              }
-            ],
-            "name": "repay",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "from",
-                "type": "address"
-              },
-              {
-                "internalType": "address",
-                "name": "to",
-                "type": "address"
-              },
-              {
-                "internalType": "uint256",
-                "name": "tokenId",
-                "type": "uint256"
-              }
-            ],
-            "name": "safeTransferFrom",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "from",
-                "type": "address"
-              },
-              {
-                "internalType": "address",
-                "name": "to",
-                "type": "address"
-              },
-              {
-                "internalType": "uint256",
-                "name": "tokenId",
-                "type": "uint256"
-              },
-              {
-                "internalType": "bytes",
-                "name": "data",
-                "type": "bytes"
-              }
-            ],
-            "name": "safeTransferFrom",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-              }
-            ],
-            "name": "safes",
-            "outputs": [
-              {
-                "internalType": "uint256",
-                "name": "collateralAmount",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "borrowedAmount",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "weight",
-                "type": "uint256"
-              },
-              {
-                "internalType": "enum IStableBase.SafeStatus",
-                "name": "status",
-                "type": "uint8"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "safesOrderedForLiquidation",
-            "outputs": [
-              {
-                "internalType": "contract IDoublyLinkedList",
-                "name": "",
-                "type": "address"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "safesOrderedForRedemption",
-            "outputs": [
-              {
-                "internalType": "contract IDoublyLinkedList",
-                "name": "",
-                "type": "address"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "sbdToken",
-            "outputs": [
-              {
-                "internalType": "contract IMintableToken",
-                "name": "",
-                "type": "address"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "sbrTokenStaking",
-            "outputs": [
-              {
-                "internalType": "contract ISBRStaking",
-                "name": "",
-                "type": "address"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "_sbdToken",
-                "type": "address"
-              },
-              {
-                "internalType": "address",
-                "name": "_priceOracle",
-                "type": "address"
-              },
-              {
-                "internalType": "address",
-                "name": "_stabilityPool",
-                "type": "address"
-              },
-              {
-                "internalType": "address",
-                "name": "_sbrTokenStaking",
-                "type": "address"
-              },
-              {
-                "internalType": "address",
-                "name": "_safesOrderedForLiquidation",
-                "type": "address"
-              },
-              {
-                "internalType": "address",
-                "name": "_safesOrderedForRedemption",
-                "type": "address"
-              }
-            ],
-            "name": "setAddresses",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "operator",
-                "type": "address"
-              },
-              {
-                "internalType": "bool",
-                "name": "approved",
-                "type": "bool"
-              }
-            ],
-            "name": "setApprovalForAll",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "stabilityPool",
-            "outputs": [
-              {
-                "internalType": "contract IStabilityPool",
-                "name": "",
-                "type": "address"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "bytes4",
-                "name": "interfaceId",
-                "type": "bytes4"
-              }
-            ],
-            "name": "supportsInterface",
-            "outputs": [
-              {
-                "internalType": "bool",
-                "name": "",
-                "type": "bool"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "symbol",
-            "outputs": [
-              {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "tokenId",
-                "type": "uint256"
-              }
-            ],
-            "name": "tokenURI",
-            "outputs": [
-              {
-                "internalType": "string",
-                "name": "",
-                "type": "string"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "totalCollateral",
-            "outputs": [
-              {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [],
-            "name": "totalDebt",
-            "outputs": [
-              {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-              }
-            ],
-            "stateMutability": "view",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "from",
-                "type": "address"
-              },
-              {
-                "internalType": "address",
-                "name": "to",
-                "type": "address"
-              },
-              {
-                "internalType": "uint256",
-                "name": "tokenId",
-                "type": "uint256"
-              }
-            ],
-            "name": "transferFrom",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "address",
-                "name": "newOwner",
-                "type": "address"
-              }
-            ],
-            "name": "transferOwnership",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "tokenId",
-                "type": "uint256"
-              },
-              {
-                "internalType": "string",
-                "name": "newTokenURI",
-                "type": "string"
-              }
-            ],
-            "name": "updateTokenURI",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          },
-          {
-            "inputs": [
-              {
-                "internalType": "uint256",
-                "name": "safeId",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "nearestSpotInLiquidationQueue",
-                "type": "uint256"
-              }
-            ],
-            "name": "withdrawCollateral",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-          }
-        ]
-      }
-    ],
-    "network": {
-      "type": "ethereum",
+  "name": "Borrow $DFID",
+  "description": "Borrow $DFID on StableBase with $ETH as collateral",
+  "components": [
+    {
+      "id": "borrow",
+      "label": "Borrow $DFID",
+      "type": "swap",
+      "placement": "input",
+      "code": "",
       "config": {
-        "rpcUrl": "",
-        "chainId": "",
-        "exploreUrl": ""
-      }
+        "styles": {
+          "color": "",
+          "backgroundColor": "",
+          "fontSize": "",
+          "padding": "",
+          "margin": ""
+        },
+        "swapConfig": {
+          "heading": "Borrowing",
+          "fromTokenLabel": "Deposit",
+          "toTokenLabel": "Borrow",
+          "amountLabel": "depositAmount",
+          "estimatedAmountLabel": "borrowAmount",
+          "maxEstimationBorrowLabel": "borrowEstimatedAmount",
+          "tokens": [
+            {
+              "chainId": 1,
+              "name": "ETH",
+              "symbol": "ETH(Native)",
+              "decimals": 18,
+              "address": "0x0",
+              "logoURI": "https://raw.githubusercontent.com/Uniswap/assets/master/blockchains/polygon/assets/0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270/logo.png",
+              "listType": "from"
+            },
+            {
+              "chainId": 1,
+              "name": "D.FI.Dollar",
+              "symbol": "DFID",
+              "decimals": 18,
+              "address": "0x8b52c6a0ECDd3952E8F14F711D638fd2b4dE2529",
+              "logoURI": "https://raw.githubusercontent.com/Uniswap/assets/master/blockchains/ethereum/assets/0x74b23882a30290451a17c44f4f05243b6b58c76d/logo.png",
+              "listType": "to"
+            }
+          ]
+        }
+      },
+      "events": [
+        {
+          "event": "onChange",
+          "eventsCode": "const oracleAddress = \"0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419\";\nconst oracleABI = [\n  {\n    \"constant\": true,\n    \"inputs\": [],\n    \"name\": \"latestAnswer\",\n    \"outputs\": [\n      {\n        \"name\": \"\",\n        \"type\": \"int256\"\n      }\n    ],\n    \"payable\": false,\n    \"stateMutability\": \"view\",\n    \"type\": \"function\"\n  }\n];\n\nconst web3 = new Web3(window.ethereum);\n\nasync function estimateAmount() {\n  try {\n    const depositAmount = data[\"borrow\"]?.depositAmount || \"0\"; \n    const amount = BigInt(web3.utils.toWei(depositAmount, \"ether\"));\n\n    const oracleContract = new web3.eth.Contract(oracleABI, oracleAddress);\n\n    const price = BigInt(await oracleContract.methods.latestAnswer().call());\n\n    if (!price) {\n      console.error(\"Failed to fetch the latest price.\");\n      return { estimatedAmount: null };\n    }\n\n    const estimatedAmount = (amount * price) / BigInt(10 ** 8); \n\n    const borrowEstimatedAmount = web3.utils.fromWei(estimatedAmount.toString(), \"ether\");\n\n    console.log(\"Estimated Amount:\", borrowEstimatedAmount);\n\n    return { borrowEstimatedAmount };\n  } catch (error) {\n    console.error(\"Error fetching the price or calculating the estimated amount:\", error);\n    return { estimatedAmount: null };\n  }\n}\n\nestimateAmount();"
+        }
+      ],
+      "order": 0
+    },
+    {
+      "id": "shielding_rate",
+      "label": "Shielding Rate",
+      "type": "slider",
+      "placement": "input",
+      "code": "",
+      "config": {
+        "styles": {
+          "color": "",
+          "backgroundColor": "",
+          "fontSize": "",
+          "padding": "",
+          "margin": ""
+        },
+        "sliderConfig": {
+          "message": "Please specify the range of values. You can customize the minimum, maximum, value and step values below.",
+          "interval": {
+            "min": 0,
+            "max": 1
+          },
+          "value": 0.2,
+          "step": 0.05
+        }
+      },
+      "events": [],
+      "order": 1
+    },
+    {
+      "id": "borrow_amount",
+      "label": "You Get",
+      "type": "text",
+      "placement": "output",
+      "code": "",
+      "config": {
+        "styles": {
+          "color": "",
+          "backgroundColor": "",
+          "fontSize": "",
+          "padding": "",
+          "margin": ""
+        }
+      },
+      "events": [
+        {
+          "event": "onChange",
+          "eventsCode": "const oracleAddress = \"0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419\";\nconst oracleABI = [\n  {\n    \"constant\": true,\n    \"inputs\": [],\n    \"name\": \"latestAnswer\",\n    \"outputs\": [\n      {\n        \"name\": \"\",\n        \"type\": \"int256\"\n      }\n    ],\n    \"payable\": false,\n    \"stateMutability\": \"view\",\n    \"type\": \"function\"\n  }\n];\n\nconst web3 = new Web3(window.ethereum);\n\nasync function estimateAmount() {\n  try {\n    const depositAmount = data[\"borrow\"]?.depositAmount || \"0\"; \n    const amount = BigInt(web3.utils.toWei(depositAmount, \"ether\"));\n\n    const oracleContract = new web3.eth.Contract(oracleABI, oracleAddress);\n\n    const price = BigInt(await oracleContract.methods.latestAnswer().call());\n\n    if (!price) {\n      console.error(\"Failed to fetch the latest price.\");\n      return { estimatedAmount: null };\n    }\n\n    const estimatedAmount = (amount * price) / BigInt(10 ** 8); \n\n    const borrow_amount = web3.utils.fromWei(estimatedAmount.toString(), \"ether\");\n\n    console.log(\"Estimated borrow_amount:\", borrow_amount);\n\n    return { borrow_amount };\n  } catch (error) {\n    console.error(\"Error fetching the price or calculating the estimated amount:\", error);\n    return { estimatedAmount: null };\n  }\n}\n\nestimateAmount();"
+        }
+      ],
+      "order": 2
+    },
+    {
+      "id": "initiate_borrowing",
+      "label": "Initiate Borrowing",
+      "type": "button",
+      "placement": "action",
+      "code": "const stableBaseCDPABI = [\n    {\n      \"inputs\": [\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"_safeId\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"_amount\",\n          \"type\": \"uint256\"\n        }\n      ],\n      \"name\": \"openSafe\",\n      \"outputs\": [],\n      \"stateMutability\": \"payable\",\n      \"type\": \"function\"\n    },\n    {\n      \"inputs\": [\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"safeId\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"amount\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"shieldingRate\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"nearestSpotInLiquidationQueue\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"nearestSpotInRedemptionQueue\",\n          \"type\": \"uint256\"\n        }\n      ],\n      \"name\": \"borrow\",\n      \"outputs\": [],\n      \"stateMutability\": \"nonpayable\",\n      \"type\": \"function\"\n    }\n  ];\n  \n  const stableBaseCDPAddress = \"0x5FbDB2315678afecb367f032d93F642f64180aa3\";\n  const web3 = new Web3(window.ethereum);\n  \n  async function makeTransaction() {\n    try {\n      const account = (await web3.eth.getAccounts())[0]; \n  \n      // Step 1: Open a safe\n      const safeId = 1;\n      const depositAmount = data[\"borrow\"]?.depositAmount || \"0\";\n      const collateralAmount = web3.utils.toWei(depositAmount, \"ether\");\n  \n      console.log(\"Opening safe with ID:\", safeId, \"and collateral amount:\", collateralAmount);\n  \n      const openSafeTx = await new web3.eth.Contract(stableBaseCDPABI, stableBaseCDPAddress)\n        .methods.openSafe(safeId, collateralAmount)\n        .send({ from: account, value: collateralAmount }); // Send collateral amount as value\n  \n      console.log(\"Safe opened successfully:\", openSafeTx);\n  \n      // Step 2: Prepare parameters for borrowing\n      const borrowAmount = data[\"borrow_amount\"];\n      const shieldingRate = data[\"shielding_rate\"]; \n      const nearestSpotInLiquidationQueue = 0;\n      const nearestSpotInRedemptionQueue = 0;\n  \n      console.log(\"Starting borrow transaction with details:\", {\n        safeId,\n        borrowAmount,\n        shieldingRate,\n        nearestSpotInLiquidationQueue,\n        nearestSpotInRedemptionQueue\n      });\n  \n      // Step 3: Make the borrow transaction\n      const borrowTx = await new web3.eth.Contract(stableBaseCDPABI, stableBaseCDPAddress)\n        .methods.borrow(safeId, borrowAmount, shieldingRate, nearestSpotInLiquidationQueue, nearestSpotInRedemptionQueue)\n        .send({ from: account });\n  \n      console.log(\"Borrow transaction successful:\", borrowTx);\n    } catch (error) {\n      console.error(\"Error making the transaction:\", error);\n    }\n  }\n  \n  makeTransaction();",
+      "config": {
+        "styles": {
+          "color": "",
+          "backgroundColor": "",
+          "fontSize": "",
+          "padding": "",
+          "margin": "0 auto",
+          "width": "fit-content"
+        }
+      },
+      "events": [],
+      "order": 3
+    },
+    {
+      "id": "description",
+      "label": "Description",
+      "type": "description",
+      "placement": "output",
+      "code": "",
+      "config": {
+        "styles": {
+          "color": "",
+          "backgroundColor": "",
+          "fontSize": "",
+          "padding": "",
+          "margin": ""
+        }
+      },
+      "events": [
+        {
+          "event": "onChange",
+          "eventsCode": "function descriptionText() {\n    const shieldingRate = data[\"shielding_rate\"];\n    const amount = data[\"borrow_amount\"];\n    let description;\n\n    if (shieldingRate < 0.5) {\n        description = `Shielding rate is below 0.5, indicating a lower level of shielded assets. Borrow estimated amount: ${amount}.`;\n    } else if (shieldingRate == 0.5) {\n        description = `Shielding rate is exactly 0.5, representing a balanced shielded assets ratio. Borrow estimated amount: ${amount}.`;\n    } else if (shieldingRate > 0.5) {\n        description = `Shielding rate is above 0.5, indicating a higher level of shielded assets. Borrow estimated amount: ${amount}.`;\n    }\n\n    const borrowEstimatedAmount = { description };\n    return borrowEstimatedAmount;\n}\n\ndescriptionText();"
+        }
+      ],
+      "order": 4
+    },
+    {
+      "id": "transactionLink",
+      "label": "Transaction Link",
+      "type": "transactionLink",
+      "placement": "output",
+      "code": "",
+      "config": {
+        "styles": {
+          "color": "",
+          "backgroundColor": "",
+          "fontSize": "",
+          "padding": "",
+          "margin": ""
+        }
+      },
+      "events": [],
+      "order": 5
+    }
+  ],
+  "contracts": [
+    {
+      "name": "StableBaseCDP",
+      "address": "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0",
+      "abi": [
+        {
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "sender",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            }
+          ],
+          "name": "ERC721IncorrectOwner",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "operator",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            }
+          ],
+          "name": "ERC721InsufficientApproval",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "approver",
+              "type": "address"
+            }
+          ],
+          "name": "ERC721InvalidApprover",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "operator",
+              "type": "address"
+            }
+          ],
+          "name": "ERC721InvalidOperator",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            }
+          ],
+          "name": "ERC721InvalidOwner",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "receiver",
+              "type": "address"
+            }
+          ],
+          "name": "ERC721InvalidReceiver",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "sender",
+              "type": "address"
+            }
+          ],
+          "name": "ERC721InvalidSender",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            }
+          ],
+          "name": "ERC721NonexistentToken",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            }
+          ],
+          "name": "OwnableInvalidOwner",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "account",
+              "type": "address"
+            }
+          ],
+          "name": "OwnableUnauthorizedAccount",
+          "type": "error"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "newRatio",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalCollateral",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalDebt",
+              "type": "uint256"
+            }
+          ],
+          "name": "AddedCollateral",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "approved",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            }
+          ],
+          "name": "Approval",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "operator",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "bool",
+              "name": "approved",
+              "type": "bool"
+            }
+          ],
+          "name": "ApprovalForAll",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "_fromTokenId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "_toTokenId",
+              "type": "uint256"
+            }
+          ],
+          "name": "BatchMetadataUpdate",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "weight",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalCollateral",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalDebt",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "nearestSpotInRedemptionQueue",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "nearestSpotInLiquidationQueue",
+              "type": "uint256"
+            }
+          ],
+          "name": "Borrowed",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "fee",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "bool",
+              "name": "mint",
+              "type": "bool"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "sbrStakersFee",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "stabilityPoolFee",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "canRefund",
+              "type": "uint256"
+            }
+          ],
+          "name": "FeeDistributed",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "FeeRefund",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "topupRate",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "feePaid",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "newWeight",
+              "type": "uint256"
+            }
+          ],
+          "name": "FeeTopup",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "borrowAmount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "collateral",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalCollateral",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalDebt",
+              "type": "uint256"
+            }
+          ],
+          "name": "LiquidatedUsingSecondaryMechanism",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "borrowAmount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "collateral",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalCollateral",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalDebt",
+              "type": "uint256"
+            }
+          ],
+          "name": "LiquidatedUsingStabilityPool",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "newRatio",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "nextNode",
+              "type": "uint256"
+            }
+          ],
+          "name": "LiquidationQueueUpdated",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "_tokenId",
+              "type": "uint256"
+            }
+          ],
+          "name": "MetadataUpdate",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalCollateral",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalDebt",
+              "type": "uint256"
+            }
+          ],
+          "name": "OpenSafe",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "previousOwner",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "newOwner",
+              "type": "address"
+            }
+          ],
+          "name": "OwnershipTransferred",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "collateral",
+              "type": "uint256"
+            }
+          ],
+          "name": "Redeemed",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "redeemedCollateral",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalCollateral",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalDebt",
+              "type": "uint256"
+            }
+          ],
+          "name": "RedeemedBatch",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "newWeight",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "prevNode",
+              "type": "uint256"
+            }
+          ],
+          "name": "RedemptionQueueUpdated",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "newRatio",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalCollateral",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalDebt",
+              "type": "uint256"
+            }
+          ],
+          "name": "Repaid",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "refundedCollateral",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalCollateral",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalDebt",
+              "type": "uint256"
+            }
+          ],
+          "name": "SafeClosed",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            }
+          ],
+          "name": "SafeRemovedFromLiquidationQueue",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            }
+          ],
+          "name": "SafeRemovedFromRedemptionQueue",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "from",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            }
+          ],
+          "name": "Transfer",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalCollateral",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "totalDebt",
+              "type": "uint256"
+            }
+          ],
+          "name": "WithdrawnCollateral",
+          "type": "event"
+        },
+        {
+          "inputs": [],
+          "name": "BOOTSTRAP_MODE_DEBT_THRESHOLD",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "MINIMUM_DEBT",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "PROTOCOL_MODE",
+          "outputs": [
+            {
+              "internalType": "enum SBStructs.Mode",
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "REDEMPTION_LIQUIDATION_FEE",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "SBR_FEE_REWARD",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "nearestSpotInLiquidationQueue",
+              "type": "uint256"
+            }
+          ],
+          "name": "addCollateral",
+          "outputs": [],
+          "stateMutability": "payable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "nearestSpotInLiquidationQueue",
+              "type": "uint256"
+            }
+          ],
+          "name": "adjustPosition",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            }
+          ],
+          "name": "approve",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            }
+          ],
+          "name": "balanceOf",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "shieldingRate",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "nearestSpotInLiquidationQueue",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "nearestSpotInRedemptionQueue",
+              "type": "uint256"
+            }
+          ],
+          "name": "borrow",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            }
+          ],
+          "name": "closeSafe",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "cumulativeCollateralPerUnitCollateral",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "cumulativeDebtPerUnitCollateral",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "topupRate",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "nearestSpotInRedemptionQueue",
+              "type": "uint256"
+            }
+          ],
+          "name": "feeTopup",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            }
+          ],
+          "name": "getApproved",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "operator",
+              "type": "address"
+            }
+          ],
+          "name": "isApprovedForAll",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "liquidate",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "name": "liquidationSnapshots",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "collateralPerCollateralSnapshot",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "debtPerCollateralSnapshot",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "mode",
+          "outputs": [
+            {
+              "internalType": "enum SBStructs.Mode",
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "name",
+          "outputs": [
+            {
+              "internalType": "string",
+              "name": "",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "_safeId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "openSafe",
+          "outputs": [],
+          "stateMutability": "payable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "owner",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            }
+          ],
+          "name": "ownerOf",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "priceOracle",
+          "outputs": [
+            {
+              "internalType": "contract IPriceOracle",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "nearestSpotInLiquidationQueue",
+              "type": "uint256"
+            }
+          ],
+          "name": "redeem",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "renounceOwnership",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "nearestSpotInLiquidationQueue",
+              "type": "uint256"
+            }
+          ],
+          "name": "repay",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "from",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            }
+          ],
+          "name": "safeTransferFrom",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "from",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "data",
+              "type": "bytes"
+            }
+          ],
+          "name": "safeTransferFrom",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "name": "safes",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "collateralAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "borrowedAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "weight",
+              "type": "uint256"
+            },
+            {
+              "internalType": "enum IStableBase.SafeStatus",
+              "name": "status",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "safesOrderedForLiquidation",
+          "outputs": [
+            {
+              "internalType": "contract IDoublyLinkedList",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "safesOrderedForRedemption",
+          "outputs": [
+            {
+              "internalType": "contract IDoublyLinkedList",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "sbdToken",
+          "outputs": [
+            {
+              "internalType": "contract IMintableToken",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "sbrTokenStaking",
+          "outputs": [
+            {
+              "internalType": "contract ISBRStaking",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_sbdToken",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_priceOracle",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_stabilityPool",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_sbrTokenStaking",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_safesOrderedForLiquidation",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_safesOrderedForRedemption",
+              "type": "address"
+            }
+          ],
+          "name": "setAddresses",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "operator",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "approved",
+              "type": "bool"
+            }
+          ],
+          "name": "setApprovalForAll",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "stabilityPool",
+          "outputs": [
+            {
+              "internalType": "contract IStabilityPool",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes4",
+              "name": "interfaceId",
+              "type": "bytes4"
+            }
+          ],
+          "name": "supportsInterface",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "symbol",
+          "outputs": [
+            {
+              "internalType": "string",
+              "name": "",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            }
+          ],
+          "name": "tokenURI",
+          "outputs": [
+            {
+              "internalType": "string",
+              "name": "",
+              "type": "string"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "totalCollateral",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "totalDebt",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "from",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            }
+          ],
+          "name": "transferFrom",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "newOwner",
+              "type": "address"
+            }
+          ],
+          "name": "transferOwnership",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "tokenId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "newTokenURI",
+              "type": "string"
+            }
+          ],
+          "name": "updateTokenURI",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "safeId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "nearestSpotInLiquidationQueue",
+              "type": "uint256"
+            }
+          ],
+          "name": "withdrawCollateral",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        }
+      ]
+    }
+  ],
+  "network": {
+    "type": "ethereum",
+    "config": {
+      "chainId": "1"
     }
   }
+}

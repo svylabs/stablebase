@@ -4,7 +4,7 @@ import "../../interfaces/IPriceOracle.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MockPriceOracle is IPriceOracle, Ownable {
-    uint256 public price = 70000 * 1e18;
+    uint256 public price = 120000 * 1e18;
 
     constructor() Ownable(msg.sender) {}
 

@@ -17,7 +17,7 @@ module.exports = {
   },
   networks: {
     eth_mainnet: {
-      url: `https://eth-mainnet.g.alchemy.com/v2/{process.env.ALCHEMY_API_KEY}`,
+      url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       chainId: 1,
       accounts: [`0x${process.env.PRIVATE_KEY}`]
     },

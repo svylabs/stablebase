@@ -869,6 +869,39 @@
           "internalType": "uint256",
           "name": "safeId",
           "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "collateralAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "borrowedAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "weight",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalBorrowedAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "feePaid",
+              "type": "uint256"
+            }
+          ],
+          "indexed": false,
+          "internalType": "struct IStableBase.Safe",
+          "name": "safe",
+          "type": "tuple"
         }
       ],
       "name": "RemovedSafe",
