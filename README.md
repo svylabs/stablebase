@@ -9,7 +9,7 @@ Here are some highlights of the protocol:
 3. 110% collateral requirement
 4. No governance
 5. Immutable
-6. Only native asset(ETH) supported.
+6. Only native asset(ETH) is supported.
 7. Market determined **Pay As You Go** model to protect from redemptions.
 8. Bootstrap mode: No redemptions during bootstrap phase(Until 5 million DFID borrowed)
 9. The Protocol issues DFIRE tokens to Stability Pool contributors for 1 year.
@@ -106,7 +106,7 @@ While the core protocol is tested by the developer, the code is unaudited and ma
 The protocol mechanism is unaudited and may contain flaws. The company or the developer cannot be held responsible or liable if the protocol does not work as intended in the whitepaper. Users are advised to conduct their own research (DYOR) and seek professional advice before interacting with the protocol or its tokens.
 
 **[No Liability for Loss of User Funds]**
-While the protocol pegs the 'SBUSD' token to the USD, the 'DFIRE' and 'DFID' tokens may not have any value, nor will users have any means to exchange these tokens for other assets. The developer cannot be held liable or responsible for the adoption of the protocol or the tokens. Users are solely responsible for their actions regarding supplying liquidity to the protocol and minting 'DFID' tokens or exchanging assets with value for 'DFIRE' or 'DFID' tokens. Users acknowledge the risk of permanent loss of funds when interacting with the protocol.
+While the protocol intends to peg the 'DFID' token to USD, the 'DFIRE' and 'DFID' tokens may not have any value, nor will users have any means to exchange these tokens for other assets. The developer cannot be held liable or responsible for the adoption of the protocol or the tokens. Users are solely responsible for their actions regarding supplying liquidity to the protocol and minting 'DFID' tokens or exchanging assets with value for 'DFIRE' or 'DFID' tokens. Users acknowledge the risk of permanent loss of funds when interacting with the protocol.
 
 **[Regulatory and Third-Party Risks]**
 Users must ensure compliance with all applicable laws and regulations in their jurisdiction when interacting with the protocol or associated tokens. The company or developer assumes no liability for regulatory implications of using the protocol. Additionally, third-party interfaces or integrations with the protocol are outside the control of the developer and may pose additional risks.
