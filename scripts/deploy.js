@@ -30,7 +30,7 @@ async function main() {
       priceOracle = await ethers.getContractAt("IPriceOracle", "0x4c517D4e2C851CA76d7eC94B805269Df0f2201De");
     } else if (hardhatArguments.network === "sepolia_network") {
       PriceOracle = await ethers.getContractFactory("ChainlinkPriceOracle");
-      priceOracle = await PriceOracle.deploy();
+      priceOracle = await PriceOracle.deploy(BigInt(11155111));
       await priceOracle.waitForDeployment();
     } else {
       PriceOracle = await ethers.getContractFactory("MockPriceOracle");

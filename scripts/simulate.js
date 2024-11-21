@@ -8,7 +8,7 @@ const { takeODLLSnapshot, takeUserSnapshots, takeContractSnapshots, takeSafeSnap
 const numBorrowers = 100;
 const numBots = 5;
 const numThirdpartyStablecoinHolders = 300;
-const numSimulations = 100;
+const numSimulations = 300;
 const numHackers = 2;
 
 function getRandomInRange(min, max) {
@@ -910,10 +910,6 @@ class Borrower extends Actor {
         }
     }
 
-    async closeSafe() {
-
-    }
-
     async setSafeClosed() {
         this.safe.collateral = BigInt(0);
         this.safe.debt = BigInt(0);
@@ -953,6 +949,10 @@ class Borrower extends Actor {
     async addCollateral() {
         const addAmount = ((this.ethBalance * BigInt(Math.floor(getRandomInRange(0.1, 1) * 1000)) / BigInt(1e18)) * BigInt(1e18)) / BigInt(1000);
         this.consolelog("Adding collateral ", addAmount);
+        if (addAmount >= this.ethBalance) {
+            console.log("Not enough balance to add collateral");
+            return;
+        }
         if (this.safe.collateral == BigInt(0)) {
             try {
                 const tx = await this.contracts.stableBaseCDP.connect(this.account).addCollateral(this.safeId, addAmount, BigInt(0), { value: addAmount });
