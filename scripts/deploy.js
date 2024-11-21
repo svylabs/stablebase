@@ -9,6 +9,22 @@ async function main() {
   const balance = await ethers.provider.getBalance(deployer.address);
   console.log("Deployer balance:", balance);
 
+  let PriceOracle, priceOracle;
+    if (hardhatArguments.network === "eth_mainnet") {
+      // Use existing price oracle deployed on mainnet
+      priceOracle = await ethers.getContractAt("IPriceOracle", "0x4c517D4e2C851CA76d7eC94B805269Df0f2201De");
+      console.log("Accessing priceOracle: ", await priceOracle.lastGoodPrice());
+    } else if (hardhatArguments.network === "sepolia_network") {
+      PriceOracle = await ethers.getContractFactory("ChainlinkPriceOracle");
+      priceOracle = await PriceOracle.deploy(BigInt(11155111));
+      await priceOracle.waitForDeployment();
+    } else {
+      PriceOracle = await ethers.getContractFactory("MockPriceOracle");
+      priceOracle = await PriceOracle.deploy();
+      await priceOracle.waitForDeployment();
+    }
+    console.log("Using PriceOracle available at:", priceOracle.target);
+
   const SBDToken = await ethers.getContractFactory("SBDToken");
     const sbdToken = await SBDToken.deploy();
     await sbdToken.waitForDeployment();
@@ -23,21 +39,7 @@ async function main() {
     const stabilityPool = await StabilityPool.deploy(true);
     await stabilityPool.waitForDeployment();
     console.log("Deployed StabilityPool to:", stabilityPool.target);
-    
-    let PriceOracle, priceOracle;
-    if (hardhatArguments.network === "eth_mainnet") {
-      // Use existing price oracle deployed on mainnet
-      priceOracle = await ethers.getContractAt("IPriceOracle", "0x4c517D4e2C851CA76d7eC94B805269Df0f2201De");
-    } else if (hardhatArguments.network === "sepolia_network") {
-      PriceOracle = await ethers.getContractFactory("ChainlinkPriceOracle");
-      priceOracle = await PriceOracle.deploy(BigInt(11155111));
-      await priceOracle.waitForDeployment();
-    } else {
-      PriceOracle = await ethers.getContractFactory("MockPriceOracle");
-      priceOracle = await PriceOracle.deploy();
-      await priceOracle.waitForDeployment();
-    }
-    console.log("Using PriceOracle available at:", priceOracle.target);
+
     
 
     const StableBaseCDPFactory = await ethers.getContractFactory("StableBaseCDP");

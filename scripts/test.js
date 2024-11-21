@@ -2,14 +2,14 @@ const { ethers, hardhatArguments } = require("hardhat");
 
 const deployedAddresses = {
     ethMainnet: {
-        sbdToken: "",
-        dfireToken: "",
-        stabilityPool: "",
-        priceOracle: "",
-        stableBaseCDP: "",
-        sbrStaking: "",
-        redemptionQueue: "",
-        liquidationQueue: ""
+        sbdToken: "0x8b52c6a0ECDd3952E8F14F711D638fd2b4dE2529",
+        dfireToken: "0x236636842f6c64e198e223058794bbBBBaaccDE9",
+        stabilityPool: "0x590e59BabaFf67FB3f10AD9eF315242D2A17F8d0",
+        priceOracle: "0x4c517D4e2C851CA76d7eC94B805269Df0f2201De",
+        stableBaseCDP: "0xaF026bf59B738bDc7FD8899a641D79a6d5cEb151",
+        sbrStaking: "0x4D6BFeAca22bbC0884e8F17a0Aa5FDe7F565d0C2",
+        redemptionQueue: "0x7944588320547E46ddD0b0816E76678C0C4cB8A1",
+        liquidationQueue: "0x86644d53B0bD9032D16FEEE1f856767481a16884"
     },
     citreaTestnet: {
         sbdToken: "0x6b11C5A44A8f21C3cDAe84e6Bc48DbE6f366Ba04",
