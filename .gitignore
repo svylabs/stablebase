@@ -5,3 +5,5 @@ coverage/
 node_modules/
 artifacts/
 cache/
+.env
+simulation-logs/

@@ -38,6 +38,7 @@
     "@openzeppelin/contracts": "^5.0.2",
     "@typechain/hardhat": "^9.1.0",
     "bignumber.js": "^9.1.2",
+    "commander": "^12.1.0",
     "flocc": "^0.5.21"
   },
   "keywords": [],
