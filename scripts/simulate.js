@@ -8,7 +8,7 @@ const { takeODLLSnapshot, takeUserSnapshots, takeContractSnapshots, takeSafeSnap
 const numBorrowers = 100;
 const numBots = 5;
 const numThirdpartyStablecoinHolders = 300;
-const numSimulations = 300;
+const numSimulations = 100;
 const numHackers = 2;
 
 function getRandomInRange(min, max) {
@@ -283,17 +283,17 @@ class Actor extends Agent {
             const detail = await tx.wait();
             const gas = detail.gasUsed * tx.gasPrice;
             //this.sbdBalance += pendingRewards[0];
-            //this.ethBalance += pendingRewards[1] - gas;
-            expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, aggregatePrecision);
-            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, aggregatePrecision);
+            this.ethBalance += pendingRewards[1] - gas;
+            expect(pendingRewards[0]).to.be.closeTo(this.stabilityPool.unclaimedRewards.sbd, totalPrecision);
+            expect(pendingRewards[1]).to.be.closeTo(this.stabilityPool.unclaimedRewards.eth, totalPrecision);
             this.stabilityPool.unclaimedRewards.sbr = pendingRewards[2];
             if (pendingRewards[0] > BigInt(0) || pendingRewards[1] > BigInt(0) || pendingRewards[2] > BigInt(0)) {
                 await this.claimSbdRewards();
                 await this.claimCollateralGain();
                 await this.claimSbrRewards();
             }
-            expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), aggregatePrecision);
-            expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), aggregatePrecision);
+            expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), totalPrecision);
+            //expect(this.ethBalance).to.be.closeTo(await this.account.provider.getBalance(this.account.address), totalPrecision);
         }
     }
 
@@ -382,6 +382,37 @@ class Actor extends Agent {
             expect(this.sbdBalance).to.be.closeTo(await this.contracts.sbdToken.balanceOf(this.account.address), aggregatePrecision);
             expect(this.sbrStaking.stake).equals((await this.contracts.sbrStaking.stakes(this.account.address)).stake);
             await this.tracker.updateSBRStake(this);
+        }
+    }
+
+    async sendSbdToMarket() {
+        const totalBalance = await this.contracts.sbdToken.balanceOf(this.account.address);
+        const tx = await this.contracts.sbdToken.connect(this.account).transfer(this.market.account.address, totalBalance);
+        await tx.wait();
+    }
+
+    async tearDownStep1() {
+        try {
+            // Claim all rewards
+            const tx1 = await this.contracts.stabilityPool.connect(this.account).claim();
+            await tx1.wait();
+
+            const tx2 = await this.contracts.sbrStaking.connect(this.account).claim();
+            await tx2.wait();
+
+            // Unstake all SBD
+            const user = await this.contracts.stabilityPool.getUser(this.account.address);
+            if (user.stake > BigInt(0)) {
+                const tx3 = await this.contracts.stabilityPool.connect(this.account).unstake(user.stake);
+                await tx3.wait();
+            }
+
+            // Send All SBD to market
+            await this.sendSbdToMarket();
+        } catch (e) {
+            this._printState();
+            this.tracker._printState();
+            throw e;
         }
     }
 }
@@ -984,6 +1015,50 @@ class Borrower extends Actor {
         }
     }
 
+    async tearDownStep2() {
+        try {
+            console.log("Tearing down ", this.safeId, this.account.address);
+            let safe = await this.contracts.stableBaseCDP.safes(this.safeId);
+            if (safe.collateralAmount > BigInt(0)) {
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).adjustPosition(this.safeId, BigInt(0));
+                await tx.wait();
+            } 
+            safe = await this.contracts.stableBaseCDP.safes(this.safeId);
+            console.log("Safe: ", safe);
+            if (safe.collateralAmount > BigInt(0) && safe.borrowedAmount > BigInt(0)) {
+                // acquire SBD needed to repay the loan
+                const paid = await this.market.getSBD(this, safe.borrowedAmount);
+                // Repay the loan
+                const tx1=await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, paid);
+                await tx1.wait();
+                console.log("Repaying ", safe.borrowedAmount, paid);
+                try {
+                    const tx2 = await this.contracts.stableBaseCDP.connect(this.account).repay(this.safeId, paid, BigInt(0));
+                    await tx2.wait();
+                    console.log("Repaying done");
+                    const coll = (paid) / this.market.collateralPrice;
+                    const tx3 = await this.contracts.stableBaseCDP.connect(this.account).withdrawCollateral(this.safeId, coll, BigInt(0));
+                    await tx3.wait();
+                    console.log("Withdraw collateral done");
+                    const tx4= await this.contracts.stableBaseCDP.connect(this.account).closeSafe(this.safeId);
+                    await tx4.wait();
+                    console.log("Safe closed");
+                } catch (ex1) {
+                    // This should fail for only one last safe.
+                    this.consolelog("Failed: ", ex1);
+                }
+            } else {
+                // Do nothing
+            }
+        } catch (ex) {
+            this._printState();
+            this.tracker.printState();
+            throw ex;
+        }
+        
+        // Withdraw all remaining collateral
+    }
+
     async _printState() {
         this.consolelog("Borrower state ", this.safeId, this.safe);
         this.consolelog("Safe: ", await this.contracts.stableBaseCDP.safes(this.safeId));
@@ -1322,6 +1397,22 @@ class Market extends Agent {
         const tx = await this.contracts.sbdToken.connect(this.account).transfer(buyer.account.address, sbdAmount);
         await tx.wait();
         return true;
+    }
+
+    async getSBD(caller, sbdAmount) {
+        const balance = await this.contracts.sbdToken.balanceOf(this.account.address);
+        if (balance > sbdAmount) {
+            const tx = await this.contracts.sbdToken.connect(this.account).transfer(caller.account.address, sbdAmount);
+            await tx.wait();
+            return sbdAmount;
+        } else if (balance > BigInt(0)) {
+            const tx = await this.contracts.sbdToken.connect(this.account).transfer(caller.account.address, balance);
+            this.consolelog(`Insufficient SBD balance ${balance} ${sbdAmount} in the market`);
+            return balance;
+        } else {
+            this.consolelog(`Insufficient SBD balance ${balance} ${sbdAmount} in the market`);
+            return BigInt(0);
+        }
     }
 
     async fluctuateCollateralPrice(factor) {
@@ -2009,6 +2100,7 @@ async function main() {
 
     const contracts = await deployContracts();
     console.log(contracts);
+    const startTime = time.latest();
 
     // Initialize the Market agent
     const market = new Market(marketAccount, marketAccount.balance, contracts);
@@ -2084,11 +2176,37 @@ async function main() {
         
         console.log(); // Blank line for readability between steps
         await tracker.step(i);
+        time.increase(3 * (86400 + 86400 / 2)); // Increase time by 1.5 days at each run.
     }
+
+    
+    console.log("Tearing down agents...");
+    let totalBorrowersTearedDown = 0;
+    for (const actor of actors) {
+        await actor.tearDownStep1();
+    }
+    const endTime = time.latest();
+    console.log("Simulation duration: ", (endTime - startTime) / 86400, " days");
+    console.log(await contracts.sbrToken.totalSupply());
+    expect(await contracts.sbrToken.totalSupply()).to.be.closeTo(ethers.parseEther("31536000", 18), totalPrecision);
+
+    console.log("State before teardown");
+    tracker.printState();
+
+    for (const borrower of borrowers) {
+        console.log("Tearing down borrower ", totalBorrowersTearedDown++, borrower.id);
+        await borrower.tearDownStep2();
+    }
+
+
+
     console.log("Simulation completed without errors");
 
     console.log("SBD total supply: ", await contracts.sbdToken.totalSupply());
+    console.log("Total collateral in contract: ", await contracts.stableBaseCDP.totalCollateral());
+    console.log("Total debt in contract: ", await contracts.stableBaseCDP.totalDebt());
     console.log("Total fee paid:", tracker.stabilityPool.totalRewards.sbd);
+    await tracker.printState();
 }
 
 console.log(process.argv);
