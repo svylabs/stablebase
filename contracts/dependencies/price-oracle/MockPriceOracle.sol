@@ -12,6 +12,10 @@ contract MockPriceOracle is IPriceOracle, Ownable {
         price = _price * 1e18;
     }
 
+    function lastGoodPrice() external view override returns (uint256) {
+        return price;
+    }
+
     function fetchPrice() external view override returns (uint256) {
         return price;
     }

@@ -867,7 +867,7 @@ class Borrower extends Actor {
             }
         } else {
             await this.activatePendingCollateralAndDebt();
-            const tx = await this.contracts.stableBaseCDP.connect(this.account).borrow(this.safeId, borrowAmount, this.shieldingRate, BigInt(0), BigInt(0));
+            const tx = await this.contracts.stableBaseCDP.connect(this.account).borrow(this.safeId, borrowAmount, this.shieldingRate, this.tracker.getRandomSpot(), this.tracker.getRandomSpot());
             const detail = await tx.wait();
             this.safe.debt += borrowAmount;
             this.safe.totalBorrowedAmount += borrowAmount;
@@ -892,7 +892,7 @@ class Borrower extends Actor {
             try {
                 const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, repayAmount);
                 await tx1.wait();
-                const tx = await this.contracts.stableBaseCDP.connect(this.account).repay(this.safeId, repayAmount, BigInt(0));
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).repay(this.safeId, repayAmount, this.tracker.getRandomSpot());
                 const txDetail = await tx.wait();
                 assert.fail(`Repay should have failed ${repayAmount} ${this.sbdBalance} ${this.safe.debt}`);
             } catch (error) {
@@ -902,7 +902,7 @@ class Borrower extends Actor {
             await this.activatePendingCollateralAndDebt();
             const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, repayAmount);
                 await tx1.wait();
-            const tx = await this.contracts.stableBaseCDP.connect(this.account).repay(this.safeId, repayAmount, BigInt(0));
+            const tx = await this.contracts.stableBaseCDP.connect(this.account).repay(this.safeId, repayAmount, this.tracker.getRandomSpot());
             const detail = await tx.wait();
             this.safe.debt -= repayAmount;
             this.sbdBalance -= repayAmount;
@@ -923,7 +923,7 @@ class Borrower extends Actor {
         if ((this.safe.collateral == BigInt(0)) || (collateralValue  - withdrawValue) < (((this.safe.debt + this.safe.pending.debt) * BigInt(11000)) / BigInt(10000))) {
             // this should fail
             try {
-                const tx = await this.contracts.stableBaseCDP.connect(this.account).withdrawCollateral(this.safeId, withdrawAmount, BigInt(0));
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).withdrawCollateral(this.safeId, withdrawAmount, this.tracker.getRandomSpot());
                 const detail = await tx.wait();
                 assert.fail("Withdraw should have failed");
             } catch (error) {
@@ -937,7 +937,7 @@ class Borrower extends Actor {
                 this.consolelog("Can't withdraw collateral at this time");
                 return ;
             }
-            const tx = await this.contracts.stableBaseCDP.connect(this.account).withdrawCollateral(this.safeId, withdrawAmount, BigInt(0));
+            const tx = await this.contracts.stableBaseCDP.connect(this.account).withdrawCollateral(this.safeId, withdrawAmount, this.tracker.getRandomSpot());
             const detail = await tx.wait();
             const gas = detail.gasUsed * tx.gasPrice;
             this.safe.collateral -= withdrawAmount;
@@ -956,14 +956,14 @@ class Borrower extends Actor {
         }
         if (this.safe.collateral == BigInt(0)) {
             try {
-                const tx = await this.contracts.stableBaseCDP.connect(this.account).addCollateral(this.safeId, addAmount, BigInt(0), { value: addAmount });
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).addCollateral(this.safeId, addAmount, this.tracker.getRandomSpot(), { value: addAmount });
                 assert.fail("Add collateral should have failed");
             } catch (ex) {
                 this.consolelog(ex, "Add collateral failed as expected");
             }
         } else {
             await this.activatePendingCollateralAndDebt();
-            const tx = await this.contracts.stableBaseCDP.connect(this.account).addCollateral(this.safeId, addAmount, BigInt(0), { value: addAmount });
+            const tx = await this.contracts.stableBaseCDP.connect(this.account).addCollateral(this.safeId, addAmount, this.tracker.getRandomSpot(), { value: addAmount });
             const detail = await tx.wait();
             const gas = detail.gasUsed * tx.gasPrice;
             this.safe.collateral += addAmount;
@@ -980,7 +980,7 @@ class Borrower extends Actor {
             try {
                 const tx1 = await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, topupFee);
                 await tx1.wait();
-                const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, BigInt(0));
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, this.tracker.getRandomSpot());
                 assert.fail("Topup fee should have failed");
             } catch (error) {
                 this.consolelog(error, "Topup fee failed as expected");
@@ -989,7 +989,7 @@ class Borrower extends Actor {
             try {
                 const tx1= await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, BigInt(0));
                 await tx1.wait();
-                const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, BigInt(0));
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, this.tracker.getRandomSpot());
                 assert.fail("This should have failed");
             } catch (ex) {
                 await this.activatePendingCollateralAndDebt();
@@ -997,7 +997,7 @@ class Borrower extends Actor {
                 this.consolelog("Paying topup fee ", topupFee, this.safe.debt, this.sbdBalance, this.shieldingRate);
                 if (topupFee > this.sbdBalance) {
                     this.consolelog("Adjusting position in the safe instead of paying topup fee at this point.");
-                    const tx1 = await this.contracts.stableBaseCDP.connect(this.account).adjustPosition(this.safeId, BigInt(0));
+                    const tx1 = await this.contracts.stableBaseCDP.connect(this.account).adjustPosition(this.safeId, this.tracker.getRandomSpot());
                     await tx1.wait();
                     return;
                 }
@@ -1005,7 +1005,7 @@ class Borrower extends Actor {
                 const tx1= await this.contracts.sbdToken.connect(this.account).approve(this.contracts.stableBaseCDP.target, topupFee);
                 await tx1.wait();
                 await this.tracker.verifyStakerPendingRewards();
-                const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, BigInt(0));
+                const tx = await this.contracts.stableBaseCDP.connect(this.account).feeTopup(this.safeId, this.shieldingRate, this.tracker.getRandomSpot());
                 const detail = await tx.wait();
                 const refund = await this.tracker.distributeShieldingFee(topupFee);
                 this.consolelog("Paid topup fee ", topupFee, refund);
@@ -1034,11 +1034,11 @@ class Borrower extends Actor {
                 await tx1.wait();
                 console.log("Repaying ", safe.borrowedAmount, paid);
                 try {
-                    const tx2 = await this.contracts.stableBaseCDP.connect(this.account).repay(this.safeId, paid, BigInt(0));
+                    const tx2 = await this.contracts.stableBaseCDP.connect(this.account).repay(this.safeId, paid, this.tracker.getRandomSpot());
                     await tx2.wait();
                     console.log("Repaying done");
                     const coll = (paid) / this.market.collateralPrice;
-                    const tx3 = await this.contracts.stableBaseCDP.connect(this.account).withdrawCollateral(this.safeId, coll, BigInt(0));
+                    const tx3 = await this.contracts.stableBaseCDP.connect(this.account).withdrawCollateral(this.safeId, coll, this.tracker.getRandomSpot());
                     await tx3.wait();
                     console.log("Withdraw collateral done");
                     const tx4= await this.contracts.stableBaseCDP.connect(this.account).closeSafe(this.safeId);
@@ -1455,11 +1455,12 @@ class Market extends Agent {
 
 // A tracker agent to compute and verify the protocol's state offline, used to ensure protocol works as expected
 class OfflineProtocolTracker extends Agent {
-  constructor(contracts, market, actors) {
+  constructor(contracts, market, actors, borrowerList) {
     super();
     this.contracts = contracts;
     this.actors = actors;
     this.borrowers = {};
+    this.borrowerList = borrowerList;
     this.totalCollateral = BigInt(0); // Collateral value
     this.totalDebt = BigInt(0); // Debt in stablecoin (SBD)
     this.market = market;
@@ -1753,16 +1754,9 @@ class OfflineProtocolTracker extends Agent {
      return fee - distributed - distributedToSbrStakers; // return refund
   }
 
-  async distributeCollateralGains(collateral) {
-
-  }
-
-  async distributeLiquidationFee() {
-
-  }
-
-  async distributeRedemptionFee() {
-
+  getRandomSpot() {
+      const randomId = Math.floor(Math.random() * 10000) % this.borrowerList.length;
+      return this.borrowerList[randomId];
   }
 
   async validateDebtAndCollateral() {
@@ -2107,7 +2101,7 @@ async function main() {
     const market = new Market(marketAccount, marketAccount.balance, contracts);
     env.addAgent(market);
 
-    const tracker = new OfflineProtocolTracker(contracts, market, []);
+    const tracker = new OfflineProtocolTracker(contracts, market, [], []);
     env.addAgent(tracker);
 
     // Initialize CDP agents with random collateral and debt values
@@ -2121,10 +2115,12 @@ async function main() {
     */
 
     let addressIndex = 0;
+    const safeIds = [];
     for (let i = 0; i < numBorrowers; i++) {
         const borrower = new Borrower(addrs[addressIndex], addrs[addressIndex].balance, contracts, market, tracker);
         borrower.ethBalance = await addrs[addressIndex].provider.getBalance(addrs[addressIndex].address);
         env.addAgent(borrower);
+        safeIds.push(borrower.safeId);
         addressIndex++;
     }
     for (let i = 0; i < numBots; i++) {
@@ -2139,6 +2135,7 @@ async function main() {
         env.addAgent(thirdpartyStablecoinHolder);
         addressIndex++;
     }
+    tracker.borrowerList = safeIds;
 
     // Update each CDP based on the new collateral price
     const actors = env.getAgents()

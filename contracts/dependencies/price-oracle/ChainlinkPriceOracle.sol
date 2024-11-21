@@ -32,6 +32,10 @@ contract ChainlinkPriceFeed is IPriceOracle {
         }
     }
 
+    function lastGoodPrice() public view override returns (uint256) {
+        return fetchPrice();
+    }
+
     /**
      * Fetches the latest ETH/USD price scaled to 10^18.
      */

@@ -53,13 +53,13 @@ async function main() {
     const OrderedDoublyLinkedList = await ethers.getContractFactory("OrderedDoublyLinkedList");
     const redemptionQueue = await OrderedDoublyLinkedList.deploy();
     await redemptionQueue.waitForDeployment();
-    console.log("Deployed LiquidationQueue to:", redemptionQueue.target);
+    console.log("Deployed RedemptionQueue to:", redemptionQueue.target);
 
     
 
     const liquidationQueue = await OrderedDoublyLinkedList.deploy();
     await liquidationQueue.waitForDeployment();
-    console.log("Deployed RedemptionQueue to:", liquidationQueue.target);
+    console.log("Deployed LiquidationQueue to:", liquidationQueue.target);
 
 
 
