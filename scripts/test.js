@@ -2,7 +2,7 @@ const { ethers, hardhatArguments } = require("hardhat");
 
 const deployedAddresses = {
     ethMainnet: {
-        sbdToken: "0x8b52c6a0ECDd3952E8F14F711D638fd2b4dE2529",
+        dfidToken: "0x8b52c6a0ECDd3952E8F14F711D638fd2b4dE2529",
         dfireToken: "0x236636842f6c64e198e223058794bbBBBaaccDE9",
         stabilityPool: "0x590e59BabaFf67FB3f10AD9eF315242D2A17F8d0",
         priceOracle: "0x4c517D4e2C851CA76d7eC94B805269Df0f2201De",
@@ -12,7 +12,7 @@ const deployedAddresses = {
         liquidationQueue: "0x86644d53B0bD9032D16FEEE1f856767481a16884"
     },
     citreaTestnet: {
-        sbdToken: "0x6b11C5A44A8f21C3cDAe84e6Bc48DbE6f366Ba04",
+        dfidToken: "0x6b11C5A44A8f21C3cDAe84e6Bc48DbE6f366Ba04",
         dfireToken: "0x040a2bDFde4AA456A765ed367F7f77C5574282eD",
         stabilityPool: "0x901e951592B147968e7e4Dbf5792de408Ac0480e",
         priceOracle: "0x8E2A54197A9F89E26F85080B63E6D969eec3733a",
@@ -32,7 +32,7 @@ async function loadContracts(addresses) {
   const balance = await ethers.provider.getBalance(user.address);
   console.log("User balance:", balance);
 
-    const sbdToken = await ethers.getContractAt("SBDToken", addresses.sbdToken);
+    const sbdToken = await ethers.getContractAt("SBDToken", addresses.dfidToken);
     //await sbdToken.waitForDeployment();
     console.log("Using SBDToken contract at:", sbdToken.target);
   
