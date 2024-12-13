@@ -3,43 +3,85 @@
   "description": "Borrow $DFID on StableBase with $ETH as collateral",
   "components": [
     {
+      "id": "safeId",
+      "label": "Safe ID",
+      "type": "description",
+      "placement": "output",
+      "events": [
+        {
+          "type": "onLoad",
+          "code": "async function loadSafe(data, mcLib) {\n    let safeId = data.safeId;\n    if (!safeId && mcLib.context.connectedAddress) {\n        safeId = mcLib.web3.utils.sha3(mcLib.context.connectedAddress);\n    }\n    if (safeId) {\n        //console.log(document.cookie);\n        //console.log(localStorage.getItem('safeId'));\n        console.log('Loading Safe:', safeId);\n        const price = BigInt(await mcLib.contracts.PriceOracle.methods.lastGoodPrice().call());\n        const safe = await mcLib.contracts.StableBaseCDP.methods.safes(safeId).call();\n        const safeOwner = await mcLib.contracts.StableBaseCDP.methods.ownerOf(safeId);\n        const balance = await mcLib.web3.eth.getBalance(mcLib.context.connectedAddress);\n        if (safeOwner !== mcLib.context.connectedAddress && safe.collateralAmount > BigInt(0)) {\n            console.error('Need to generate a new SafeId as the safe is already owned by someone');\n            return null;\n        }\n        return {\n            safeId: safeId,\n            safe: safe,\n            totalDebt: safe.borrowedAmount,\n            totalCollateral: safe.collateralAmount,\n            collateralPriceFormatted: mcLib.web3.utils.fromWei(price.toString(), 'ether') + \" USD\",\n            collateralPrice: price,\n            nativeTokenBalance: balance\n        }\n    } else {\n        return {\n\n        };\n    }\n}\n\n\nloadSafe(data, mcLib);"
+        }
+      ]
+    },
+    {
+      "id": "totalCollateral",
+      "label": "Total Collateral Deposited",
+      "type": "description",
+      "placement": "output"
+    },
+    {
+      "id": "totalDebt",
+      "label": "Total Debt",
+      "type": "description",
+      "placement": "output"
+    },
+    {
+      "id": "collateralPriceFormatted",
+      "label": "Collateral Price",
+      "type": "description",
+      "placement": "output"
+    },
+    {
       "id": "borrow",
       "label": "Borrow $DFID",
       "type": "swap",
       "placement": "input",
       "code": "",
       "config": {
-        "styles": {
-          "color": "",
-          "backgroundColor": "",
-          "fontSize": "",
-          "padding": "",
-          "margin": ""
-        },
         "swapConfig": {
-          "heading": "Borrowing",
+          "heading": "Deposit Collateral",
           "fromTokenLabel": "Deposit",
           "toTokenLabel": "Borrow",
-          "amountLabel": "depositAmount",
-          "estimatedAmountLabel": "borrowAmount",
-          "maxEstimationBorrowLabel": "borrowEstimatedAmount",
+          "fromAmountLabel": "Deposit Amount",
+          "maxFromAmountLabel": "Maximum Deposit Amount",
+          "toAmountLabel": "Borrow Amount",
+          "maxToAmountLabel": "Maximum Borrowable Amount",
           "tokens": [
             {
               "chainId": 1,
               "name": "ETH",
-              "symbol": "ETH(Native)",
+              "symbol": "ETH (Native)",
+              "address": "1-eth",
               "decimals": 18,
-              "address": "0x0",
-              "logoURI": "https://raw.githubusercontent.com/Uniswap/assets/master/blockchains/polygon/assets/0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270/logo.png",
+              "logoURI": "https://raw.githubusercontent.com/Uniswap/assets/master/blockchains/ethereum/info/logo.png",
+              "listType": "from"
+            },
+            {
+              "chainId": 5115,
+              "name": "Citrea - Bitcoin",
+              "symbol": "cBTC",
+              "address": "5115-cbtc",
+              "decimals": 18,
+              "logoURI": "https://raw.githubusercontent.com/Uniswap/assets/master/blockchains/bitcoin/info/logo.png",
               "listType": "from"
             },
             {
               "chainId": 1,
               "name": "D.FI.Dollar",
               "symbol": "DFID",
+              "address": "1-dfid",
               "decimals": 18,
-              "address": "0x8b52c6a0ECDd3952E8F14F711D638fd2b4dE2529",
-              "logoURI": "https://raw.githubusercontent.com/Uniswap/assets/master/blockchains/ethereum/assets/0x74b23882a30290451a17c44f4f05243b6b58c76d/logo.png",
+              "logoURI": "https://raw.githubusercontent.com/svylabs/stablebase/main/icons/dfid/icon.png",
+              "listType": "to"
+            },
+            {
+              "chainId": 5115,
+              "name": "D.FI.Dollar",
+              "symbol": "DFID",
+              "address": "5115-dfid",
+              "decimals": 18,
+              "logoURI": "https://raw.githubusercontent.com/svylabs/stablebase/main/icons/dfid/icon.png",
               "listType": "to"
             }
           ]
@@ -47,8 +89,12 @@
       },
       "events": [
         {
-          "event": "onChange",
-          "eventsCode": "const oracleAddress = \"0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419\";\nconst oracleABI = [\n  {\n    \"constant\": true,\n    \"inputs\": [],\n    \"name\": \"latestAnswer\",\n    \"outputs\": [\n      {\n        \"name\": \"\",\n        \"type\": \"int256\"\n      }\n    ],\n    \"payable\": false,\n    \"stateMutability\": \"view\",\n    \"type\": \"function\"\n  }\n];\n\nconst web3 = new Web3(window.ethereum);\n\nasync function estimateAmount() {\n  try {\n    const depositAmount = data[\"borrow\"]?.depositAmount || \"0\"; \n    const amount = BigInt(web3.utils.toWei(depositAmount, \"ether\"));\n\n    const oracleContract = new web3.eth.Contract(oracleABI, oracleAddress);\n\n    const price = BigInt(await oracleContract.methods.latestAnswer().call());\n\n    if (!price) {\n      console.error(\"Failed to fetch the latest price.\");\n      return { estimatedAmount: null };\n    }\n\n    const estimatedAmount = (amount * price) / BigInt(10 ** 8); \n\n    const borrowEstimatedAmount = web3.utils.fromWei(estimatedAmount.toString(), \"ether\");\n\n    console.log(\"Estimated Amount:\", borrowEstimatedAmount);\n\n    return { borrowEstimatedAmount };\n  } catch (error) {\n    console.error(\"Error fetching the price or calculating the estimated amount:\", error);\n    return { estimatedAmount: null };\n  }\n}\n\nestimateAmount();"
+          "type": "onLoad",
+          "code": "/*\n  Fetch the total balance of the default token selected\n*/\nconst fetchTotalBalance = async (data, mcLib) => {\n  const balance = await mcLib.web3.eth.getBalance(mcLib.context.connectedAddress);\n   return {\n      borrow: {\n          ...data.borrow,\n          maxFromAmount: balance.toString()\n      }\n   }\n};\n\nfetchTotalBalance(data, mcLib);"
+        },
+        {
+          "type": "onChange",
+          "code": "/*\n  Fetch the total balance of the default token selected\n*/\nconst estimate = async (data, mcLib) => {\n    const depositAmount = data.borrow[\"fromAmount\"];\n    console.log(\"On change: estimate: \", data, depositAmount);\n    if (depositAmount) {\n      const formattedAmount = mcLib.web3.utils.toWei(depositAmount, 'ether');\n      const borrowAmount = BigInt(formattedAmount) * data.collateralPrice / BigInt(1e18);\n      return {\n          borrow: {\n              ...data.borrow,\n              maxToAmount: borrowAmount.toString()\n          }\n      }\n    } else {\n      return {};\n    }\n  };\n  \n  estimate(data, mcLib);"
         }
       ],
       "order": 0
@@ -60,21 +106,14 @@
       "placement": "input",
       "code": "",
       "config": {
-        "styles": {
-          "color": "",
-          "backgroundColor": "",
-          "fontSize": "",
-          "padding": "",
-          "margin": ""
-        },
         "sliderConfig": {
           "message": "Please specify the range of values. You can customize the minimum, maximum, value and step values below.",
           "interval": {
             "min": 0,
-            "max": 1
+            "max": 3
           },
           "value": 0.2,
-          "step": 0.05
+          "step": 0.01
         }
       },
       "events": [],
@@ -86,19 +125,11 @@
       "type": "text",
       "placement": "output",
       "code": "",
-      "config": {
-        "styles": {
-          "color": "",
-          "backgroundColor": "",
-          "fontSize": "",
-          "padding": "",
-          "margin": ""
-        }
-      },
+      "config": {},
       "events": [
         {
           "event": "onChange",
-          "eventsCode": "const oracleAddress = \"0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419\";\nconst oracleABI = [\n  {\n    \"constant\": true,\n    \"inputs\": [],\n    \"name\": \"latestAnswer\",\n    \"outputs\": [\n      {\n        \"name\": \"\",\n        \"type\": \"int256\"\n      }\n    ],\n    \"payable\": false,\n    \"stateMutability\": \"view\",\n    \"type\": \"function\"\n  }\n];\n\nconst web3 = new Web3(window.ethereum);\n\nasync function estimateAmount() {\n  try {\n    const depositAmount = data[\"borrow\"]?.depositAmount || \"0\"; \n    const amount = BigInt(web3.utils.toWei(depositAmount, \"ether\"));\n\n    const oracleContract = new web3.eth.Contract(oracleABI, oracleAddress);\n\n    const price = BigInt(await oracleContract.methods.latestAnswer().call());\n\n    if (!price) {\n      console.error(\"Failed to fetch the latest price.\");\n      return { estimatedAmount: null };\n    }\n\n    const estimatedAmount = (amount * price) / BigInt(10 ** 8); \n\n    const borrow_amount = web3.utils.fromWei(estimatedAmount.toString(), \"ether\");\n\n    console.log(\"Estimated borrow_amount:\", borrow_amount);\n\n    return { borrow_amount };\n  } catch (error) {\n    console.error(\"Error fetching the price or calculating the estimated amount:\", error);\n    return { estimatedAmount: null };\n  }\n}\n\nestimateAmount();"
+          "code": "const oracleAddress = \"0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419\";\nconst oracleABI = [\n  {\n    \"constant\": true,\n    \"inputs\": [],\n    \"name\": \"latestAnswer\",\n    \"outputs\": [\n      {\n        \"name\": \"\",\n        \"type\": \"int256\"\n      }\n    ],\n    \"payable\": false,\n    \"stateMutability\": \"view\",\n    \"type\": \"function\"\n  }\n];\n\nconst web3 = new Web3(window.ethereum);\n\nasync function estimateAmount() {\n  try {\n    const depositAmount = data[\"borrow\"]?.depositAmount || \"0\"; \n    const amount = BigInt(web3.utils.toWei(depositAmount, \"ether\"));\n\n    const oracleContract = new web3.eth.Contract(oracleABI, oracleAddress);\n\n    const price = BigInt(await oracleContract.methods.latestAnswer().call());\n\n    if (!price) {\n      console.error(\"Failed to fetch the latest price.\");\n      return { estimatedAmount: null };\n    }\n\n    const estimatedAmount = (amount * price) / BigInt(10 ** 8); \n\n    const borrow_amount = web3.utils.fromWei(estimatedAmount.toString(), \"ether\");\n\n    console.log(\"Estimated borrow_amount:\", borrow_amount);\n\n    return { borrow_amount };\n  } catch (error) {\n    console.error(\"Error fetching the price or calculating the estimated amount:\", error);\n    return { estimatedAmount: null };\n  }\n}\n\nestimateAmount();"
         }
       ],
       "order": 2
@@ -109,16 +140,7 @@
       "type": "button",
       "placement": "action",
       "code": "const stableBaseCDPABI = [\n    {\n      \"inputs\": [\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"_safeId\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"_amount\",\n          \"type\": \"uint256\"\n        }\n      ],\n      \"name\": \"openSafe\",\n      \"outputs\": [],\n      \"stateMutability\": \"payable\",\n      \"type\": \"function\"\n    },\n    {\n      \"inputs\": [\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"safeId\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"amount\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"shieldingRate\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"nearestSpotInLiquidationQueue\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"nearestSpotInRedemptionQueue\",\n          \"type\": \"uint256\"\n        }\n      ],\n      \"name\": \"borrow\",\n      \"outputs\": [],\n      \"stateMutability\": \"nonpayable\",\n      \"type\": \"function\"\n    }\n  ];\n  \n  const stableBaseCDPAddress = \"0x5FbDB2315678afecb367f032d93F642f64180aa3\";\n  const web3 = new Web3(window.ethereum);\n  \n  async function makeTransaction() {\n    try {\n      const account = (await web3.eth.getAccounts())[0]; \n  \n      // Step 1: Open a safe\n      const safeId = 1;\n      const depositAmount = data[\"borrow\"]?.depositAmount || \"0\";\n      const collateralAmount = web3.utils.toWei(depositAmount, \"ether\");\n  \n      console.log(\"Opening safe with ID:\", safeId, \"and collateral amount:\", collateralAmount);\n  \n      const openSafeTx = await new web3.eth.Contract(stableBaseCDPABI, stableBaseCDPAddress)\n        .methods.openSafe(safeId, collateralAmount)\n        .send({ from: account, value: collateralAmount }); // Send collateral amount as value\n  \n      console.log(\"Safe opened successfully:\", openSafeTx);\n  \n      // Step 2: Prepare parameters for borrowing\n      const borrowAmount = data[\"borrow_amount\"];\n      const shieldingRate = data[\"shielding_rate\"]; \n      const nearestSpotInLiquidationQueue = 0;\n      const nearestSpotInRedemptionQueue = 0;\n  \n      console.log(\"Starting borrow transaction with details:\", {\n        safeId,\n        borrowAmount,\n        shieldingRate,\n        nearestSpotInLiquidationQueue,\n        nearestSpotInRedemptionQueue\n      });\n  \n      // Step 3: Make the borrow transaction\n      const borrowTx = await new web3.eth.Contract(stableBaseCDPABI, stableBaseCDPAddress)\n        .methods.borrow(safeId, borrowAmount, shieldingRate, nearestSpotInLiquidationQueue, nearestSpotInRedemptionQueue)\n        .send({ from: account });\n  \n      console.log(\"Borrow transaction successful:\", borrowTx);\n    } catch (error) {\n      console.error(\"Error making the transaction:\", error);\n    }\n  }\n  \n  makeTransaction();",
-      "config": {
-        "styles": {
-          "color": "",
-          "backgroundColor": "",
-          "fontSize": "",
-          "padding": "",
-          "margin": "0 auto",
-          "width": "fit-content"
-        }
-      },
+      "config": {},
       "events": [],
       "order": 3
     },
@@ -128,19 +150,11 @@
       "type": "description",
       "placement": "output",
       "code": "",
-      "config": {
-        "styles": {
-          "color": "",
-          "backgroundColor": "",
-          "fontSize": "",
-          "padding": "",
-          "margin": ""
-        }
-      },
+      "config": {},
       "events": [
         {
           "event": "onChange",
-          "eventsCode": "function descriptionText() {\n    const shieldingRate = data[\"shielding_rate\"];\n    const amount = data[\"borrow_amount\"];\n    let description;\n\n    if (shieldingRate < 0.5) {\n        description = `Shielding rate is below 0.5, indicating a lower level of shielded assets. Borrow estimated amount: ${amount}.`;\n    } else if (shieldingRate == 0.5) {\n        description = `Shielding rate is exactly 0.5, representing a balanced shielded assets ratio. Borrow estimated amount: ${amount}.`;\n    } else if (shieldingRate > 0.5) {\n        description = `Shielding rate is above 0.5, indicating a higher level of shielded assets. Borrow estimated amount: ${amount}.`;\n    }\n\n    const borrowEstimatedAmount = { description };\n    return borrowEstimatedAmount;\n}\n\ndescriptionText();"
+          "code": "function descriptionText() {\n    const shieldingRate = data[\"shielding_rate\"];\n    const amount = data[\"borrow_amount\"];\n    let description;\n\n    if (shieldingRate < 0.5) {\n        description = `Shielding rate is below 0.5, indicating a lower level of shielded assets. Borrow estimated amount: ${amount}.`;\n    } else if (shieldingRate == 0.5) {\n        description = `Shielding rate is exactly 0.5, representing a balanced shielded assets ratio. Borrow estimated amount: ${amount}.`;\n    } else if (shieldingRate > 0.5) {\n        description = `Shielding rate is above 0.5, indicating a higher level of shielded assets. Borrow estimated amount: ${amount}.`;\n    }\n\n    const borrowEstimatedAmount = { description };\n    return borrowEstimatedAmount;\n}\n\ndescriptionText();"
         }
       ],
       "order": 4
@@ -148,16 +162,12 @@
     {
       "id": "transactionLink",
       "label": "Transaction Link",
-      "type": "transactionLink",
+      "type": "link",
       "placement": "output",
       "code": "",
       "config": {
-        "styles": {
-          "color": "",
-          "backgroundColor": "",
-          "fontSize": "",
-          "padding": "",
-          "margin": ""
+        "transactionConfig": {
+          "linkType": "transaction"
         }
       },
       "events": [],
@@ -167,7 +177,10 @@
   "contracts": [
     {
       "name": "StableBaseCDP",
-      "address": "0x5f98805A4E8be255a32880FDeC7F6728C6568bA0",
+      "addresses": {
+        "1": "0xaF026bf59B738bDc7FD8899a641D79a6d5cEb151",
+        "5115": "0x108d105FFe07C9615939DeE88A4Fe2ECD62Acdc7"
+      },
       "abi": [
         {
           "inputs": [],
@@ -1756,12 +1769,351 @@
           "type": "function"
         }
       ]
+    },
+    {
+      "name": "PriceOracle",
+      "addresses": {
+        "1": "0x4c517d4e2c851ca76d7ec94b805269df0f2201de",
+        "5115": "0x8E2A54197A9F89E26F85080B63E6D969eec3733a"
+      },
+      "abi": [
+        {
+          "constant": true,
+          "inputs": [],
+          "name": "lastGoodPrice",
+          "outputs": [
+            {
+              "name": "",
+              "type": "int256"
+            }
+          ],
+          "payable": false,
+          "stateMutability": "view",
+          "type": "function"
+        }
+      ]
+    },
+    {
+      "name": "RedemptionQueue",
+      "addresses": {
+        "1": "0x7944588320547E46ddD0b0816E76678C0C4cB8A1",
+        "5115": "0x1F9E6cCad7C8870bB40a17EdDd43a75f4bF0E440"
+      },
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "id",
+              "type": "uint256"
+            }
+          ],
+          "name": "get",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "prev",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "next",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IDoublyLinkedList.Node",
+              "name": "",
+              "type": "tuple"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "getHead",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "id",
+              "type": "uint256"
+            }
+          ],
+          "name": "getNode",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "prev",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "next",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IDoublyLinkedList.Node",
+              "name": "",
+              "type": "tuple"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "beginAt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "total",
+              "type": "uint256"
+            }
+          ],
+          "name": "getNodes",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "prev",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "next",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IDoublyLinkedList.Node[50]",
+              "name": "n",
+              "type": "tuple[50]"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalFound",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "getTail",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        }
+      ]
+    },
+    {
+      "name": "LiquidationQueue",
+      "addresses": {
+        "1": "0x86644d53B0bD9032D16FEEE1f856767481a16884",
+        "5115": "0xfaD62505b37bc196d23C3396B35e0d006fa534e2"
+      },
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "id",
+              "type": "uint256"
+            }
+          ],
+          "name": "get",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "prev",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "next",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IDoublyLinkedList.Node",
+              "name": "",
+              "type": "tuple"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "getHead",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "id",
+              "type": "uint256"
+            }
+          ],
+          "name": "getNode",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "prev",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "next",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IDoublyLinkedList.Node",
+              "name": "",
+              "type": "tuple"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "beginAt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "total",
+              "type": "uint256"
+            }
+          ],
+          "name": "getNodes",
+          "outputs": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "prev",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "next",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct IDoublyLinkedList.Node[50]",
+              "name": "n",
+              "type": "tuple[50]"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalFound",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "getTail",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        }
+      ]
     }
   ],
-  "network": {
-    "type": "ethereum",
-    "config": {
-      "chainId": "1"
+  "networks": [
+    {
+      "type": "ethereum",
+      "name": "Ethereum Mainnet",
+      "config": {
+        "chainId": 1
+      }
+    },
+    {
+      "type": "ethereum",
+      "name": "Citrea Bitcoin Testnet",
+      "config": {
+        "chainId": 5115
+      }
     }
-  }
+  ]
 }
