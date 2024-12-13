@@ -94,14 +94,14 @@
         },
         {
           "type": "onChange",
-          "code": "/*\n  Fetch the total balance of the default token selected\n*/\nconst estimate = async (data, mcLib) => {\n    const depositAmount = data.borrow[\"fromAmount\"];\n    console.log(\"On change: estimate: \", data, depositAmount);\n    if (depositAmount) {\n      const formattedAmount = mcLib.web3.utils.toWei(depositAmount, 'ether');\n      const borrowAmount = BigInt(formattedAmount) * data.collateralPrice / BigInt(1e18);\n      return {\n          borrow: {\n              ...data.borrow,\n              maxToAmount: borrowAmount.toString()\n          }\n      }\n    } else {\n      return {};\n    }\n  };\n  \n  estimate(data, mcLib);"
+          "code": "/*\n  Fetch the total balance of the default token selected\n*/\nconst estimate = async (data, mcLib) => {\n    const depositAmount = data.borrow[\"fromAmount\"];\n    console.log(\"On change: estimate: \", data, depositAmount);\n    const borrowAmount = data.borrow.toAmount;\n    if (depositAmount) {\n      const formattedAmount = mcLib.web3.utils.toWei(depositAmount, 'ether');\n      const borrowAmount = BigInt(formattedAmount) * data.collateralPrice / BigInt(1e18);\n      return {\n          borrow: {\n              ...data.borrow,\n              maxToAmount: borrowAmount.toString()\n          },\n          txDescription: {}\n      }\n    } else {\n      return {};\n    }\n  };\n  \n  estimate(data, mcLib);"
         }
       ],
       "order": 0
     },
     {
-      "id": "shielding_rate",
-      "label": "Shielding Rate",
+      "id": "shieldingRate",
+      "label": "Shielding Rate(in %)",
       "type": "slider",
       "placement": "input",
       "code": "",
@@ -116,52 +116,78 @@
           "step": 0.01
         }
       },
-      "events": [],
+      "events": [
+        {
+          "type": "onChange",
+          "code": "async function calculateFeeAndBorrowAmount() {\n    // Fetch the total borrow amount\n    const borrowAmount = BigInt(mcLib.web3.utils.toWei(data.borrow.toAmount, 'ether'));\n    console.log(\"Borrow amount: \", borrowAmount, data);\n    if (data.shieldingRate && borrowAmount) {\n        // Get the shielding rate\n        const shieldingRate = BigInt(\"\" + parseInt(parseFloat(data.shieldingRate) * 100));\n        console.log(\"Shielding rate: \", shieldingRate, borrowAmount);\n        // calculate fee\n        const fee = (borrowAmount * shieldingRate) / BigInt(10000);\n        // calculate borrow amount\n        const borrowAmountAfterFee = borrowAmount - fee;\n        return {\n            shieldingFee: {\n                value: fee,\n                formatted: mcLib.web3.utils.fromWei(fee.toString(), 'ether')\n            },\n            borrowAmount: {\n                value: borrowAmountAfterFee,\n                formatted: mcLib.web3.utils.fromWei(borrowAmountAfterFee.toString(), 'ether')\n            },\n            openSafeDescription: true,\n            openSafeBtn: true\n        }\n    } else {\n        return {};\n    }\n}\ncalculateFeeAndBorrowAmount();"
+        }
+      ],
       "order": 1
     },
     {
-      "id": "borrow_amount",
-      "label": "You Get",
-      "type": "text",
-      "placement": "output",
-      "code": "",
-      "config": {},
-      "events": [
-        {
-          "event": "onChange",
-          "code": "const oracleAddress = \"0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419\";\nconst oracleABI = [\n  {\n    \"constant\": true,\n    \"inputs\": [],\n    \"name\": \"latestAnswer\",\n    \"outputs\": [\n      {\n        \"name\": \"\",\n        \"type\": \"int256\"\n      }\n    ],\n    \"payable\": false,\n    \"stateMutability\": \"view\",\n    \"type\": \"function\"\n  }\n];\n\nconst web3 = new Web3(window.ethereum);\n\nasync function estimateAmount() {\n  try {\n    const depositAmount = data[\"borrow\"]?.depositAmount || \"0\"; \n    const amount = BigInt(web3.utils.toWei(depositAmount, \"ether\"));\n\n    const oracleContract = new web3.eth.Contract(oracleABI, oracleAddress);\n\n    const price = BigInt(await oracleContract.methods.latestAnswer().call());\n\n    if (!price) {\n      console.error(\"Failed to fetch the latest price.\");\n      return { estimatedAmount: null };\n    }\n\n    const estimatedAmount = (amount * price) / BigInt(10 ** 8); \n\n    const borrow_amount = web3.utils.fromWei(estimatedAmount.toString(), \"ether\");\n\n    console.log(\"Estimated borrow_amount:\", borrow_amount);\n\n    return { borrow_amount };\n  } catch (error) {\n    console.error(\"Error fetching the price or calculating the estimated amount:\", error);\n    return { estimatedAmount: null };\n  }\n}\n\nestimateAmount();"
-        }
-      ],
-      "order": 2
-    },
-    {
-      "id": "initiate_borrowing",
-      "label": "Initiate Borrowing",
-      "type": "button",
-      "placement": "action",
-      "code": "const stableBaseCDPABI = [\n    {\n      \"inputs\": [\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"_safeId\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"_amount\",\n          \"type\": \"uint256\"\n        }\n      ],\n      \"name\": \"openSafe\",\n      \"outputs\": [],\n      \"stateMutability\": \"payable\",\n      \"type\": \"function\"\n    },\n    {\n      \"inputs\": [\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"safeId\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"amount\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"shieldingRate\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"nearestSpotInLiquidationQueue\",\n          \"type\": \"uint256\"\n        },\n        {\n          \"internalType\": \"uint256\",\n          \"name\": \"nearestSpotInRedemptionQueue\",\n          \"type\": \"uint256\"\n        }\n      ],\n      \"name\": \"borrow\",\n      \"outputs\": [],\n      \"stateMutability\": \"nonpayable\",\n      \"type\": \"function\"\n    }\n  ];\n  \n  const stableBaseCDPAddress = \"0x5FbDB2315678afecb367f032d93F642f64180aa3\";\n  const web3 = new Web3(window.ethereum);\n  \n  async function makeTransaction() {\n    try {\n      const account = (await web3.eth.getAccounts())[0]; \n  \n      // Step 1: Open a safe\n      const safeId = 1;\n      const depositAmount = data[\"borrow\"]?.depositAmount || \"0\";\n      const collateralAmount = web3.utils.toWei(depositAmount, \"ether\");\n  \n      console.log(\"Opening safe with ID:\", safeId, \"and collateral amount:\", collateralAmount);\n  \n      const openSafeTx = await new web3.eth.Contract(stableBaseCDPABI, stableBaseCDPAddress)\n        .methods.openSafe(safeId, collateralAmount)\n        .send({ from: account, value: collateralAmount }); // Send collateral amount as value\n  \n      console.log(\"Safe opened successfully:\", openSafeTx);\n  \n      // Step 2: Prepare parameters for borrowing\n      const borrowAmount = data[\"borrow_amount\"];\n      const shieldingRate = data[\"shielding_rate\"]; \n      const nearestSpotInLiquidationQueue = 0;\n      const nearestSpotInRedemptionQueue = 0;\n  \n      console.log(\"Starting borrow transaction with details:\", {\n        safeId,\n        borrowAmount,\n        shieldingRate,\n        nearestSpotInLiquidationQueue,\n        nearestSpotInRedemptionQueue\n      });\n  \n      // Step 3: Make the borrow transaction\n      const borrowTx = await new web3.eth.Contract(stableBaseCDPABI, stableBaseCDPAddress)\n        .methods.borrow(safeId, borrowAmount, shieldingRate, nearestSpotInLiquidationQueue, nearestSpotInRedemptionQueue)\n        .send({ from: account });\n  \n      console.log(\"Borrow transaction successful:\", borrowTx);\n    } catch (error) {\n      console.error(\"Error making the transaction:\", error);\n    }\n  }\n  \n  makeTransaction();",
-      "config": {},
-      "events": [],
-      "order": 3
-    },
-    {
-      "id": "description",
-      "label": "Description",
+      "id": "shieldingFee",
+      "label": "Total fee(to pre-pay)",
       "type": "description",
       "placement": "output",
-      "code": "",
-      "config": {},
-      "events": [
-        {
-          "event": "onChange",
-          "code": "function descriptionText() {\n    const shieldingRate = data[\"shielding_rate\"];\n    const amount = data[\"borrow_amount\"];\n    let description;\n\n    if (shieldingRate < 0.5) {\n        description = `Shielding rate is below 0.5, indicating a lower level of shielded assets. Borrow estimated amount: ${amount}.`;\n    } else if (shieldingRate == 0.5) {\n        description = `Shielding rate is exactly 0.5, representing a balanced shielded assets ratio. Borrow estimated amount: ${amount}.`;\n    } else if (shieldingRate > 0.5) {\n        description = `Shielding rate is above 0.5, indicating a higher level of shielded assets. Borrow estimated amount: ${amount}.`;\n    }\n\n    const borrowEstimatedAmount = { description };\n    return borrowEstimatedAmount;\n}\n\ndescriptionText();"
-        }
-      ],
-      "order": 4
+      "config": {
+        "template": "${formatted} $DFID"
+      }
     },
     {
-      "id": "transactionLink",
-      "label": "Transaction Link",
+      "id": "borrowAmount",
+      "label": "You Get",
+      "type": "description",
+      "placement": "output",
+      "config": {
+        "template": "${formatted} $DFID"
+      }
+    },
+    {
+      "id": "openSafeDescription",
+      "label": "Step 1",
+      "type": "description",
+      "placement": "output",
+      "config": {
+        "template": "Deposit collateral: This transaction will lock the collateral in the stablebase contract"
+      }
+    },
+    {
+      "id": "openSafeBtn",
+      "label": "Step 1: Open Safe",
+      "type": "button",
+      "placement": "action",
+      "code": "async function openSafe() {\n    console.log(\"open safe\");\n    return {\n        openSafeDescription: false,\n        openSafeBtn: false,\n        openSafeTxLink: \"open-safe-tx-link\",\n        borrowBtn: true,\n        borrowDescription: true\n    };\n}\n\nopenSafe();"
+    },
+    {
+      "id": "openSafeTxLink",
+      "label": "Open Safe Transaction Link",
+      "type": "link",
+      "placement": "output",
+      "config": {
+        "transactionConfig": {
+          "linkType": "transaction"
+        }
+      }
+    },
+    {
+      "id": "borrowDescription",
+      "label": "Step 2",
+      "type": "description",
+      "placement": "output",
+      "config": {
+        "template": "Borrow $DFID: This transaction will mint $DFID and add it to your wallet"
+      }
+    },
+    {
+      "id": "borrowBtn",
+      "label": "Step 2: Borrow",
+      "type": "button",
+      "placement": "action",
+      "code": "console.log(\"borrow\");"
+    },
+    {
+      "id": "borrowTxLink",
+      "label": "Borrow Transaction Link",
       "type": "link",
       "placement": "output",
       "code": "",
