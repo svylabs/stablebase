@@ -18,13 +18,19 @@
       "id": "totalCollateral",
       "label": "Total Collateral Deposited",
       "type": "description",
-      "placement": "output"
+      "placement": "output",
+      "config": {
+         "template": "${formatted} ${symbol}"
+      }
     },
     {
       "id": "totalDebt",
       "label": "Total Debt",
       "type": "description",
-      "placement": "output"
+      "placement": "output",
+      "config": {
+         "template": "${formatted} ${symbol}"
+      }
     },
     {
        "id": "collateralPriceFormatted",

@@ -7,7 +7,6 @@ async function loadSafe(data, mcLib) {
         //console.log(document.cookie);
         //console.log(localStorage.getItem('safeId'));
         console.log('Loading Safe:', safeId);
-        const price = BigInt(await mcLib.contracts.PriceOracle.methods.lastGoodPrice().call());
         const safe = await mcLib.contracts.StableBaseCDP.methods.safes(safeId).call();
         const safeOwner = await mcLib.contracts.StableBaseCDP.methods.ownerOf(safeId).call();
         const balance = await mcLib.web3.eth.getBalance(mcLib.context.connectedAddress);
@@ -29,9 +28,8 @@ async function loadSafe(data, mcLib) {
                 formatted: mcLib.web3.utils.fromWei(safe.collateralAmount.toString(), 'ether'),
                 symbol: mcLib.context.chainId === 1 ? "ETH" : "cBTC"
             },
-            collateralPriceFormatted: mcLib.web3.utils.fromWei(price.toString(), 'ether') + " USD",
-            collateralPrice: price,
-            nativeTokenBalance: balance
+            nativeTokenBalance: balance,
+            closeSafeBtn: true
         }
     } else {
         return {

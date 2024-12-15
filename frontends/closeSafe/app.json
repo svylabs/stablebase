@@ -1,0 +1,80 @@
+{
+    "name": "Close Safe",
+    "description": "Close a safe and unlock the collateral",
+    "components": [
+        {
+            "id": "safeId",
+            "label": "Safe ID",
+            "type": "description",
+            "placement": "output",
+            "events": [
+                {
+                    "type": "onLoad",
+                    "codeRef": "actions/load-safe.js"
+                }
+            ]
+        },
+        {
+            "id": "totalCollateral",
+            "label": "Total Collateral Deposited",
+            "type": "description",
+            "placement": "output",
+            "config": {
+                "template": "${formatted} ${symbol}"
+            }
+        },
+        {
+            "id": "totalDebt",
+            "label": "Total Debt",
+            "type": "description",
+            "placement": "output",
+            "config": {
+                "template": "${formatted} ${symbol}"
+            }
+        },
+        {
+            "id": "closeSafeBtn",
+            "label": "Close Safe",
+            "type": "button",
+            "placement": "action",
+            "codeRef": "actions/close-safe.js"
+        },
+        {
+           "id": "closeSafeTxLink",
+           "label": "Close Safe Transaction",
+           "type": "link",
+           "placement": "output",
+            "config": {
+                "transactionConfig": {
+                    "linkType": "transaction"
+                }
+            }
+        }
+    ],
+    "contracts": [
+        {
+            "name": "StableBaseCDP",
+            "abiRef": "contracts/StableBaseCDP.json",
+            "addresses": {
+                "1": "0xaF026bf59B738bDc7FD8899a641D79a6d5cEb151",
+                "5115": "0x108d105FFe07C9615939DeE88A4Fe2ECD62Acdc7"
+            }
+        }
+    ],
+    "networks": [
+        {
+            "type": "ethereum",
+            "name": "Ethereum Mainnet",
+            "config": {
+                "chainId": 1
+            }
+        },
+        {
+            "type": "ethereum",
+            "name": "Citrea Bitcoin Testnet",
+            "config": {
+                "chainId": 5115
+            }
+        }
+    ]
+}
