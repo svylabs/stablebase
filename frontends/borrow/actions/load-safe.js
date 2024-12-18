@@ -9,12 +9,22 @@ async function loadSafe(data, mcLib) {
         console.log('Loading Safe:', safeId);
         const price = BigInt(await mcLib.contracts.PriceOracle.methods.lastGoodPrice().call());
         const safe = await mcLib.contracts.StableBaseCDP.methods.safes(safeId).call();
-        const safeOwner = await mcLib.contracts.StableBaseCDP.methods.ownerOf(safeId).call();
+        let safeOwner = "0x0";
+        try {
+            safeOwner = await mcLib.contracts.StableBaseCDP.methods.ownerOf(safeId).call();
+        } catch (e) {
+            console.error('Error getting safe owner:', e);
+        }
         const balance = await mcLib.web3.eth.getBalance(mcLib.context.connectedAddress);
         console.log('Safe:', safe, 'Owner:', safeOwner, 'Balance:', balance, mcLib.context.connectedAddress);
         if (safeOwner.toLowerCase() !== mcLib.context.connectedAddress.toLowerCase() && safe.collateralAmount > BigInt(0)) {
             console.error('Need to generate a new SafeId as the safe is already owned by someone');
             return null;
+        }
+        const flow  = {};
+        if (safeOwner.toLowerCase() == mcLib.context.connectedAddress.toLowerCase() && safe.collateralAmount > BigInt(0)) {
+            flow.borrowBtn = true;
+            flow.borrowDescription = true;
         }
         return {
             safeId: safeId,
@@ -31,7 +41,8 @@ async function loadSafe(data, mcLib) {
             },
             collateralPriceFormatted: mcLib.web3.utils.fromWei(price.toString(), 'ether') + " USD",
             collateralPrice: price,
-            nativeTokenBalance: balance
+            nativeTokenBalance: balance,
+            ...flow
         }
     } else {
         return {

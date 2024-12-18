@@ -10,6 +10,14 @@ async function calculateFeeAndBorrowAmount() {
         const fee = (borrowAmount * shieldingRate) / BigInt(10000);
         // calculate borrow amount
         const borrowAmountAfterFee = borrowAmount - fee;
+        const flow = {};
+        if (data.safe?.collateralAmount > BigInt(0)) {
+            flow.borrowBtn = true;
+            flow.borrowDescription = true;
+        } else {
+            flow.openSafeDescription = true;
+            flow.openSafeBtn = true;
+        }
         return {
             shieldingFee: {
                 value: fee,
@@ -19,8 +27,7 @@ async function calculateFeeAndBorrowAmount() {
                 value: borrowAmountAfterFee,
                 formatted: mcLib.web3.utils.fromWei(borrowAmountAfterFee.toString(), 'ether')
             },
-            openSafeDescription: true,
-            openSafeBtn: true
+            ...flow
         }
     } else {
         return {};

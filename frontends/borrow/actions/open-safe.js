@@ -9,7 +9,7 @@ async function openSafe() {
     return {
         openSafeDescription: false,
         openSafeBtn: false,
-        openSafeTxLink: tx.transactionHash,
+        openSafeTxLink: txReceipt.transactionHash,
         borrowBtn: true,
         borrowDescription: true
     };

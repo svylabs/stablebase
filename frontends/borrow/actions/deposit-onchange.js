@@ -7,13 +7,14 @@ const estimate = async (data, mcLib) => {
     const borrowAmount = data.borrow.toAmount;
     if (depositAmount) {
       const formattedAmount = mcLib.web3.utils.toWei(depositAmount, 'ether');
-      const borrowAmount = BigInt(formattedAmount) * data.collateralPrice / BigInt(1e18);
+      const collateralValue = BigInt(formattedAmount) * data.collateralPrice / BigInt(1e18);
+      const maxBorrowAmount = (collateralValue * BigInt(10000)) / BigInt(11000);
       return {
           borrow: {
               ...data.borrow,
-              maxToAmount: borrowAmount.toString()
+              maxToAmount: maxBorrowAmount.toString()
           },
-          txDescription: {}
+          collateralValue: collateralValue
       }
     } else {
       return {};
