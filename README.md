@@ -87,7 +87,10 @@ Oracle contracts for other chains / assets needs to be developed.
 
 # Releases
 
-1. Preview release on Ethereum mainnet (TBA)
+1. Preview release on Ethereum mainnet
+   - Deployed on November 21.
+   - Known Issues discovered after Deployment.
+     - NFT minting uses `_mint` instead of `_safeMint`, thus minted NFT for Safes might not be compatible with Smart Contract wallets. (As no one is using the protocol yet, no one is affected) - We don't plan to fix this as this does not affect externally owned accounts, or even smart contracts that originate the Safes themselves.
 2. Launch on Bitcoin L2 (TBA)
 
 # License
