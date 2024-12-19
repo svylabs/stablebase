@@ -23,6 +23,7 @@ async function loadStake() {
            formatted: mcLib.web3.utils.fromWei(balance.toString(), 'ether'),
         },
         pendingRewards: rewards,
+        unstakeDescription: true,
     }
 }
 
