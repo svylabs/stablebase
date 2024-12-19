@@ -90,7 +90,7 @@ Oracle contracts for other chains / assets needs to be developed.
 1. Preview release on Ethereum mainnet
    - Deployed on November 21.
    - Known Issues discovered after Deployment.
-     - NFT minting uses `_mint` instead of `_safeMint`, thus minted NFT for Safes might not be compatible with Smart Contract wallets. (As no one is using the protocol yet, no one is affected) - We don't plan to fix this as this does not affect externally owned accounts, or even smart contracts that originate the Safes themselves.
+     - NFT minting uses `_mint` instead of `_safeMint`, thus minted NFT for Safes might not be compatible with Smart Contract wallets. (As no one is using the protocol yet, no one is affected) - We don't plan to fix this on ETH mainnet, as this does not affect externally owned accounts, or even smart contracts that originate the Safes themselves. This only affects for example: when an employee opens loan on behalf of a company, and takes a particular action when the loan is opened, for example: to move the loan to a company contract after mint.
 2. Launch on Bitcoin L2 (TBA)
 
 # License
