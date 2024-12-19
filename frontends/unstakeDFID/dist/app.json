@@ -1577,7 +1577,7 @@
     },
     {
       "id": "unstakeAmount",
-      "label": "Additional Stake",
+      "label": "Unstake Amount",
       "type": "text",
       "placement": "input",
       "config": {
@@ -1605,12 +1605,12 @@
       "type": "description",
       "placement": "output",
       "config": {
-        "template": "Stake DFID in the StabilityPool"
+        "template": "Unstake DFID from StabilityPool"
       }
     },
     {
       "id": "unstakeBtn",
-      "label": "Stake DFID",
+      "label": "Unstake DFID",
       "type": "button",
       "placement": "action",
       "code": "\nasync function stakeDFID() {\n    const value = data.unstakeAmount;\n    if (value === \"\") {\n        return {};\n    }\n    const unstakeValue =  BigInt(mcLib.web3.utils.toWei(value, 'ether'));\n    const estimatedGas = await mcLib.contracts.StabilityPool.methods.unstake(unstakeValue).estimateGas({ from: mcLib.context.connectedAddress });\n    const unstakeTx = mcLib.contracts.StabilityPool.methods.unstake(unstakeValue);\n    const unstakeTxReceipt = await unstakeTx.send({ from: mcLib.context.connectedAddress, gas: estimatedGas });\n    return {\n        unstakeBtn: false,\n        unstakeDescription: false,\n        unstakeTxLink: unstakeTxReceipt.transactionHash\n    }\n}\n\nstakeDFID();"
