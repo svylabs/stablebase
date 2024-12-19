@@ -20,6 +20,11 @@ async function borrow() {
     if (data.safeId) {  
         const borrowAmount = data.borrow.toAmount;
         const borrowAmountInWei = mcLib.web3.utils.toWei(borrowAmount, 'ether');
+        if (BigInt(borrowAmountInWei) > BigInt(data.borrow.maxToAmount)) {
+            return {
+                borrowDescription: "Borrow amount exceeds the maximum borrow amount",
+            };
+        }
         const safeId = data.safeId;
         const shieldingRate = BigInt("" + parseInt(parseFloat(data.shieldingRate) * 100));
         const safesForRedemption = await mcLib.contracts.RedemptionQueue.methods.getNodes(BigInt(0), BigInt(50)).call();

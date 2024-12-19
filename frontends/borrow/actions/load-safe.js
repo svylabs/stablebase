@@ -22,9 +22,19 @@ async function loadSafe(data, mcLib) {
             return null;
         }
         const flow  = {};
+        let maxBorrowAmount = BigInt(0);
         if (safeOwner.toLowerCase() == mcLib.context.connectedAddress.toLowerCase() && safe.collateralAmount > BigInt(0)) {
-            flow.borrowBtn = true;
-            flow.borrowDescription = true;
+            const collateralValue = BigInt(safe.collateralAmount) * price / BigInt(1e18);
+            maxBorrowAmount = (collateralValue * BigInt(10000)) / BigInt(11000) - safe.borrowedAmount;
+            if (maxBorrowAmount > BigInt(0)) {
+                flow.borrowBtn = true;
+                flow.borrowDescription = true;
+                flow.borrow = {
+                    ...data.borrow,
+                    maxToAmount: maxBorrowAmount.toString()
+                };
+                flow.collateralValue = collateralValue;
+            }
         }
         return {
             safeId: safeId,

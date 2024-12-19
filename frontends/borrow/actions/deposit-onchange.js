@@ -14,7 +14,7 @@ const estimate = async (data, mcLib) => {
               ...data.borrow,
               maxToAmount: maxBorrowAmount.toString()
           },
-          collateralValue: collateralValue
+          collateralValue: data.collateralValue || collateralValue
       }
     } else {
       return {};
