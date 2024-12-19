@@ -17,7 +17,7 @@ function getNearestSafeInQueue(value, nodes) {
 }
 
 async function borrow() {
-    if (data.safeId) {
+    if (data.safeId) {  
         const borrowAmount = data.borrow.toAmount;
         const borrowAmountInWei = mcLib.web3.utils.toWei(borrowAmount, 'ether');
         const safeId = data.safeId;
