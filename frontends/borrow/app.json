@@ -200,7 +200,11 @@
       "config": {
         "transactionConfig": {
           "linkType": "transaction"
-        }
+        },
+        "styles": {
+
+        },
+        "type": "transaction|address|..."
       },
       "events": [],
       "order": 5

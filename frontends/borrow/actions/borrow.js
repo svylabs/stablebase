@@ -39,7 +39,7 @@ async function borrow() {
         const gasEstimate = await mcLib.contracts.StableBaseCDP.methods.borrow(safeId, borrowAmountInWei, shieldingRate, nearestSafeInLiquidationQueue, nearestSafeInRedemptionQueue).estimateGas({ from: mcLib.context.connectedAddress });
         console.log("Borrow amount: ", borrowAmount, "Shielding rate: ", shieldingRate, "Nearest safe in redemption queue: ", nearestSafeInRedemptionQueue, "Nearest safe in liquidation queue: ", nearestSafeInLiquidationQueue, "Gas estimate: ", gasEstimate);
         const tx = mcLib.contracts.StableBaseCDP.methods.borrow(safeId, borrowAmountInWei, shieldingRate, nearestSafeInLiquidationQueue, nearestSafeInRedemptionQueue);
-        const txReceipt = await tx.send({ from: mcLib.context.connectedAddress, gas: gasEstimate });
+        const txReceipt = await tx.send({ from: mcLib.context.connectedAddress, gas: gasEstimate + BigInt(100000)});
         return {
             borrowBtn: false,
             borrowDescription: false,
