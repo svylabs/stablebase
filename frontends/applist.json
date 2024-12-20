@@ -1,0 +1,36 @@
+{
+    "name": "StableBase Protocol Actions",
+    "description": "Apps for various actions on StableBase protocol",
+    "apps": [
+        {
+            "name": "User Balances",
+            "description": "Check the current status of the connected address in the protocol",
+            "path": "https://github.com/svylabs/stablebase/tree/main/frontends/user-balances"
+        },
+        {
+            "name": "Borrow",
+            "description": "Borrow $DFID on StableBase",
+            "path": "borrow"
+        },
+        {
+            "name": "Stake DFID",
+            "description": "Stake $DFID to earn protocol rewards",
+            "path": "stakeDFID"
+        },
+        {
+            "name": "Unstake DFID",
+            "description": "Unstake $DFID from the protocol",
+            "path": "unstakeDFID"
+        },
+        {
+            "name": "Repay $DFID",
+            "description": "Repay borrowed $DFID",
+            "path": "repay"
+        },
+        {
+            "name": "Close Safe",
+            "description": "Close the safe and withdraw collateral",
+            "path": "closeSafe"
+        }
+    ]
+}
