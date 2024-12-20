@@ -1546,7 +1546,9 @@
       "type": "ethereum",
       "name": "Citrea Bitcoin Testnet",
       "config": {
-        "chainId": 5115
+        "chainId": 5115,
+        "exploreUrl": "https://explorer.testnet.citrea.xyz",
+        "rpcUrl": "https://rpc.testnet.citrea.xyz"
       }
     }
   ],
@@ -1613,7 +1615,7 @@
       "label": "Approve DFID",
       "type": "button",
       "placement": "action",
-      "code": "\nasync function approveDFID() {\n    const value = data.stakeAmount;\n    if (value === \"\") {\n        return {};\n    }\n    const additionalStake =  BigInt(mcLib.web3.utils.toWei(value, 'ether'));\n    console.log(\"Approve DFID: \", additionalStake, \"Address: \", mcLib.contracts.StabilityPool);\n    const estimatedGas = await mcLib.contracts.DFIDToken.methods.approve(mcLib.contracts.StabilityPool._address, additionalStake).estimateGas({ from: mcLib.context.connectedAddress });\n    const approveTx = mcLib.contracts.DFIDToken.methods.approve(mcLib.contracts.StabilityPool._address, additionalStake);\n    const stakeTxReceipt = await approveTx.send({ from: mcLib.context.connectedAddress, gas: estimatedGas });\n    return {\n        stakeBtn: true,\n        approveTxLink: stakeTxReceipt.transactionHash\n    }\n}\n\napproveDFID();"
+      "code": "\nasync function approveDFID() {\n    const value = data.stakeAmount;\n    if (value === \"\") {\n        return {};\n    }\n    const additionalStake =  BigInt(mcLib.web3.utils.toWei(value, 'ether'));\n    console.log(\"Approve DFID: \", additionalStake, \"Address: \", mcLib.contracts.StabilityPool);\n    const estimatedGas = await mcLib.contracts.DFIDToken.methods.approve(mcLib.contracts.StabilityPool._address, additionalStake).estimateGas({ from: mcLib.context.connectedAddress });\n    const approveTx = mcLib.contracts.DFIDToken.methods.approve(mcLib.contracts.StabilityPool._address, additionalStake);\n    const stakeTxReceipt = await approveTx.send({ from: mcLib.context.connectedAddress, gas: estimatedGas });\n    return {\n        approveBtn: false,\n        stakeBtn: true,\n        approveTxLink: stakeTxReceipt.transactionHash\n    }\n}\n\napproveDFID();"
     },
     {
       "id": "approveTxLink",
@@ -1622,7 +1624,7 @@
       "placement": "output",
       "config": {
         "transactionConfig": {
-          "linkType": "transaction"
+          "type": "transaction"
         }
       }
     },
@@ -1643,13 +1645,13 @@
       "code": "\nasync function stakeDFID() {\n    const value = data.stakeAmount;\n    if (value === \"\") {\n        return {};\n    }\n    const additionalStake =  BigInt(mcLib.web3.utils.toWei(value, 'ether'));\n    const estimatedGas = await mcLib.contracts.StabilityPool.methods.stake(additionalStake).estimateGas({ from: mcLib.context.connectedAddress });\n    const stakeTx = mcLib.contracts.StabilityPool.methods.stake(additionalStake);\n    const stakeTxReceipt = await stakeTx.send({ from: mcLib.context.connectedAddress, gas: estimatedGas });\n    return {\n        stakeBtn: false,\n        stakeDescription: false,\n        stakeTxLink: stakeTxReceipt.transactionHash\n    }\n}\n\nstakeDFID();"
     },
     {
-      "id": "stakeDFIDTxLink",
+      "id": "stakeTxLink",
       "label": "Stake DFID Transaction",
       "type": "link",
       "placement": "output",
       "config": {
         "transactionConfig": {
-          "linkType": "transaction"
+          "type": "transaction"
         }
       }
     }

@@ -31,7 +31,9 @@
             "type": "ethereum",
             "name": "Citrea Bitcoin Testnet",
             "config": {
-                "chainId": 5115
+                "chainId": 5115,
+                "exploreUrl": "https://explorer.testnet.citrea.xyz",
+                "rpcUrl": "https://rpc.testnet.citrea.xyz"
             }
         }
     ],
@@ -107,7 +109,7 @@
             "placement": "output",
             "config": {
                 "transactionConfig": {
-                    "linkType": "transaction"
+                    "type": "transaction"
                 }
             }
         },
@@ -134,7 +136,7 @@
             "placement": "output",
             "config": {
                 "transactionConfig": {
-                    "linkType": "transaction"
+                    "type": "transaction"
                 }
             }
         }
