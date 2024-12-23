@@ -1,6 +1,7 @@
 {
     "name": "StableBase Protocol Actions",
     "description": "Apps for various actions on StableBase protocol",
+    "type": "list",
     "apps": [
         {
             "name": "User Balances",
