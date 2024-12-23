@@ -6,32 +6,32 @@
         {
             "name": "User Balances",
             "description": "Check the current status of the connected address in the protocol",
-            "path": "https://github.com/svylabs/stablebase/tree/main/frontends/user-balances"
+            "path": "https://github.com/svylabs/stablebase/tree/main/frontends/user-balances/dist"
         },
         {
             "name": "Borrow",
             "description": "Borrow $DFID on StableBase",
-            "path": "borrow"
+            "path": "borrow/dist"
         },
         {
             "name": "Stake DFID",
             "description": "Stake $DFID to earn protocol rewards",
-            "path": "stakeDFID"
+            "path": "stakeDFID/dist"
         },
         {
             "name": "Unstake DFID",
             "description": "Unstake $DFID from the protocol",
-            "path": "unstakeDFID"
+            "path": "unstakeDFID/dist"
         },
         {
             "name": "Repay $DFID",
             "description": "Repay borrowed $DFID",
-            "path": "repay"
+            "path": "repay/dist"
         },
         {
             "name": "Close Safe",
             "description": "Close the safe and withdraw collateral",
-            "path": "closeSafe"
+            "path": "closeSafe/dist"
         }
     ]
 }
