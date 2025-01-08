@@ -23,6 +23,16 @@
             }
         },
         {
+            "id": "protocolInnovation",
+            "label": "Key Innovation",
+            "type": "description",
+            "placement": "output",
+            "config": {
+                "showEmpty": true,
+                "template": "The protocol has 0% interest rates, and a simple pay as you go model to protect from redemptions. That is, you pay a percentage of the borrowed amount(as low as 0.01%) only when you want to jump in the redemption queue to avoid your collateral getting redeemd."
+            }
+        },
+        {
             "id": "liquidation",
             "label": "Liquidation mechanism",
             "type": "description",
