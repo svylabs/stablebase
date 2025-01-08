@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./library/Math.sol";
-import "./interfaces/IStableBase.sol";
-
 library SBStructs {
     enum Mode {
         BOOTSTRAP,

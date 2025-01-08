@@ -3,6 +3,7 @@ require("@nomicfoundation/hardhat-toolbox");
 require("@nomiclabs/hardhat-solhint");
 require("hardhat-gas-reporter");
 require("hardhat-contract-sizer");
+require("@xyrusworx/hardhat-solidity-json")
 
 module.exports = {
   solidity: {
