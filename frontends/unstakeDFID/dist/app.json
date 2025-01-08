@@ -1,6 +1,6 @@
 {
-  "name": "stakeDFID",
-  "description": "Stake $DFID to earn protocol rewards",
+  "name": "unstakeDFID",
+  "description": "UnStake $DFID from Stability Pool",
   "contracts": [
     {
       "name": "StabilityPool",

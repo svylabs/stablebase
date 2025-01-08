@@ -4,6 +4,11 @@
     "type": "list",
     "apps": [
         {
+            "name": "Protocol Overview",
+            "description": "Overview of the StableBase protocol",
+            "path": "https://github.com/svylabs/stablebase/tree/main/frontends/Protocol"
+        },
+        {
             "name": "User Balances",
             "description": "Check the current status of the connected address in the protocol",
             "path": "https://github.com/svylabs/stablebase/tree/main/frontends/user-balances/dist"

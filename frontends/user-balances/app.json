@@ -1,6 +1,6 @@
 {
     "name": "user-balances",
-    "description": "Display the current status of the user's positions with the protocol",
+    "description": "Display the current status of user's loan positions, $DFID and $DFIRE balances",
     "contracts": [
         {
             "name": "StableBaseCDP",

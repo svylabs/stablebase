@@ -1,0 +1,66 @@
+{
+    "name": "Protocol Overview",
+    "description": "Overview of the StableBase protocol",
+    "components": [
+        {
+            "id": "protocolWebsite",
+            "label": "Website",
+            "type": "description",
+            "placement": "output",
+            "config": {
+                "showEmpty": true,
+                "template": "https://stablebase.org"
+            }
+        },
+        {
+            "id": "protocolDescription",
+            "label": "Description",
+            "type": "description",
+            "placement": "output",
+            "config": {
+                "showEmpty": true,
+                "template": "StableBase is a Collateral Debt Position(CDP) based stablecoin borrowing protocol, where users can mint $DFID by depositing $ETH or $BTC as collateral depending on the network. The minimum collateral ratio is 110% and minimum debt in the protocol should be 2000 $DFID."
+            }
+        },
+        {
+            "id": "liquidation",
+            "label": "Liquidation mechanism",
+            "type": "description",
+            "placement": "output",
+            "config": {
+                "showEmpty": true,
+                "template": "Liquidation is triggered when the collateral ratio falls below 110%, Stability Pool funds will be used for liquidation, and stakers receive the underlying collateral at discounted price from market price."
+            }
+        },
+        {
+            "id": "protocolIncentives",
+            "label": "Early User Incentives",
+            "type": "description",
+            "placement": "output",
+            "config": {
+                "showEmpty": true,
+                "template": "Users can stake $DFID in Stability Pool to earn $DFIRE protocol rewards issued for 1 year. $DFIRE stakers capture 10% of fee paid to the protocol, whereas stability pool stakers capture 90% of the fee."
+            }
+        },
+        {
+            "id": "protocolGovernance",
+            "label": "Governance",
+            "type": "description",
+            "placement": "output",
+            "config": {
+                "showEmpty": true,
+                "template": "The protocol is immutable and decentralized, and there is no governance mechanism."
+            }
+        },
+        {
+            "id": "protocolSourceCode",
+            "label": "Source Code",
+            "type": "description",
+            "placement": "output",
+            "config": {
+                "showEmpty": true,
+                "template": "https://github.com/svylabs/stablebase"
+            }
+        }
+    ]
+}
