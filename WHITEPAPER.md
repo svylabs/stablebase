@@ -1,5 +1,6 @@
-                                      "StableBase: DeFi’s first zero-interest, Pay-as-You-Go stablecoin."
-                                        Sridhar<sg@svylabs.com>, Gopalakrishnan<gopalakrishnan.g@gov.in>
+                                       StableBase: DeFi’s first zero-interest, Pay-as-You-Go stablecoin.
+                                                         Sridhar<sg@svylabs.com>
+                                                Gopalakrishnan<gopalakrishnan.g@gov.in>
 
 # Abstract
 
