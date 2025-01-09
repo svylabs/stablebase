@@ -20,8 +20,8 @@
             "placement": "output",
             "config": {
                 "showEmpty": true,
-                "baseUrl": "https://github.com/svylabs/stablebase/blob/main/WHITEPAPER.pdf",
-                "value": "WHITEPAPER"
+                "baseUrl": "https://github.com/svylabs/stablebase/blob/main/WHITEPAPER.md",
+                "value": "WHITEPAPER.md"
             }
         },
         {
