@@ -21,7 +21,7 @@
             "config": {
                 "showEmpty": true,
                 "baseUrl": "https://github.com/svylabs/stablebase/blob/main/WHITEPAPER.pdf",
-                "value": "WHITEPAPER.pdf"
+                "value": "WHITEPAPER"
             }
         },
         {
