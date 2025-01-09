@@ -1,19 +1,13 @@
-                                       StableBase: A Minimalist's Stablecoin Protocol with a Simple Pay-as-You-Go Model.
+                                       StableBase: Introducing Pay-as-You-Go pricing model for DeFi Stablecoins.
                                            Sridhar<sg@svylabs.com>, Gopalakrishnan<gopalakrishnan.g@gov.in>
 
 # Abstract
 
-This whitepaper presents StableBase, a minimalist's stablecoin protocol that employs a pay-as-you-go model to maintain price stability while offering users efficient collateral management. Built on Collateralized Debt Positions (CDPs) without interest rates or origination fees, the protocol introduces an innovative redemption mechanism for stability while utilizing a familiar liquidation mechanism. Users can dynamically protect their positions through market-driven pre-paid fees, aligning incentives and enhancing system stability. A Stability Pool and a token incentive program further encourage participation and robustness.
+This whitepaper presents StableBase, a DeFi native stablecoin protocol that employs an innovative pay-as-you-go model to maintain price stability. Built on Collateralized Debt Positions (CDPs) without interest rates or origination fees, the protocol introduces a redemption mechanism based on fee paid to the protocol while utilizing a familiar liquidation mechanism. Users can dynamically protect their positions through market-driven fees, as opposed to continually accruing interest rates, making it suitable for a wide variety of usecases due to its cost efficiency.
 
 # Introduction
 
-Stablecoins have become a cornerstone of the decentralized finance (DeFi) ecosystem, providing a bridge between volatile cryptocurrencies and stable assets. However, existing models often involve complexities like interest rates, origination fees, and multi-collateral systems, which can deter user adoption. StableBase introduces a minimalist's stablecoin protocol that simplifies the stablecoin model through a pay-as-you-go approach, ensuring security and stability while offering users flexibility in collateral management.
-
-The protocol leverages Collateralized Debt Positions (CDPs) without imposing interest rates or origination fees. It features robust liquidation and redemption mechanisms, allowing users to dynamically protect their positions by paying market-driven fees when necessary. A Stability Pool and a token incentive program further enhance system robustness and encourage active participation.
-
-# Background
-
-As the DeFi space evolves, there is a growing demand for stablecoin solutions that are both user-friendly and resilient. Traditional models often require users to navigate complex fee structures and interest rates, which can hinder widespread adoption. By introducing a market-driven, pay-as-you-go model, this protocol aims to provide a more accessible and flexible stablecoin system.
+Stablecoins have become a cornerstone of the decentralized finance (DeFi) ecosystem, providing a bridge between volatile cryptocurrencies and stable assets. However, existing models often involve complexities like interest rates and origination fees, which can be prohibitive for real world user adoption. StableBase introduces a stablecoin protocol that simplifies the stablecoin model through a pay-as-you-go approach, offering users flexibility to choose how much and when they should pay, while ensuring security and stability.
 
 # Mechanism Overview
 
@@ -178,4 +172,4 @@ All fees, both from the Safe owner and the redeemer, are allocated entirely to t
 
 # Conclusion
 
-StableBase offers a simplified and efficient approach to decentralized stablecoin issuance and management. By employing a minimalist design and a market-driven, pay-as-you-go model, it provides users with flexibility in protecting their positions according to their individual needs and market conditions. The elimination of interest rates and origination fees lowers barriers to entry, making the system more accessible. The innovative redemption mechanism, supported by the Stability Pool for liquidations and a robust token incentive program, ensures system stability and encourages active participation. This alignment of incentives fosters a resilient ecosystem that benefits all stakeholders.
+StableBase offers a simplified and efficient approach to decentralized stablecoin issuance and management. By employing a a market-driven, pay-as-you-go model, it provides users with flexibility in protecting their positions according to their individual needs and market conditions. The elimination of interest rates and origination fees lowers barriers to entry, making the system more accessible. The innovative redemption mechanism, supported by the incentivized Stability Pool for liquidations ensures system stability and encourages active participation. This alignment of incentives fosters a resilient ecosystem that benefits all stakeholders.
