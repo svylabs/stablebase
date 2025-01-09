@@ -5,11 +5,23 @@
         {
             "id": "protocolWebsite",
             "label": "Website",
-            "type": "description",
+            "type": "link",
             "placement": "output",
             "config": {
                 "showEmpty": true,
-                "template": "https://stablebase.org"
+                "baseUrl": "https://stablebase.org",
+                "value": "https://stablebase.org"
+            }
+        },
+        {
+            "id": "protocolWhitePaper",
+            "label": "Whitepaper",
+            "type": "link",
+            "placement": "output",
+            "config": {
+                "showEmpty": true,
+                "baseUrl": "https://github.com/svylabs/stablebase/blob/main/WHITEPAPER.pdf",
+                "value": "WHITEPAPER.pdf"
             }
         },
         {
@@ -65,11 +77,12 @@
         {
             "id": "protocolSourceCode",
             "label": "Source Code",
-            "type": "description",
+            "type": "link",
             "placement": "output",
             "config": {
                 "showEmpty": true,
-                "template": "https://github.com/svylabs/stablebase"
+                "baseUrl": "https://github.com/svylabs/stablebase",
+                "value": "https://github.com/svylabs/stablebase"
             }
         }
     ]
