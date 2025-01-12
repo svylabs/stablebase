@@ -44,3 +44,7 @@ This document describes how you can use the frontends.
 4. Click Borrow
 
 ![Borrow](./borrow/borrow.png)
+
+5. Check balances to confirm
+
+![Check Balances](./borrow/user-balances.png)
