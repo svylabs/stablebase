@@ -1,6 +1,6 @@
 {
   "name": "Borrow $DFID",
-  "description": "Borrow $DFID on StableBase with $ETH as collateral",
+  "description": "Borrow $DFID for free on StableBase",
   "components": [
     {
       "id": "safeId",
