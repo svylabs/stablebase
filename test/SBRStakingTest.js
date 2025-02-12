@@ -13,16 +13,16 @@ describe("SBRStaking Contract", function () {
     [owner, addr1, addr2, stableBaseContract, ...addrs] = await ethers.getSigners();
 
     // Deploy mock ERC20 tokens for staking and rewards
-    StakingToken = await ethers.getContractFactory("DFIRToken");
+    StakingToken = await ethers.getContractFactory("DFIREToken");
     stakingToken = await StakingToken.deploy();
     await stakingToken.waitForDeployment();
 
-    RewardToken = await ethers.getContractFactory("SBDToken");
+    RewardToken = await ethers.getContractFactory("DFIDToken");
     rewardToken = await RewardToken.deploy();
     await rewardToken.waitForDeployment();
 
     // Deploy the SBRStaking contract
-    const SBRStakingContract = await ethers.getContractFactory("DFIRStaking");
+    const SBRStakingContract = await ethers.getContractFactory("DFIREStaking");
     sbrStaking = await SBRStakingContract.deploy(false);
     await sbrStaking.waitForDeployment();
 
@@ -172,6 +172,10 @@ describe("SBRStaking Contract", function () {
     });
   });
 
+  /*
+
+  Made it in such a way that anyone can add rewards
+
   describe("Access Control", function () {
     it("Should only allow the stableBaseContract to add rewards", async function () {
       await expect(
@@ -186,4 +190,5 @@ describe("SBRStaking Contract", function () {
       ).to.be.revertedWith("Only stableBase contract can add collateral rewards");
     });
   });
+  */
 });

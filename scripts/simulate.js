@@ -2008,15 +2008,15 @@ async function deployContracts() {
   const balance = await ethers.provider.getBalance(deployer.address);
   console.log("Deployer balance:", balance);
 
-  const SBDToken = await ethers.getContractFactory("SBDToken");
+  const SBDToken = await ethers.getContractFactory("DFIDToken");
     const sbdToken = await SBDToken.deploy();
     await sbdToken.waitForDeployment();
     console.log("Deployed SBDToken to:", sbdToken.target);
   
-    const DFIRToken = await ethers.getContractFactory("DFIRToken");
-    const dfirToken = await DFIRToken.deploy();
-    await dfirToken.waitForDeployment();
-    console.log("Deployed DFIRToken to:", dfirToken.target);
+    const DFIREToken = await ethers.getContractFactory("DFIREToken");
+    const dfireToken = await DFIRToken.deploy();
+    await dfireToken.waitForDeployment();
+    console.log("Deployed DFIREToken to:", dfireToken.target);
 
     const StabilityPool = await ethers.getContractFactory("StabilityPool");
     const stabilityPool = await StabilityPool.deploy(true);
@@ -2033,10 +2033,10 @@ async function deployContracts() {
     await stableBaseCDP.waitForDeployment();
     console.log("Deployed StableBaseCDP to:", stableBaseCDP.target);
 
-    const DFIRStaking = await ethers.getContractFactory("DFIRStaking");
-    const dfirStaking = await DFIRStaking.deploy(true);
-    await dfirStaking.waitForDeployment();
-    console.log("Deployed DFIRStaking to:", dfirStaking.target);
+    const DFIREStaking = await ethers.getContractFactory("DFIRStaking");
+    const dfireStaking = await DFIREStaking.deploy(true);
+    await dfireStaking.waitForDeployment();
+    console.log("Deployed DFIRStaking to:", dfireStaking.target);
 
     const OrderedDoublyLinkedList = await ethers.getContractFactory("OrderedDoublyLinkedList");
     const redemptionQueue = await OrderedDoublyLinkedList.deploy();
@@ -2056,13 +2056,13 @@ async function deployContracts() {
     let tx= await sbdToken.setAddresses(stableBaseCDP.target);
     await tx.wait();
     console.log("Setting StabilityPool address to DFIRToken...");
-    tx = await dfirToken.setAddresses(stabilityPool.target);
+    tx = await dfireToken.setAddresses(stabilityPool.target);
     await tx.wait();
     console.log("Setting SBDToken, StableBaseCDP, and DFIRToken addresses to StabilityPool...");
-    tx = await stabilityPool.setAddresses(sbdToken.target, stableBaseCDP.target, dfirToken.target);
+    tx = await stabilityPool.setAddresses(sbdToken.target, stableBaseCDP.target, dfireToken.target);
     await tx.wait();
     console.log("Setting DFIRToken, SBDToken, and StableBaseCDP addresses to SBRStaking...");
-    tx = await dfirStaking.setAddresses(dfirToken.target, sbdToken.target, stableBaseCDP.target);
+    tx = await dfireStaking.setAddresses(dfireToken.target, sbdToken.target, stableBaseCDP.target);
     await tx.wait();
     console.log("Setting StableBaseCDP address to RedemptionQueue...");
     tx = await redemptionQueue.setAddresses(stableBaseCDP.target);
@@ -2071,16 +2071,16 @@ async function deployContracts() {
     tx = await liquidationQueue.setAddresses(stableBaseCDP.target);
     await tx.wait();
     console.log("Setting SBDToken, PriceOracle, StabilityPool, SBRStaking, LiquidationQueue, and RedemptionQueue addresses to StableBaseCDP...");
-    tx = await stableBaseCDP.setAddresses(sbdToken.target, priceOracle.target, stabilityPool.target, dfirStaking.target, liquidationQueue.target, redemptionQueue.target);
+    tx = await stableBaseCDP.setAddresses(sbdToken.target, priceOracle.target, stabilityPool.target, dfireStaking.target, liquidationQueue.target, redemptionQueue.target);
     await tx.wait();
 
     return {
         sbdToken,
-        sbrToken: dfirToken,
+        sbrToken: dfireToken,
         stabilityPool,
         priceOracle,
         stableBaseCDP,
-        sbrStaking: dfirStaking,
+        sbrStaking: dfireStaking,
         redemptionQueue,
         liquidationQueue
     };

@@ -7,7 +7,7 @@ import "./interfaces/IDoublyLinkedList.sol";
 import "./interfaces/IStableBase.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "./interfaces/IStabilityPool.sol";
-import "./interfaces/IDFIRStaking.sol";
+import "./interfaces/IDFIREStaking.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IMintableToken is IERC20 {
@@ -41,7 +41,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
 
     IStabilityPool public stabilityPool;
 
-    IDFIRStaking public dfirTokenStaking;
+    IDFIREStaking public dfireTokenStaking;
 
     uint256 public constant SBR_FEE_REWARD = 1000; // 10% of the fee goes to SBR Stakers
 
@@ -85,14 +85,14 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         address _sbdToken,
         address _priceOracle,
         address _stabilityPool,
-        address _dfirTokenStaking,
+        address _dfireTokenStaking,
         address _safesOrderedForLiquidation,
         address _safesOrderedForRedemption
     ) external onlyOwner {
         sbdToken = IMintableToken(_sbdToken);
         priceOracle = IPriceOracle(_priceOracle);
         stabilityPool = IStabilityPool(_stabilityPool);
-        dfirTokenStaking = IDFIRStaking(_dfirTokenStaking);
+        dfireTokenStaking = IDFIREStaking(_dfireTokenStaking);
         // Initialize the contract
         safesOrderedForLiquidation = IDoublyLinkedList(
             _safesOrderedForLiquidation
@@ -100,7 +100,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         safesOrderedForRedemption = IDoublyLinkedList(
             _safesOrderedForRedemption
         );
-        sbdToken.approve(address(dfirTokenStaking), type(uint256).max);
+        sbdToken.approve(address(dfireTokenStaking), type(uint256).max);
         sbdToken.approve(address(stabilityPool), type(uint256).max);
         emit ConnectedToPriceFeed(_priceOracle, priceOracle.fetchPrice());
         renounceOwnership();
@@ -534,7 +534,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         uint256 sbrStakersFee = (fee * SBR_FEE_REWARD) / 10000;
         uint256 stabilityPoolFee = fee;
         canRefund = fee;
-        bool feeAdded1 = dfirTokenStaking.addReward(sbrStakersFee);
+        bool feeAdded1 = dfireTokenStaking.addReward(sbrStakersFee);
         if (feeAdded1) {
             stabilityPoolFee = fee - sbrStakersFee;
             feePaid = fee;
@@ -743,7 +743,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
         // Try to send the liquidation fee to sbr stakers
         if (liquidationFee > refund) {
             if (sbrStakingPoolCanReceiveRewards) {
-                bool success = dfirTokenStaking.addCollateralReward{
+                bool success = dfireTokenStaking.addCollateralReward{
                     value: liquidationFee - refund
                 }(liquidationFee - refund);
                 if (!success && stabilityPoolCanReceiveRewards) {
@@ -756,7 +756,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
                 } else if (success) {
                     emit LiquidationFeePaid(
                         safeId,
-                        address(dfirTokenStaking),
+                        address(dfireTokenStaking),
                         liquidationFee - refund
                     );
                 }
@@ -824,7 +824,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
     function setCanSBRStakingPoolReceiveRewards(
         bool canReceiveRewards
     ) external returns (bool) {
-        require(msg.sender == address(dfirTokenStaking), "Only SBR Staking");
+        require(msg.sender == address(dfireTokenStaking), "Only DFire Staking");
         sbrStakingPoolCanReceiveRewards = canReceiveRewards;
         return true;
     }
