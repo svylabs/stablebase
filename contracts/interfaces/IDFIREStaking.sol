@@ -1,6 +1,6 @@
 pragma solidity ^0.8.20;
 
-interface IDFIRStaking {
+interface IDFIREStaking {
     struct Stake {
         uint256 stake; // User's raw stake amount
         uint256 rewardSnapshot; // Rewards already paid out to the user

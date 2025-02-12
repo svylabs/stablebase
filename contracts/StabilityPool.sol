@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IStabilityPool.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IMintableToken is IERC20 {
     function mint(address to, uint256 amount) external returns (bool);
@@ -15,7 +16,7 @@ interface IRewardSender {
     ) external returns (bool);
 }
 
-contract StabilityPool is IStabilityPool, Ownable {
+contract StabilityPool is IStabilityPool, Ownable, ReentrancyGuard {
     IERC20 public stakingToken; // Token that users stake and receive rewards in
     address public stableBaseCDP; // External contract to liquidate debt
 
@@ -113,7 +114,11 @@ contract StabilityPool is IStabilityPool, Ownable {
     }
 
     // Stake tokens
-    function stake(uint256 _amount, address frontend, uint256 fee) public {
+    function stake(
+        uint256 _amount,
+        address frontend,
+        uint256 fee
+    ) public nonReentrant {
         require(_amount > 0, "Cannot stake zero tokens");
         UserInfo storage user = users[msg.sender];
         _claim(user, frontend, fee);
@@ -140,7 +145,11 @@ contract StabilityPool is IStabilityPool, Ownable {
     }
 
     // Unstake tokens
-    function unstake(uint256 _amount, address frontend, uint256 fee) public {
+    function unstake(
+        uint256 _amount,
+        address frontend,
+        uint256 fee
+    ) public nonReentrant {
         require(_amount > 0, "Cannot unstake zero tokens");
         UserInfo storage user = users[msg.sender];
         _claim(user, frontend, fee);
@@ -183,7 +192,6 @@ contract StabilityPool is IStabilityPool, Ownable {
             uint256 sbrReward,
             uint256 sbrRewardFee
         ) = _updateRewards(user, frontend, fee);
-        _updateUserStake(user);
         emit RewardClaimed(
             msg.sender,
             reward,
@@ -237,14 +245,14 @@ contract StabilityPool is IStabilityPool, Ownable {
     }
 
     // Claim accumulated rewards
-    function claim() external {
+    function claim() external nonReentrant {
         UserInfo storage user = users[msg.sender];
         if (user.stake > 0) {
             _claim(user, msg.sender, 0);
         }
     }
 
-    function claim(address frontend, uint256 fee) external {
+    function claim(address frontend, uint256 fee) external nonReentrant {
         UserInfo storage user = users[msg.sender];
         if (user.stake > 0) {
             _claim(user, frontend, fee);
@@ -289,7 +297,7 @@ contract StabilityPool is IStabilityPool, Ownable {
 
     function addCollateralReward(
         uint256 amount
-    ) external payable onlyDebtContract returns (bool) {
+    ) external payable returns (bool) {
         require(amount > 0, "Reward must be greater than zero");
         require(msg.value == amount, "Invalid collateral amount");
         uint256 _totalStakedRaw = totalStakedRaw;
@@ -401,7 +409,6 @@ contract StabilityPool is IStabilityPool, Ownable {
 
     function _updateUserStake(UserInfo storage user) internal {
         // Adjust user's stake
-        // TODO: Check if this is needed or not
         if (user.cumulativeProductScalingFactor != 0) {
             user.stake = _getUserEffectiveStake(user);
         }
@@ -447,6 +454,7 @@ contract StabilityPool is IStabilityPool, Ownable {
             sbrRewardSnapshots[msg.sender].status = SBRRewardDistribution
                 .CLAIMED;
         }
+        _updateUserStake(user);
 
         if (pendingReward != 0) {
             rewardFee = (fee * pendingReward) / BASIS_POINTS_DIVISOR;

@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract DFIRToken is ERC20, Ownable {
+contract DFIREToken is ERC20, Ownable {
     // Optional: Variable to track total burned tokens
     uint256 public totalBurned;
 
