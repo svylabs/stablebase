@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IStabilityPool.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IMintableToken is IERC20 {
     function mint(address to, uint256 amount) external returns (bool);
@@ -16,7 +15,7 @@ interface IRewardSender {
     ) external returns (bool);
 }
 
-contract StabilityPool is IStabilityPool, Ownable, ReentrancyGuard {
+contract StabilityPool is IStabilityPool, Ownable {
     IERC20 public stakingToken; // Token that users stake and receive rewards in
     address public stableBaseCDP; // External contract to liquidate debt
 
@@ -114,11 +113,7 @@ contract StabilityPool is IStabilityPool, Ownable, ReentrancyGuard {
     }
 
     // Stake tokens
-    function stake(
-        uint256 _amount,
-        address frontend,
-        uint256 fee
-    ) public nonReentrant {
+    function stake(uint256 _amount, address frontend, uint256 fee) public {
         require(_amount > 0, "Cannot stake zero tokens");
         UserInfo storage user = users[msg.sender];
         _claim(user, frontend, fee);
@@ -145,11 +140,7 @@ contract StabilityPool is IStabilityPool, Ownable, ReentrancyGuard {
     }
 
     // Unstake tokens
-    function unstake(
-        uint256 _amount,
-        address frontend,
-        uint256 fee
-    ) public nonReentrant {
+    function unstake(uint256 _amount, address frontend, uint256 fee) public {
         require(_amount > 0, "Cannot unstake zero tokens");
         UserInfo storage user = users[msg.sender];
         _claim(user, frontend, fee);
@@ -245,14 +236,14 @@ contract StabilityPool is IStabilityPool, Ownable, ReentrancyGuard {
     }
 
     // Claim accumulated rewards
-    function claim() external nonReentrant {
+    function claim() external {
         UserInfo storage user = users[msg.sender];
         if (user.stake > 0) {
             _claim(user, msg.sender, 0);
         }
     }
 
-    function claim(address frontend, uint256 fee) external nonReentrant {
+    function claim(address frontend, uint256 fee) external {
         UserInfo storage user = users[msg.sender];
         if (user.stake > 0) {
             _claim(user, frontend, fee);
@@ -260,9 +251,7 @@ contract StabilityPool is IStabilityPool, Ownable, ReentrancyGuard {
     }
 
     // Add rewards to the pool
-    function addReward(
-        uint256 _amount
-    ) external onlyDebtContract returns (bool) {
+    function addReward(uint256 _amount) external returns (bool) {
         require(_amount > 0, "Reward must be greater than zero");
         //uint256 totalEffectiveStake = getTotalEffectiveStake();
         //require(totalEffectiveStake > 0, "No staked tokens");
