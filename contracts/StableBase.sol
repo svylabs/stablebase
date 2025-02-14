@@ -64,7 +64,7 @@ abstract contract StableBase is IStableBase, ERC721URIStorage, Ownable {
     uint256 public totalDebt;
 
     SBStructs.Mode public PROTOCOL_MODE = SBStructs.Mode.BOOTSTRAP;
-    uint256 public constant BOOTSTRAP_MODE_DEBT_THRESHOLD = 500000 * 10 ** 18;
+    uint256 public constant BOOTSTRAP_MODE_DEBT_THRESHOLD = 5000000 * 10 ** 18; // 5 million SBD
 
     struct LiquidationSnapshot {
         uint256 collateralPerCollateralSnapshot;
