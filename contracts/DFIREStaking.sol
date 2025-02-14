@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IDFIREStaking.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IRewardSender {
     function setCanSBRStakingPoolReceiveRewards(
@@ -11,7 +10,7 @@ interface IRewardSender {
     ) external returns (bool);
 }
 
-contract DFIREStaking is IDFIREStaking, Ownable, ReentrancyGuard {
+contract DFIREStaking is IDFIREStaking, Ownable {
     mapping(address => Stake) public stakes;
 
     uint256 public totalStake;
@@ -42,7 +41,7 @@ contract DFIREStaking is IDFIREStaking, Ownable, ReentrancyGuard {
         renounceOwnership();
     }
 
-    function stake(uint256 _amount) external nonReentrant {
+    function stake(uint256 _amount) external {
         require(_amount > 0, "Cannot stake zero tokens");
         Stake storage user = stakes[msg.sender];
         _claim(user);
@@ -64,7 +63,7 @@ contract DFIREStaking is IDFIREStaking, Ownable, ReentrancyGuard {
         emit Staked(msg.sender, _amount);
     }
 
-    function unstake(uint256 _amount) external nonReentrant {
+    function unstake(uint256 _amount) external {
         require(_amount > 0, "Cannot unstake zero tokens");
         Stake storage user = stakes[msg.sender];
         _claim(user);
@@ -138,7 +137,7 @@ contract DFIREStaking is IDFIREStaking, Ownable, ReentrancyGuard {
         emit Claimed(msg.sender, reward, collateralReward);
     }
 
-    function claim() external nonReentrant {
+    function claim() external {
         Stake storage user = stakes[msg.sender];
         _claim(user);
     }
