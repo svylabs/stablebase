@@ -183,6 +183,7 @@ contract StabilityPool is IStabilityPool, Ownable {
             uint256 sbrReward,
             uint256 sbrRewardFee
         ) = _updateRewards(user, frontend, fee);
+        _updateUserStake(user);
         emit RewardClaimed(
             msg.sender,
             reward,
@@ -443,7 +444,6 @@ contract StabilityPool is IStabilityPool, Ownable {
             sbrRewardSnapshots[msg.sender].status = SBRRewardDistribution
                 .CLAIMED;
         }
-        _updateUserStake(user);
 
         if (pendingReward != 0) {
             rewardFee = (fee * pendingReward) / BASIS_POINTS_DIVISOR;

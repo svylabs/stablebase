@@ -741,7 +741,7 @@ class Hacker extends Actor {
                     const detail = await tx.wait();
                 } catch (ex) {
                     this.consolelog("Failed as expected", ex);
-                    expect(ex.message).to.contain.oneOf(["Only SBR Staking"]);
+                    expect(ex.message).to.contain.oneOf(["Only DFire Staking"]);
                     return;
                 }
                 assert.fail("Expected to fail");
@@ -2014,7 +2014,7 @@ async function deployContracts() {
     console.log("Deployed SBDToken to:", sbdToken.target);
   
     const DFIREToken = await ethers.getContractFactory("DFIREToken");
-    const dfireToken = await DFIRToken.deploy();
+    const dfireToken = await DFIREToken.deploy();
     await dfireToken.waitForDeployment();
     console.log("Deployed DFIREToken to:", dfireToken.target);
 
@@ -2033,7 +2033,7 @@ async function deployContracts() {
     await stableBaseCDP.waitForDeployment();
     console.log("Deployed StableBaseCDP to:", stableBaseCDP.target);
 
-    const DFIREStaking = await ethers.getContractFactory("DFIRStaking");
+    const DFIREStaking = await ethers.getContractFactory("DFIREStaking");
     const dfireStaking = await DFIREStaking.deploy(true);
     await dfireStaking.waitForDeployment();
     console.log("Deployed DFIRStaking to:", dfireStaking.target);
