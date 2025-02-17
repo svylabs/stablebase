@@ -13,14 +13,17 @@ contract ReenterStabilityPool {
     }
 
     uint256 public reenterFunction = 0; // 1 = stake, 2 = unstake
+    uint256 public reentryCounter = 0;
 
     receive() external payable {
         // re-enter the contract
         if (reenterFunction == 0) {
             // Do nothing
         } else if (reenterFunction == 1) {
+            reentryCounter++;
             this.stake1(0);
         } else if (reenterFunction == 2) {
+            reentryCounter++;
             this.unstake(0);
         }
     }

@@ -365,6 +365,7 @@ describe("StabilityPool", function () {
       expect(reentryContractDetailsAfterClaim.stake).to.equal(ethers.parseEther("901"));
       expect(reentryContractDetailsAfterClaim.collateralSnapshot).to.equal(totalCollateralPerToken);
       expect(reentryContractDetailsAfterClaim.cumulativeProductScalingFactor).to.equal(stakeScalingFactor);
+      expect(await reenterContract.reentryCounter()).to.equal(1);
 
 
 
@@ -413,6 +414,7 @@ describe("StabilityPool", function () {
       expect(reentryContractDetailsAfterClaim.stake).to.equal(ethers.parseEther("899"));
       expect(reentryContractDetailsAfterClaim.collateralSnapshot).to.equal(totalCollateralPerToken);
       expect(reentryContractDetailsAfterClaim.cumulativeProductScalingFactor).to.equal(stakeScalingFactor);
+      expect(await reenterContract.reentryCounter()).to.equal(1);
 
     });
 
