@@ -252,9 +252,7 @@ contract StabilityPool is IStabilityPool, Ownable {
     }
 
     // Add rewards to the pool
-    function addReward(
-        uint256 _amount
-    ) external onlyDebtContract returns (bool) {
+    function addReward(uint256 _amount) external returns (bool) {
         require(_amount > 0, "Reward must be greater than zero");
         //uint256 totalEffectiveStake = getTotalEffectiveStake();
         //require(totalEffectiveStake > 0, "No staked tokens");
@@ -289,7 +287,7 @@ contract StabilityPool is IStabilityPool, Ownable {
 
     function addCollateralReward(
         uint256 amount
-    ) external payable onlyDebtContract returns (bool) {
+    ) external payable returns (bool) {
         require(amount > 0, "Reward must be greater than zero");
         require(msg.value == amount, "Invalid collateral amount");
         uint256 _totalStakedRaw = totalStakedRaw;
@@ -401,7 +399,6 @@ contract StabilityPool is IStabilityPool, Ownable {
 
     function _updateUserStake(UserInfo storage user) internal {
         // Adjust user's stake
-        // TODO: Check if this is needed or not
         if (user.cumulativeProductScalingFactor != 0) {
             user.stake = _getUserEffectiveStake(user);
         }

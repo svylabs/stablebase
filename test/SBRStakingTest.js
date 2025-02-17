@@ -7,22 +7,23 @@ describe("SBRStaking Contract", function () {
   let RewardToken, rewardToken;
   let owner, addr1, addr2;
   let stableBaseContract;
+  let reenterContract;
 
   beforeEach(async function () {
     // Get contract factories
     [owner, addr1, addr2, stableBaseContract, ...addrs] = await ethers.getSigners();
 
     // Deploy mock ERC20 tokens for staking and rewards
-    StakingToken = await ethers.getContractFactory("DFIRToken");
+    StakingToken = await ethers.getContractFactory("DFIREToken");
     stakingToken = await StakingToken.deploy();
     await stakingToken.waitForDeployment();
 
-    RewardToken = await ethers.getContractFactory("SBDToken");
+    RewardToken = await ethers.getContractFactory("DFIDToken");
     rewardToken = await RewardToken.deploy();
     await rewardToken.waitForDeployment();
 
     // Deploy the SBRStaking contract
-    const SBRStakingContract = await ethers.getContractFactory("DFIRStaking");
+    const SBRStakingContract = await ethers.getContractFactory("DFIREStaking");
     sbrStaking = await SBRStakingContract.deploy(false);
     await sbrStaking.waitForDeployment();
 
@@ -38,6 +39,11 @@ describe("SBRStaking Contract", function () {
     // Approve the staking contract to spend staking tokens on behalf of addr1 and addr2
     await stakingToken.connect(addr1).approve(sbrStaking.target, ethers.parseEther("1000"));
     await stakingToken.connect(addr2).approve(sbrStaking.target, ethers.parseEther("1000"));
+
+    const REC = await ethers.getContractFactory("ReenterDfireStaking");
+    reenterContract = await REC.deploy(sbrStaking.target, stakingToken.target);
+    await reenterContract.waitForDeployment();
+    await stakingToken.mint(reenterContract.target, ethers.parseEther("10000"));
 
     // Mint some Ether to stableBaseContract for collateral rewards
     await owner.sendTransaction({
@@ -172,6 +178,110 @@ describe("SBRStaking Contract", function () {
     });
   });
 
+  describe("Reentry attack check", function () {
+
+    beforeEach(async function () {
+      // Alice and Bob stake tokens
+      const aliceStake = ethers.parseEther("1000");
+      const bobStake = ethers.parseEther("1000");
+
+      await stakingToken.connect(addr1).approve(sbrStaking.target, aliceStake);
+      await stakingToken.connect(addr2).approve(sbrStaking.target, bobStake);
+
+      await sbrStaking.connect(addr1).stake(aliceStake);
+      await sbrStaking.connect(addr2).stake(bobStake);
+      await reenterContract.connect(addr1).stake2(0, ethers.parseEther("2000"));
+
+    });
+
+    it ("Re-entry attack should be harmless claim -> stake", async function() {
+      //const stakeAmount = ethers.parseEther("1000");
+      const reward = ethers.parseEther("4");
+
+      await sbrStaking.connect(stableBaseContract).addCollateralReward(reward, {value: reward});
+
+      const addr1Details = await sbrStaking.getStake(addr1.address);
+      const addr2Details = await sbrStaking.getStake(addr2.address);
+      const reentryContractDetails = await sbrStaking.getStake(reenterContract.target);
+
+      const reentryContractBalanceEth = await ethers.provider.getBalance(reenterContract.target);
+      const totalCollateralPerToken = await sbrStaking.totalCollateralPerToken();
+
+      const tx = await reenterContract.connect(owner).claim(1);
+      const txReceipt = await tx.wait();
+      for (txReceiptEvent of txReceipt.logs) {
+        //console.log(txReceiptEvent);
+        try {
+           const lg = sbrStaking.interface.parseLog(txReceiptEvent);
+           console.log(lg);
+        } catch (ex) {
+          console.log(ex);
+          console.log(txReceiptEvent);
+        }
+      }
+
+      const reentryContractBalanceEthAfter = await ethers.provider.getBalance(reenterContract.target);
+
+      expect(reentryContractBalanceEthAfter).to.equal(reentryContractBalanceEth + ethers.parseEther("2"));
+      const reentryContractDetailsAfterClaim = await sbrStaking.getStake(reenterContract.target);
+      console.log("Before", reentryContractDetails, "After", reentryContractDetailsAfterClaim);
+      expect(reentryContractDetailsAfterClaim.stake).to.equal(ethers.parseEther("2001"));
+      expect(reentryContractDetailsAfterClaim.collateralSnapshot).to.equal(totalCollateralPerToken);
+      expect(await reenterContract.reentryCounter()).to.equal(1);
+      
+
+
+
+    });
+
+    it ("Re-entry attack should be harmless claim -> unstake", async function() {
+      //const stakeAmount = ethers.parseEther("1000");
+      const reward = ethers.parseEther("4");
+
+      await sbrStaking.connect(stableBaseContract).addCollateralReward(reward, {value: reward});
+
+      const addr1Details = await sbrStaking.getStake(addr1.address);
+      const addr2Details = await sbrStaking.getStake(addr2.address);
+      const reentryContractDetails = await sbrStaking.getStake(reenterContract.target);
+
+      const reentryContractBalanceEth = await ethers.provider.getBalance(reenterContract.target);
+      const totalCollateralPerToken = await sbrStaking.totalCollateralPerToken();
+
+      const tx = await reenterContract.connect(owner).claim(2);
+      const txReceipt = await tx.wait();
+      for (txReceiptEvent of txReceipt.logs) {
+        //console.log(txReceiptEvent);
+        try {
+           const lg = sbrStaking.interface.parseLog(txReceiptEvent);
+           console.log(lg);
+        } catch (ex) {
+          console.log(ex);
+          console.log(txReceiptEvent);
+        }
+      }
+
+      const reentryContractBalanceEthAfter = await ethers.provider.getBalance(reenterContract.target);
+
+      expect(reentryContractBalanceEthAfter).to.equal(reentryContractBalanceEth + ethers.parseEther("2"));
+      const reentryContractDetailsAfterClaim = await sbrStaking.getStake(reenterContract.target);
+      console.log("Before", reentryContractDetails, "After", reentryContractDetailsAfterClaim);
+      expect(reentryContractDetailsAfterClaim.stake).to.equal(ethers.parseEther("1999"));
+      expect(reentryContractDetailsAfterClaim.collateralSnapshot).to.equal(totalCollateralPerToken);
+      expect(await reenterContract.reentryCounter()).to.equal(1);
+      
+
+
+
+    });
+
+
+
+  });
+
+  /*
+
+  Made it in such a way that anyone can add rewards
+
   describe("Access Control", function () {
     it("Should only allow the stableBaseContract to add rewards", async function () {
       await expect(
@@ -186,4 +296,5 @@ describe("SBRStaking Contract", function () {
       ).to.be.revertedWith("Only stableBase contract can add collateral rewards");
     });
   });
+  */
 });

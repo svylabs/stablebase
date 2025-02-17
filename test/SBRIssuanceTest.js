@@ -29,11 +29,11 @@ describe("Test the flow", function () {
       users.bob.user = bob;
       users.charlie.user = charlie;
   
-      const SBDToken = await ethers.getContractFactory("SBDToken");
+      const SBDToken = await ethers.getContractFactory("DFIDToken");
       sbdToken = await SBDToken.deploy();
       await sbdToken.waitForDeployment();
     
-      const SBRToken = await ethers.getContractFactory("DFIRToken");
+      const SBRToken = await ethers.getContractFactory("DFIREToken");
       sbrToken = await SBRToken.deploy();
       await sbrToken.waitForDeployment();
   
@@ -49,7 +49,7 @@ describe("Test the flow", function () {
       stableBaseCDP = await StableBaseCDPFactory.deploy();
       await stableBaseCDP.waitForDeployment();
   
-      const SBRStaking = await ethers.getContractFactory("DFIRStaking");
+      const SBRStaking = await ethers.getContractFactory("DFIREStaking");
       sbrStaking = await SBRStaking.deploy(false);
       await sbrStaking.waitForDeployment();
   

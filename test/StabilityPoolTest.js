@@ -13,10 +13,12 @@ describe("StabilityPool", function () {
   const precision = BigInt("1" + "0".repeat(18));
   const minimumScalingFactor = BigInt("1" + "0".repeat(6)); // 1e6
 
+  let reenterContract;
+
   beforeEach(async function () {
     [owner, alice, bob, charlie, david, eli, fabio, frontend, ...addrs] = await ethers.getSigners();
 
-    const SBDToken = await ethers.getContractFactory("SBDToken");
+    const SBDToken = await ethers.getContractFactory("DFIDToken");
     sbdToken = await SBDToken.deploy();
     await sbdToken.waitForDeployment();
     const initialSupply = ethers.parseEther("10000");
@@ -28,7 +30,7 @@ describe("StabilityPool", function () {
     await sbdToken.mint(eli.address, initialSupply);
     await sbdToken.mint(fabio.address, initialSupply);
 
-    const SBRToken = await ethers.getContractFactory("DFIRToken");
+    const SBRToken = await ethers.getContractFactory("DFIREToken");
     sbrToken = await SBDToken.deploy();
     await sbrToken.waitForDeployment();
 
@@ -47,6 +49,11 @@ describe("StabilityPool", function () {
       sbrToken.target);
     console.log(await sbrToken.owner());
     await sbrToken.setAddresses(stabilityPool.target);
+
+    const REC = await ethers.getContractFactory("ReenterStabilityPool");
+    reenterContract = await REC.deploy(stabilityPool.target, sbdToken.target);
+    await reenterContract.waitForDeployment();
+    await sbdToken.mint(reenterContract.target, initialSupply);
 
      // Deploy mock debt contract
      MockDebtContract = await ethers.getContractFactory("MockDebtContract");
@@ -296,6 +303,123 @@ describe("StabilityPool", function () {
       expect(bobInfo.stake).to.be.closeTo(ethers.parseEther("0.000000002"), BigInt(200000)); // Effective stake should be zero after massive liquidation
     });
     */
+  });
+
+  describe("Reentry attack check", function () {
+
+    beforeEach(async function () {
+      // Alice and Bob stake tokens
+      const aliceStake = ethers.parseEther("1000");
+      const bobStake = ethers.parseEther("2000");
+
+      await sbdToken.connect(alice).approve(stabilityPool.target, aliceStake);
+      await sbdToken.connect(bob).approve(stabilityPool.target, bobStake);
+
+      await stabilityPool.connect(alice).stake(aliceStake);
+      await stabilityPool.connect(bob).stake(bobStake);
+      await reenterContract.connect(alice).stake2(0, ethers.parseEther("1000"));
+
+
+
+    });
+
+    it ("Re-entry attack should be harmless claim -> stake", async function() {
+      const stakeAmount = ethers.parseEther("1000");
+
+      const liquidationAmount = ethers.parseEther("400"); // 25% of total stake
+
+      const collateralAmount = ethers.parseEther("10"); // Mock debt contract returns 1 collateral for 900 debt
+      
+      await stabilityPool.connect(owner).performLiquidation(liquidationAmount, collateralAmount, {value: collateralAmount});
+
+      const aliceDetails = await stabilityPool.getUser(alice.address);
+      const bobDetails = await stabilityPool.getUser(bob.address);
+      const reentryContractDetails = await stabilityPool.getUser(reenterContract.target);
+
+      expect(aliceDetails.stake).to.equal(ethers.parseEther("900"));
+      expect(bobDetails.stake).to.equal(ethers.parseEther("1800"));
+      expect(reentryContractDetails.stake).to.equal(ethers.parseEther("900"));
+
+      const reentryContractBalanceEth = await ethers.provider.getBalance(reenterContract.target);
+      const stakeScalingFactor = await stabilityPool.stakeScalingFactor();
+      const totalCollateralPerToken = await stabilityPool.totalCollateralPerToken();
+
+      const tx = await reenterContract.connect(owner).claim(1);
+      const txReceipt = await tx.wait();
+      for (txReceiptEvent of txReceipt.logs) {
+        //console.log(txReceiptEvent);
+        try {
+           const lg = stabilityPool.interface.parseLog(txReceiptEvent);
+           console.log(lg);
+        } catch (ex) {
+          console.log(ex);
+          console.log(txReceiptEvent);
+        }
+      }
+
+      const reentryContractBalanceEthAfter = await ethers.provider.getBalance(reenterContract.target);
+
+      expect(reentryContractBalanceEthAfter).to.equal(reentryContractBalanceEth + ethers.parseEther("2.5"));
+      const reentryContractDetailsAfterClaim = await stabilityPool.getUser(reenterContract.target);
+      console.log("Before", reentryContractDetails, "After", reentryContractDetailsAfterClaim);
+      expect(reentryContractDetailsAfterClaim.stake).to.equal(ethers.parseEther("901"));
+      expect(reentryContractDetailsAfterClaim.collateralSnapshot).to.equal(totalCollateralPerToken);
+      expect(reentryContractDetailsAfterClaim.cumulativeProductScalingFactor).to.equal(stakeScalingFactor);
+      expect(await reenterContract.reentryCounter()).to.equal(1);
+
+
+
+
+    });
+
+    it ("Re-entry attack should be harmless - claim -> unstake", async function() {
+      const stakeAmount = ethers.parseEther("1000");
+
+      const liquidationAmount = ethers.parseEther("400"); // 25% of total stake
+
+      const collateralAmount = ethers.parseEther("10"); // Mock debt contract returns 1 collateral for 900 debt
+      
+      await stabilityPool.connect(owner).performLiquidation(liquidationAmount, collateralAmount, {value: collateralAmount});
+
+      const aliceDetails = await stabilityPool.getUser(alice.address);
+      const bobDetails = await stabilityPool.getUser(bob.address);
+      const reentryContractDetails = await stabilityPool.getUser(reenterContract.target);
+
+      expect(aliceDetails.stake).to.equal(ethers.parseEther("900"));
+      expect(bobDetails.stake).to.equal(ethers.parseEther("1800"));
+      expect(reentryContractDetails.stake).to.equal(ethers.parseEther("900"));
+
+      const reentryContractBalanceEth = await ethers.provider.getBalance(reenterContract.target);
+      const stakeScalingFactor = await stabilityPool.stakeScalingFactor();
+      const totalCollateralPerToken = await stabilityPool.totalCollateralPerToken();
+
+      const tx = await reenterContract.connect(owner).claim(2);
+      const txReceipt = await tx.wait();
+      for (txReceiptEvent of txReceipt.logs) {
+        //console.log(txReceiptEvent);
+        try {
+           const lg = stabilityPool.interface.parseLog(txReceiptEvent);
+           console.log(lg);
+        } catch (ex) {
+          console.log(ex);
+          console.log(txReceiptEvent);
+        }
+      }
+
+      const reentryContractBalanceEthAfter = await ethers.provider.getBalance(reenterContract.target);
+
+      expect(reentryContractBalanceEthAfter).to.equal(reentryContractBalanceEth + ethers.parseEther("2.5"));
+      const reentryContractDetailsAfterClaim = await stabilityPool.getUser(reenterContract.target);
+      console.log("Before", reentryContractDetails, "After", reentryContractDetailsAfterClaim);
+      expect(reentryContractDetailsAfterClaim.stake).to.equal(ethers.parseEther("899"));
+      expect(reentryContractDetailsAfterClaim.collateralSnapshot).to.equal(totalCollateralPerToken);
+      expect(reentryContractDetailsAfterClaim.cumulativeProductScalingFactor).to.equal(stakeScalingFactor);
+      expect(await reenterContract.reentryCounter()).to.equal(1);
+
+    });
+
+
+
   });
 
   describe("Edge Cases and Validations", function () {

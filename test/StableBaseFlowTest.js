@@ -36,11 +36,11 @@ describe("Test the flow", function () {
   beforeEach(async function () {
     [owner, alice, bob, charlie, david, eli, fabio, ...addrs] = await ethers.getSigners();
 
-    const SBDToken = await ethers.getContractFactory("SBDToken");
+    const SBDToken = await ethers.getContractFactory("DFIDToken");
     sbdToken = await SBDToken.deploy();
     await sbdToken.waitForDeployment();
   
-    const SBRToken = await ethers.getContractFactory("DFIRToken");
+    const SBRToken = await ethers.getContractFactory("DFIREToken");
     sbrToken = await SBRToken.deploy();
     await sbrToken.waitForDeployment();
 
@@ -56,7 +56,7 @@ describe("Test the flow", function () {
     stableBaseCDP = await StableBaseCDPFactory.deploy();
     await stableBaseCDP.waitForDeployment();
 
-    const SBRStaking = await ethers.getContractFactory("DFIRStaking");
+    const SBRStaking = await ethers.getContractFactory("DFIREStaking");
     sbrStaking = await SBRStaking.deploy(true);
     await sbrStaking.waitForDeployment();
 

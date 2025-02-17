@@ -4,14 +4,14 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract SBDToken is ERC20, Ownable {
+contract DFIDToken is ERC20, Ownable {
     // Optional: Variable to track total burned tokens
     uint256 public totalBurned;
 
     // Event for burning tokens
     event Burn(address indexed from, uint256 amount);
 
-    constructor() Ownable(msg.sender) ERC20("D.FI.Dollar", "DFID") {}
+    constructor() Ownable(msg.sender) ERC20("D.FI Dollar", "DFID") {}
 
     function setAddresses(address _stableBaseCDP) external onlyOwner {
         transferOwnership(_stableBaseCDP);

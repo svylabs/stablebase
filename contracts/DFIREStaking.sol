@@ -1,7 +1,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./interfaces/IDFIRStaking.sol";
+import "./interfaces/IDFIREStaking.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IRewardSender {
@@ -10,7 +10,7 @@ interface IRewardSender {
     ) external returns (bool);
 }
 
-contract DFIRStaking is IDFIRStaking, Ownable {
+contract DFIREStaking is IDFIREStaking, Ownable {
     mapping(address => Stake) public stakes;
 
     uint256 public totalStake;
@@ -87,10 +87,6 @@ contract DFIRStaking is IDFIRStaking, Ownable {
     }
 
     function addReward(uint256 _amount) external returns (bool) {
-        require(
-            msg.sender == stableBaseContract,
-            "Only stableBase contract can add rewards"
-        );
         uint _totalStake = totalStake;
         if (_totalStake == 0) {
             return false;
@@ -109,10 +105,6 @@ contract DFIRStaking is IDFIRStaking, Ownable {
         uint256 _amount
     ) external payable returns (bool) {
         //collateralToken.transferFrom(msg.sender, address(this), _amount);
-        require(
-            msg.sender == stableBaseContract,
-            "Only stableBase contract can add collateral rewards"
-        );
         uint _totalStake = totalStake;
         if (_totalStake == 0) {
             return false;

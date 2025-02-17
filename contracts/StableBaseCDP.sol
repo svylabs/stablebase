@@ -39,7 +39,7 @@ contract StableBaseCDP is StableBase, ReentrancyGuard {
         safes[_safeId] = safe;
         totalCollateral += _amount;
 
-        _mint(msg.sender, _safeId); // mint the NFT Safe to the owner
+        _safeMint(msg.sender, _safeId); // mint the NFT Safe to the owner
         emit OpenSafe(_safeId, msg.sender, _amount, totalCollateral, totalDebt);
     }
 
