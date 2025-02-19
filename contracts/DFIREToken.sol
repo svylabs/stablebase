@@ -11,7 +11,7 @@ contract DFIREToken is ERC20, Ownable {
     // Event for burning tokens
     event Burn(address indexed from, uint256 amount);
 
-    constructor() Ownable(msg.sender) ERC20("D.FI.RE", "DFIRE") {}
+    constructor() Ownable(msg.sender) ERC20("D.FIRE", "DFIRE") {}
 
     function setAddresses(address _stabilityPool) external onlyOwner {
         transferOwnership(_stabilityPool);

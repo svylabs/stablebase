@@ -1,4 +1,4 @@
-for my $i (181..190) {
+for my $i (221..250) {
   my $start = time();
   print(localtime(time())." Running simulation $i\n");
   `npx hardhat test --config hardhat.config.simulation.js  scripts/simulate.js > simulation-logs/$i.log 2>&1`;
