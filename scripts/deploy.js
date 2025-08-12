@@ -25,15 +25,15 @@ async function main() {
     }
     console.log("Using PriceOracle available at:", priceOracle.target);
 
-  const SBDToken = await ethers.getContractFactory("DFIDToken");
+  const SBDToken = await ethers.getContractFactory("FUSDToken");
     const sbdToken = await SBDToken.deploy();
     await sbdToken.waitForDeployment();
-    console.log("Deployed DFIDToken to:", sbdToken.target);
-  
-    const DFIRToken = await ethers.getContractFactory("DFIREToken");
-    const dfirToken = await DFIRToken.deploy();
-    await dfirToken.waitForDeployment();
-    console.log("Deployed DFIREToken to:", dfirToken.target);
+    console.log("Deployed FUSDToken to:", sbdToken.target);
+
+    const FREEToken = await ethers.getContractFactory("FREEToken");
+    const freeToken = await FREEToken.deploy();
+    await freeToken.waitForDeployment();
+    console.log("Deployed FREEToken to:", freeToken.target);
 
     const StabilityPool = await ethers.getContractFactory("StabilityPool");
     const stabilityPool = await StabilityPool.deploy(true);
@@ -47,10 +47,10 @@ async function main() {
     await stableBaseCDP.waitForDeployment();
     console.log("Deployed StableBaseCDP to:", stableBaseCDP.target);
 
-    const DFIRStaking = await ethers.getContractFactory("DFIREStaking");
-    const dfirStaking = await DFIRStaking.deploy(true);
-    await dfirStaking.waitForDeployment();
-    console.log("Deployed DFIREStaking to:", dfirStaking.target);
+    const FREEStaking = await ethers.getContractFactory("FREEStaking");
+    const freeStaking = await FREEStaking.deploy(true);
+    await freeStaking.waitForDeployment();
+    console.log("Deployed FREEStaking to:", freeStaking.target);
 
     const OrderedDoublyLinkedList = await ethers.getContractFactory("OrderedDoublyLinkedList");
     const redemptionQueue = await OrderedDoublyLinkedList.deploy();
@@ -69,14 +69,14 @@ async function main() {
     console.log("Setting StableBase address to SBDToken...");
     let tx= await sbdToken.setAddresses(stableBaseCDP.target);
     await tx.wait();
-    console.log("Setting StabilityPool address to DFIRToken...");
-    tx = await dfirToken.setAddresses(stabilityPool.target);
+    console.log("Setting StabilityPool address to FREEToken...");
+    tx = await freeToken.setAddresses(stabilityPool.target);
     await tx.wait();
-    console.log("Setting SBDToken, StableBaseCDP, and DFIRToken addresses to StabilityPool...");
-    tx = await stabilityPool.setAddresses(sbdToken.target, stableBaseCDP.target, dfirToken.target);
+    console.log("Setting SBDToken, StableBaseCDP, and FREEToken addresses to StabilityPool...");
+    tx = await stabilityPool.setAddresses(sbdToken.target, stableBaseCDP.target, freeToken.target);
     await tx.wait();
-    console.log("Setting DFIRToken, SBDToken, and StableBaseCDP addresses to SBRStaking...");
-    tx = await dfirStaking.setAddresses(dfirToken.target, sbdToken.target, stableBaseCDP.target);
+    console.log("Setting FREEToken, SBDToken, and StableBaseCDP addresses to SBRStaking...");
+    tx = await freeStaking.setAddresses(freeToken.target, sbdToken.target, stableBaseCDP.target);
     await tx.wait();
     console.log("Setting StableBaseCDP address to RedemptionQueue...");
     tx = await redemptionQueue.setAddresses(stableBaseCDP.target);
@@ -85,16 +85,16 @@ async function main() {
     tx = await liquidationQueue.setAddresses(stableBaseCDP.target);
     await tx.wait();
     console.log("Setting SBDToken, PriceOracle, StabilityPool, SBRStaking, LiquidationQueue, and RedemptionQueue addresses to StableBaseCDP...");
-    tx = await stableBaseCDP.setAddresses(sbdToken.target, priceOracle.target, stabilityPool.target, dfirStaking.target, liquidationQueue.target, redemptionQueue.target);
+    tx = await stableBaseCDP.setAddresses(sbdToken.target, priceOracle.target, stabilityPool.target, freeStaking.target, liquidationQueue.target, redemptionQueue.target);
     await tx.wait();
 
     return {
         sbdToken,
-        dfirToken,
+        freeToken,
         stabilityPool,
         priceOracle,
         stableBaseCDP,
-        sbrStaking: dfirStaking,
+        sbrStaking: freeStaking,
         redemptionQueue,
         liquidationQueue
     }

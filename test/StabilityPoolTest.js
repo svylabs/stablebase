@@ -18,7 +18,7 @@ describe("StabilityPool", function () {
   beforeEach(async function () {
     [owner, alice, bob, charlie, david, eli, fabio, frontend, ...addrs] = await ethers.getSigners();
 
-    const SBDToken = await ethers.getContractFactory("DFIDToken");
+    const SBDToken = await ethers.getContractFactory("FUSDToken");
     sbdToken = await SBDToken.deploy();
     await sbdToken.waitForDeployment();
     const initialSupply = ethers.parseEther("10000");
@@ -30,7 +30,7 @@ describe("StabilityPool", function () {
     await sbdToken.mint(eli.address, initialSupply);
     await sbdToken.mint(fabio.address, initialSupply);
 
-    const SBRToken = await ethers.getContractFactory("DFIREToken");
+    const SBRToken = await ethers.getContractFactory("FREEToken");
     sbrToken = await SBDToken.deploy();
     await sbrToken.waitForDeployment();
 

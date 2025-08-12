@@ -192,7 +192,7 @@ contract StabilityPool is IStabilityPool, Ownable {
             collateralFee
         );
         if (sbrReward > 0) {
-            emit DFireRewardClaimed(msg.sender, sbrReward, sbrRewardFee);
+            emit FreeRewardClaimed(msg.sender, sbrReward, sbrRewardFee);
         }
     }
 

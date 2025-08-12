@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("SBRStaking Contract", function () {
-  let SBRStaking, sbrStaking;
+  let FREEStaking, freeStaking;
   let StakingToken, stakingToken;
   let RewardToken, rewardToken;
   let owner, addr1, addr2;
@@ -14,16 +14,16 @@ describe("SBRStaking Contract", function () {
     [owner, addr1, addr2, stableBaseContract, ...addrs] = await ethers.getSigners();
 
     // Deploy mock ERC20 tokens for staking and rewards
-    StakingToken = await ethers.getContractFactory("DFIREToken");
+    StakingToken = await ethers.getContractFactory("FREEToken");
     stakingToken = await StakingToken.deploy();
     await stakingToken.waitForDeployment();
 
-    RewardToken = await ethers.getContractFactory("DFIDToken");
+    RewardToken = await ethers.getContractFactory("FUSDToken");
     rewardToken = await RewardToken.deploy();
     await rewardToken.waitForDeployment();
 
     // Deploy the SBRStaking contract
-    const SBRStakingContract = await ethers.getContractFactory("DFIREStaking");
+    const SBRStakingContract = await ethers.getContractFactory("FREEStaking");
     sbrStaking = await SBRStakingContract.deploy(false);
     await sbrStaking.waitForDeployment();
 
@@ -40,7 +40,7 @@ describe("SBRStaking Contract", function () {
     await stakingToken.connect(addr1).approve(sbrStaking.target, ethers.parseEther("1000"));
     await stakingToken.connect(addr2).approve(sbrStaking.target, ethers.parseEther("1000"));
 
-    const REC = await ethers.getContractFactory("ReenterDfireStaking");
+    const REC = await ethers.getContractFactory("ReenterFreeStaking");
     reenterContract = await REC.deploy(sbrStaking.target, stakingToken.target);
     await reenterContract.waitForDeployment();
     await stakingToken.mint(reenterContract.target, ethers.parseEther("10000"));

@@ -3,7 +3,7 @@ require("@nomicfoundation/hardhat-toolbox");
 require("@nomiclabs/hardhat-solhint");
 require("hardhat-gas-reporter");
 require("hardhat-contract-sizer");
-require("@xyrusworx/hardhat-solidity-json")
+require("dotenv").config();
 
 module.exports = {
   solidity: {
@@ -18,12 +18,12 @@ module.exports = {
   },
   networks: {
     eth_mainnet: {
-      url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_API_KEY}`,
       chainId: 1,
       accounts: [`0x${process.env.PRIVATE_KEY}`]
     },
-    sepolia_network: {
-      url: "https://ethereum-sepolia-rpc.publicnode.com",
+    "sepolia_network": {
+      url: "https://rpc.sepolia.network",
       chainId: 0xaa36a7,
       accounts: [`0x${process.env.PRIVATE_KEY}`]
     },
@@ -34,6 +34,7 @@ module.exports = {
     },
     localhost: {
       url: "http://127.0.0.1:8545",  // URL of the local Ethereum node
+      chainId: 31337,
       accounts: {
         mnemonic: "test test test test test test test test test test test junk",  // Default Hardhat mnemonic
       },
@@ -47,3 +48,4 @@ module.exports = {
     only: [], // Use an array of contract names if you want to limit the output
   },
 };
+

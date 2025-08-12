@@ -62,7 +62,7 @@ interface IStabilityPool {
         uint256 totalCollateral,
         uint256 collateralFrontendFee
     );
-    event DFireRewardClaimed(
+    event FreeRewardClaimed(
         address indexed user,
         uint256 amount,
         uint256 frontendFee
